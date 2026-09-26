@@ -17,5 +17,11 @@ metadata:
 
 **其他确认**：`zcodeEndpoint.ts`（v3.14.3 合并带回）仍被 helpAppConfig/`desktopContextPromptRollout` 灰度拉取使用，失败降级不阻塞启动；侧栏 `sidebar.profile.notLoggedIn: "Yuuc"` 是 db7a727 有意设置，不是残留。
 
+**打包注意（2026-09-26 实测）**：从 ZCode 会话内构建时，CLI 注入的 `ZCODE_*` 环境变量会污染打包——`ZCODE_BUILTIN_PROVIDER_CONFIG_FILE` 指向用户目录官方版运行时缓存（含智谱账号型规则），会让 `loadBuiltinProviderConfig` schema 校验失败；未设 `ZCODE_ENV` 时 flavor 落为 preview（产物 `Ycode Preview-..._TEST.exe`）。正确命令：
+`env -u ZCODE_BUILTIN_PROVIDER_CONFIG_FILE -u ZCODE_BASE_URL ... ZCODE_ENV=production pnpm bundle:desktop -- --os win --arch x64`（`-u` 必须写在 `NAME=value` 之前，且全部 ZCODE_* 都 unset）。产物 `packages/desktop/dist/Ycode-3.14.3-win-x64.exe`（141 MiB，agent bundle 在 runtime-assets 链内自动构建，无需单独 build:sea）。
+
+**Why:** 后续打正式包如果直接在会话 shell 里跑 bundle:desktop，会重复踩 flavor 错、配置校验失败两个坑。
+**How to apply:** 打包前 `compgen -e | grep ZCODE_` 检查注入变量并全部 unset；正式版必须显式 `ZCODE_ENV=production`。
+
 **Why:** 后续排查远程会话无凭据或分享页 401 时，这些是改造的直接后果而非新 bug；强更链勿按「上游缺失」补回。
 **How to apply:** 做远程 workspace 实测时先验证模型凭据；恢复登录体系时 i18n 的 notLoggedIn key 与 store 的 authSessionSeq 链路需要重接。相关：[[ycode-main-v3143-merge]]
