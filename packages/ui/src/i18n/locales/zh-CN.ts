@@ -774,7 +774,7 @@ const zhCN: Record<string, string> = {
 
   // 应用头部
   "app.currentTheme": "当前: {theme}",
-  "sidebar.profile.notLoggedIn": "连接使用",
+  "sidebar.profile.notLoggedIn": "Yuuc",
   "app.selectFile": "选择文件以开始",
   "app.workspace": "工作区",
   "browser.title": "浏览器",

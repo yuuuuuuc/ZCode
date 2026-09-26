@@ -853,7 +853,7 @@ const enUS: Record<string, string> = {
 
   // App header
   "app.currentTheme": "Current: {theme}",
-  "sidebar.profile.notLoggedIn": "Connect",
+  "sidebar.profile.notLoggedIn": "Yuuc",
   "app.selectFile": "Select a file to get started",
   "app.workspace": "Workspace",
   "browser.title": "Browser",

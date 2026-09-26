@@ -90,10 +90,11 @@ export function Root(props: RootProps) {
          */}
         <ServiceProvider services={props.services}>
           <PlatformProvider platform={props.platform}>
-            <StoreProvider
-              broadcastService={props.services.broadcastService}
-              initialIsRestoringOAuthSession
-            >
+            {/*
+              不要写无值的 initialIsRestoringOAuthSession。JSX 布尔属性会当成 true，
+              账号体系移除后没有任何路径把它改回 false，侧栏会一直停在恢复登录的转圈。
+            */}
+            <StoreProvider broadcastService={props.services.broadcastService}>
               <TabStoreProvider>
                 <DiffsWorkerPoolProvider>
                   <AssistantCodeCommentFeatureProvider

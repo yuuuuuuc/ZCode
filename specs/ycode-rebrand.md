@@ -22,6 +22,7 @@
 - 数据层：`config/provider/zcode-builtin.json` 删除 4 个智谱模板规则（`zai-api`、`zai-standard-api`、`bigmodel-api`、`bigmodel-standard-api`）与全部 8 个 `account:*` providerRules；保留 `glm-*` 模型规则（用户自建 GLM 供应商仍需要）与非智谱模板。移除 `packages/provider-node` 的 CDN 远端刷新（`zcode-builtin-remote-synchronizer`），防止官方 release 把内置供应商推回。
 - UI：`ModelProviderSection` 不再有「智谱」分组与 Start Plan 条目；`ProviderTemplatePicker` 移除智谱分组；删除 Start Plan 详情面板、套餐卡片、购买 webview、配额横幅、Start Plan 推荐弹窗、composer 套餐标签。
 - 服务层：删除 `coding-plan-subscription/`、`usage-stats/providers/bigmodel*`、`official-mcp` 凭证、off-peak 调度、OAuth 服务（仅服务 zai/bigmodel）。登录入口（WelcomeScreen / Web 登录）随账号体系移除，应用启动不再要求登录。
+- 侧栏身份：没有登录用户时，footer 不进入 OAuth 恢复中，不展示转圈。展示名固定为 `Yuuc`（中英文同一文案）。有登录用户时仍显示该用户的名字。
 - CLI：移除 `zcode login`、auth-login、builtin 供应商配置打包；`legacy-cli-personal-provider-config-importer` 中 `builtin:bigmodel` 映射按类型驱动清理。
 - **不动**：冻结的 DB migration（provider-selection-v2、official-glm-selection-v3、0022）、`zcode://` scheme、`zcode.z.ai` 域名常量中仍被分享等功能使用的部分（功能契约，非品牌展示）。
 
