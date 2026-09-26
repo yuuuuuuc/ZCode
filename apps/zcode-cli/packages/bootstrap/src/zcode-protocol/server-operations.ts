@@ -69,6 +69,7 @@ import {
   zcodeWorkspaceGenerateTextParamsSchema,
   getConversationMessageProjectionPolicy,
   parseRemoteWorkspaceIdentity,
+  type ZCodeAutomationBotDeliveryTarget,
   type ZCodeSessionCreateParams,
   type ZCodeDeliveryKind,
   type IntegratedTerminalShellSelection,
@@ -1992,6 +1993,7 @@ export async function sendPrompt(context: ZCodeProtocolAgentServerContext, rawPa
       content: params.content,
       ...(params.automationId ? { automationId: params.automationId } : {}),
       toolDenylist: params.toolDenylist,
+      botDeliveryTarget: params.botDeliveryTarget,
     }),
   ).catch(() => {
     // 后台 turn 的错误会通过状态/事件流降级上报；这里兜底防止协议进程出现 unhandled rejection。
@@ -2363,6 +2365,7 @@ async function runPromptTurnInBackground(
     queryId?: QueryId;
     content: string;
     toolDenylist?: readonly string[];
+    botDeliveryTarget?: ZCodeAutomationBotDeliveryTarget;
   } & TurnBackgroundAttribution,
 ): Promise<void> {
   const startedAt = Date.now();
@@ -2375,6 +2378,7 @@ async function runPromptTurnInBackground(
   });
   let mutationReason = "prompt_completed";
   const previousAutomationId = record.activeAutomationId;
+  const previousBotDeliveryTarget = record.activeBotDeliveryTarget;
   const activeAutomationId = resolvePromptTurnAutomationId(params);
   const turnToolDisallowlist = buildPromptTurnToolDisallowlist(params, activeAutomationId);
   if (activeAutomationId) {
@@ -2383,6 +2387,8 @@ async function runPromptTurnInBackground(
     // 会话里递归创建定时任务。
     record.activeAutomationId = activeAutomationId;
   }
+  // Bot 回推地址只在本 turn 内可见；结束时必须还原，避免后续普通 turn 继承。
+  record.activeBotDeliveryTarget = params.botDeliveryTarget;
   try {
     const admission = await record.app.sendInput(
       {
@@ -2439,6 +2445,9 @@ async function runPromptTurnInBackground(
       });
     }
     record.activeAutomationId = previousAutomationId;
+    // legacy record 会跨 turn 复用；必须恢复 Bot 地址，避免后续普通 UI turn
+    // 创建的定时任务错误继承上一轮 Bot 会话。
+    record.activeBotDeliveryTarget = previousBotDeliveryTarget;
   }
   await afterStateMutation(context, record, mutationReason);
 }

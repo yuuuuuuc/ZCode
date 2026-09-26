@@ -5,6 +5,7 @@
 // starting/active 状态都会继续挡住同一 session 的第二次 start。
 import { type TurnBackgroundAttribution, type TurnInputIntentMetadata } from "@zcode/contracts";
 import type { TurnAttachment } from "@zcode/core";
+import type { ZCodeAutomationBotDeliveryTarget } from "@zcode/shared";
 import type { SendInputOptions, SendInputResult } from "../../app/types.js";
 import { runWithSessionResidencyFinalization } from "../../zcode-protocol/session-residency.js";
 import type { V4CommandCoreHost, V4SessionRecordView } from "./types.js";
@@ -24,6 +25,8 @@ interface StartPromptTurnParamsBase {
   toolDisallowlist?: readonly string[];
   /** sendQueuedNow 已持有 Core promotion lease，要求这次 admission 只能占用空闲位。 */
   requireIdle?: boolean;
+  /** Bot 入站 turn 的稳定回推地址；仅在本 turn 内暴露给 CronCreate。 */
+  botDeliveryTarget?: ZCodeAutomationBotDeliveryTarget;
 }
 
 type StartPromptTurnParams = StartPromptTurnParamsBase & TurnBackgroundAttribution;
@@ -84,12 +87,15 @@ export async function startPromptTurn(
   if (record.persistence === "deferred") record.persistence = "immediate";
 
   const previousAutomationId = record.activeAutomationId;
+  const previousBotDeliveryTarget = record.activeBotDeliveryTarget;
   const activeAutomationId = resolveTurnAutomationId(params);
   const turnToolDisallowlist = buildTurnToolDisallowlist(
     params,
     activeAutomationId,
   );
   if (activeAutomationId) record.activeAutomationId = activeAutomationId;
+  // Bot 回推地址只在本 turn 内可见；结束时必须还原，避免后续普通 turn 继承。
+  record.activeBotDeliveryTarget = params.botDeliveryTarget;
 
   let admission: SendInputResult;
   try {
@@ -120,13 +126,13 @@ export async function startPromptTurn(
       },
     );
   } catch (error) {
-    clearPromptRecordState(record, previousAutomationId);
+    clearPromptRecordState(record, previousAutomationId, previousBotDeliveryTarget);
     await host.afterLegacyStateMutation?.(record, "prompt_failed");
     throw error;
   }
 
   if (admission.kind === "rejected") {
-    clearPromptRecordState(record, previousAutomationId);
+    clearPromptRecordState(record, previousAutomationId, previousBotDeliveryTarget);
     throw new V4PromptRejectedError(
       "activePrompt",
       `Core prompt admission rejected: ${admission.reason}`,
@@ -134,7 +140,7 @@ export async function startPromptTurn(
   }
 
   if (admission.kind === "queued") {
-    clearPromptRecordState(record, previousAutomationId);
+    clearPromptRecordState(record, previousAutomationId, previousBotDeliveryTarget);
     return { admission, turnStarted: Promise.resolve() };
   }
 
@@ -150,7 +156,7 @@ export async function startPromptTurn(
         sessionId: record.app.sessionId,
       });
     } finally {
-      clearPromptRecordState(record, previousAutomationId);
+      clearPromptRecordState(record, previousAutomationId, previousBotDeliveryTarget);
       await host.afterLegacyStateMutation?.(record, mutationReason);
     }
   });
@@ -167,8 +173,11 @@ export async function startPromptTurn(
 function clearPromptRecordState(
   record: V4SessionRecordView,
   previousAutomationId: string | undefined,
+  previousBotDeliveryTarget: V4SessionRecordView["activeBotDeliveryTarget"],
 ): void {
   record.activeAutomationId = previousAutomationId;
+  // Bot 地址与 automation 一样随 turn 还原，避免后续普通 turn 继承上一轮回推目标。
+  record.activeBotDeliveryTarget = previousBotDeliveryTarget;
 }
 
 function buildTurnToolDisallowlist(

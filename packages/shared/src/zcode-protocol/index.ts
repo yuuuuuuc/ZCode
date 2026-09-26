@@ -27,6 +27,7 @@ import { modelSelectionSchema } from "../model-selection.js";
 import { completeModelPropertiesDataSchema } from "../model-config.js";
 import { modelExecutionSchema } from "../model-execution.js";
 import { APP_USAGE_RANGES, appUsageSnapshotSchema } from "../usage-stats.js";
+import { zcodeAutomationBotDeliveryTargetSchema } from "../bots.js";
 // browser-use 命令/结果契约单一来源：agent 构造、协议校验和 main executor 共用同一 schema。
 import { browserClientModeSchema, browserCommandSchema } from "../browser-use/commands.js";
 import {
@@ -1695,6 +1696,7 @@ export const zcodeSessionSendParamsSchema = z
     expectedRevision: z.number().int().nonnegative().optional(),
     expectedProviderRevision: nonEmptyString.optional(),
     automationId: nonEmptyString.optional(),
+    botDeliveryTarget: zcodeAutomationBotDeliveryTargetSchema.optional(),
     toolDenylist: z.array(nonEmptyString).optional(),
   })
   .strict()
@@ -3220,6 +3222,7 @@ export const zcodeAutomationCreateParamsSchema = z
     modelSelection: modelSelectionSchema.optional(),
     mode: zcodeTaskModeSchema.optional(),
     targetTaskId: nonEmptyString.optional(),
+    botDeliveryTarget: zcodeAutomationBotDeliveryTargetSchema.optional(),
     recurring: z.boolean().optional(),
     maxRuns: z.number().int().positive().optional(),
     // 会话侧自定义重复 carrier：每 N 分钟/小时/天/周/月/年均通过此字段归一化为权威 scheduleRule，

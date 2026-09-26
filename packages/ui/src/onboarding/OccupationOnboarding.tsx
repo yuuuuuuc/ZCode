@@ -7,7 +7,6 @@ import { useOnboardingTrigger } from "@/onboarding/useOnboardingTrigger.js";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSettings } from "@/hooks/useSettingService.js";
 import { useOnboardingRecordService } from "@/hooks/useOnboardingRecordService.js";
-import { usePlatform } from "@/hooks/usePlatform.js";
 import { useEffectiveShortcutBindings } from "@/shortcuts/useShortcutBindings.js";
 import { matchesShortcutBinding } from "@/shortcuts/bindings.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
@@ -31,6 +30,18 @@ async function appendOnboardingRecord(
   ]);
 }
 
+/**
+ * 读取稳定的设备标识。
+ *
+ * 账号体系移除后 IPlatformService 不再暴露 getDeviceId；桌面端改由 preload 从
+ * `--device-id=` 启动参数解析后注入 window.__ZCODE_DEVICE_ID__（见 desktop renderer 的
+ * main.tsx 与 preload/index.ts）。非桌面宿主（如手机 Web）取不到该全局时退回空串，
+ * onboardingRecordService 以文件内既有 deviceMid 为权威，空值不会污染已有记录。
+ */
+function readDeviceMid(): string {
+  return (globalThis as { __ZCODE_DEVICE_ID__?: string }).__ZCODE_DEVICE_ID__ ?? "";
+}
+
 export function OccupationOnboarding({
   children,
   showWindowControls = false,
@@ -47,7 +58,6 @@ export function OccupationOnboarding({
   isWindowsDesktop?: boolean;
 }) {
   const { settings, update } = useSettings();
-  const platform = usePlatform();
   const onboardingRecord = useOnboardingRecordService();
   const shortcutBindings = useEffectiveShortcutBindings();
   const requested = useZCodeStore((state) => state.newUserOnboardingOpen);
@@ -72,10 +82,14 @@ export function OccupationOnboarding({
   const savingRef = useRef(false);
   const [error, setError] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  // 设备 ID：账号体系移除后 IPlatformService 不再提供 getDeviceId，桌面端改由 preload
+  // 经 --device-id= 注入的 __ZCODE_DEVICE_ID__ 提供（见 desktop renderer main.tsx）。
+  const loadDeviceMid = useCallback(() => readDeviceMid(), []);
   const [needsOnboarding, markOnboarded] = useOnboardingTrigger({
     onboardingRecord,
     userId,
     hasStoredOccupation: Boolean(settings?.onboardingOccupation),
+    loadDeviceMid,
     update,
   });
   const onboardingVisible = requested || (needsOnboarding === true && !dismissed);
@@ -84,7 +98,12 @@ export function OccupationOnboarding({
     setStep(0);
     setDismissed(true);
     setRequested(false);
-  }, [setRequested]);
+    if (onboardingRecord) {
+      void onboardingRecord.dismissOnboarding(readDeviceMid()).catch((cause: unknown) => {
+        logger.warn("[occupation-onboarding] 写入关闭决策失败", { error: String(cause) });
+      });
+    }
+  }, [onboardingRecord, setRequested]);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (
@@ -105,8 +124,7 @@ export function OccupationOnboarding({
         return;
       }
       if (event.key === "Escape" && onboardingVisible && !saving) {
-        // 直接退出引导（设置里主动打开的场景尤其需要）：不保存、不改记录，
-        // 本次会话不再显示，下次启动按记录重新触发。
+        // 直接退出不改偏好；首次引导会持久化 dismissed，避免下次启动重复展示。
         event.preventDefault();
         event.stopImmediatePropagation();
         closeOnboarding();
@@ -223,7 +241,7 @@ export function OccupationOnboarding({
           // appendRecord 走 RPC，channel 缺失时会挂起导致保存按钮永远转圈，加超时保护。
           // 跳过是显式答案：该页被跳过时记 null（occupation 在第 1 步跳过时已是 null，
           // mode 在第 2 步跳过时置 null，偏好页整体跳过时两个布尔记 null）。
-          await appendOnboardingRecord(onboardingRecord, "web", {
+          await appendOnboardingRecord(onboardingRecord, readDeviceMid(), {
             occupation,
             interfaceMode: mode,
             memoryEnabled: skip ? null : memory,

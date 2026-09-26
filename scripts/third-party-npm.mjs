@@ -1,11 +1,8 @@
-import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, readdir, realpath } from "node:fs/promises";
 import { join, relative } from "node:path";
-import { promisify } from "node:util";
-import { resolveSpawnRuntimeOptions } from "./spawn-command.mjs";
+import { parse as parseYaml } from "yaml";
 
-const exec = promisify(execFile);
 export const hashBytes = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const unsupportedCanvas = new Set([
   "@napi-rs/canvas-android-arm64",
@@ -80,33 +77,72 @@ export function assertProductionGraphs(lockedProjects, installedProjects) {
   return locked;
 }
 
+// pnpm-lock.yaml 里 `packages` / `snapshots` 的键是 `<name>@<version>`，版本后面可能再跟
+// 若干 peer 后缀（`1.2.3(react@19.2.7)`），而 `@` 在 scope 名与 peer 后缀里都会出现，
+// 所以不能用 lastIndexOf("@") 找分隔符——它可能落在 peer 文本内部。
+function splitSnapshotKey(key) {
+  const separator = key.indexOf("@", key.startsWith("@") ? 1 : 0);
+  return { name: key.slice(0, separator), version: key.slice(separator + 1).split("(")[0] };
+}
+
+/**
+ * 从 pnpm-lock.yaml 还原 workspace 的生产依赖图。
+ *
+ * 原来这里并行跑两次 `pnpm -r ls --prod --json --depth Infinity`（一次 --lockfile-only、
+ * 一次读安装快照）再比对。Windows 上 pnpm 自身的依赖枚举会撞 EMFILE（本进程句柄上限约
+ * 8192），连 `--lockfile-only --depth 0` 都打不开，pnpm 的 graceful-fs 重试也救不回来。
+ *
+ * 锁文件已经是生产图的权威来源：importers 给出每个 workspace 项目声明的直接依赖，
+ * snapshots 给出传递闭包。这里顺序读取两者，自行按精确版本展开生产图，不再 spawn pnpm，
+ * 也就不再受句柄上限影响。
+ */
+async function readWorkspaceProductionProjects(root) {
+  const lock = parseYaml(await readFile(join(root, "pnpm-lock.yaml"), "utf8"));
+  const snapshots = lock.snapshots ?? {};
+  const projects = [];
+  const required = new Map();
+  const own = new Set();
+  for (const [projectPath, importer] of Object.entries(lock.importers ?? {})) {
+    const directory = join(root, projectPath);
+    const manifest = JSON.parse(await readFile(join(directory, "package.json"), "utf8"));
+    own.add(manifest.name);
+    projects.push({ path: directory, name: manifest.name, dependencies: importer.dependencies });
+  }
+  // 迭代遍历闭包图：snapshots 里同一 key 会被多条路径共享，甚至互相引用，
+  // 递归展开会栈溢出，所以用显式栈 + seen 去重。
+  const seen = new Set();
+  const stack = [];
+  const push = (alias, version) => {
+    const resolved = String(version);
+    if (resolved.startsWith("link:")) return;
+    stack.push(`${alias}@${resolved}`);
+  };
+  for (const project of projects) {
+    for (const [alias, entry] of Object.entries(project.dependencies ?? {})) {
+      push(alias, entry.version);
+    }
+  }
+  while (stack.length) {
+    const key = stack.pop();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const { name, version } = splitSnapshotKey(key);
+    if (!own.has(name) && !name.startsWith("@zcode/"))
+      required.set(`${name}@${version}`, { name, version });
+    for (const [alias, version] of Object.entries({
+      ...snapshots[key]?.dependencies,
+      ...snapshots[key]?.optionalDependencies,
+    })) {
+      push(alias, version);
+    }
+  }
+  return { required, projects };
+}
+
 export async function readWorkspaceProductionGraph(root) {
   root = await realpath(root);
-  // 修复：pnpm ls 默认读取安装快照，不能把旧图与当前锁文件哈希拼成有效声明。
-  const [locked, actual] = await Promise.all(
-    [true, false].map(async (lockfileOnly) => {
-      const { stdout } = await exec(
-        "pnpm",
-        [
-          "-r",
-          "ls",
-          "--prod",
-          "--json",
-          "--depth",
-          "Infinity",
-          ...(lockfileOnly ? ["--lockfile-only"] : []),
-        ],
-        {
-          cwd: root,
-          maxBuffer: 256 * 1024 * 1024,
-          ...resolveSpawnRuntimeOptions("pnpm"),
-        },
-      );
-      return JSON.parse(stdout);
-    }),
-  );
-  const required = assertProductionGraphs(locked, actual);
-  return { required, projects: actual };
+  const { required, projects } = await readWorkspaceProductionProjects(root);
+  return { required, projects };
 }
 
 export async function scanInstalledPackages(root, projects) {
