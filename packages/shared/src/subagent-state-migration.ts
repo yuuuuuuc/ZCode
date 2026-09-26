@@ -1,8 +1,4 @@
 import { modelSelectionSchema } from "./model-selection.js";
-import {
-  migrateLegacyModelProviderId,
-  migrateLegacyOfficialGlmModelId,
-} from "./legacy-model-provider-identity.js";
 import { parseSubagentMarkdownSelection } from "./subagent-markdown-selection.js";
 import {
   parsePluginSubagentModelSelectionOverrides,
@@ -33,21 +29,8 @@ export function importSubagentStateSelections(input: Record<string, unknown>): R
           model: record(input.builtInModelOverrides)[name],
           thoughtLevel: record(input.builtInThoughtLevelOverrides)[name],
         });
-    if (!selection) continue;
-    // 新 map 已是正式选择；不能把里面的旧 ID 当作未发布中间态继续兼容。
-    const providerId =
-      !current && selection.providerId.startsWith("builtin:")
-        ? migrateLegacyModelProviderId(selection.providerId)
-        : selection.providerId;
-    selections[name] = providerId
-      ? {
-          ...selection,
-          providerId,
-          modelId: current
-            ? selection.modelId
-            : migrateLegacyOfficialGlmModelId(selection.providerId, selection.modelId),
-        }
-      : selection;
+    // 旧的 builtin: 供应商已整体退出，没有迁移落点；原样保留，由有效选择解析兜底。
+    if (selection) selections[name] = selection;
   }
   // 插件双 map 与内置覆盖一样只在存储导入时解释；
   // 正式 map 存在即为权威，空值/损坏值也不能复活旧 model 或档位。
@@ -60,24 +43,7 @@ export function importSubagentStateSelections(input: Record<string, unknown>): R
             thoughtLevel: record(input.pluginAgentThoughtLevelOverrides)[id],
           });
           if (!id.startsWith("plugin:") || !selection) return [];
-          const providerId = selection.providerId.startsWith("builtin:")
-            ? migrateLegacyModelProviderId(selection.providerId)
-            : selection.providerId;
-          return [
-            [
-              id,
-              providerId
-                ? {
-                    ...selection,
-                    providerId,
-                    modelId: migrateLegacyOfficialGlmModelId(
-                      selection.providerId,
-                      selection.modelId,
-                    ),
-                  }
-                : selection,
-            ],
-          ];
+          return [[id, selection]];
         }),
       );
   return {

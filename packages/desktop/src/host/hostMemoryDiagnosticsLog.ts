@@ -19,13 +19,6 @@ export interface StartHostMemoryDiagnosticsLogOptions {
   /** services 层的领域计数器（`collectServiceMemoryDiagnostics`）。 */
   collectCounters(): Record<string, number>;
   readMemoryUsage?: () => NodeJS.MemoryUsage;
-  /**
-   * 同一次 `memoryUsage()` 读数的第二个出口：资源遥测的 host 样本
-   *
-   * 与写盘门控无关——本地日志可能被门控跳过，遥测样本每 60 秒都要发；
-   * 该回调抛错只丢遥测样本，不影响本地日志。
-   */
-  onMemoryUsage?: (memoryUsage: NodeJS.MemoryUsage) => void;
   now?: () => number;
   intervalMs?: number;
   timer?: {
@@ -62,14 +55,8 @@ export function startHostMemoryDiagnosticsLog(
     try {
       memoryUsage = readMemoryUsage();
     } catch {
-      // 读数失败时两个出口都没有事实可用，只丢当前样本。
+      // 读数失败时没有事实可用，只丢当前样本。
       return false;
-    }
-
-    try {
-      options.onMemoryUsage?.(memoryUsage);
-    } catch {
-      // 遥测出口失败只丢当前样本，本地诊断日志照写。
     }
 
     try {

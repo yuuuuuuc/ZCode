@@ -1,4 +1,5 @@
-import type { IPlatformService, UserInfo } from "@zcode/shared";
+import type { IPlatformService } from "@zcode/shared";
+import type { UserInfo } from "@/store/index.js";
 import type { IServiceAccessor } from "@zcode/services";
 import type { ReactNode } from "react";
 import type { CreateTaskRequest } from "@/app-shell/types.js";

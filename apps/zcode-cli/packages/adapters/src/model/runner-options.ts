@@ -16,11 +16,8 @@ type ExperimentalIncludeWithResponseBody = {
   responseBody?: boolean;
 };
 
-/** zcode-plan 业务码常只出现在 finish chunk 的 response.body，流式路径需显式开启。 */
 function shouldIncludeStreamResponseBody(resolved: ResolvedAiSdkModel): boolean {
-  return (
-    resolved.providerKind === "openai-compatible" && resolved.accountAccess?.mode === "start-plan"
-  );
+  return false;
 }
 
 function mergeRequestHeaders(

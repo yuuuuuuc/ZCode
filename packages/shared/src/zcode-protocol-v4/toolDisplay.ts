@@ -4,7 +4,6 @@
 import { z } from "zod";
 import { bashOutputDisplaySchema } from "../bash-output-display.js";
 import { timestampSchema } from "./core.js";
-import { OFFICIAL_MCP_TOOL_ERROR_CODES } from "../official-mcp-tool-error.js";
 import { cuaRequestAccessStatusSchema } from "./cuaPermission.js";
 import { toolCallCreateWorkflowDisplaySchema } from "./create-workflow-display.js";
 import {
@@ -127,12 +126,6 @@ const toolResultDisplaySchema = z.discriminatedUnion("kind", [
       .min(1)
       .max(4 * 1024)
       .optional(),
-    // 与 toolCallMcpDisplaySchema 同源：不在这里声明，zod 会把 agent 下发的 unavailable
-    // 静默 strip 掉，官方 MCP 额度提示在 v4 链路上失效（同本文件顶部 display strip 的坑）。
-    unavailable: z
-      .object({ code: z.enum(OFFICIAL_MCP_TOOL_ERROR_CODES) })
-      .strict()
-      .optional(),
   }),
   // buildToolOutput 把 CLI 侧 ToolResultDisplayPayload 原样塞进 toolOutput.display，
   // 而这条 union 是 strict 的——create_workflow 不在成员里，CreateWorkflow 的 display 会被整段
@@ -233,16 +226,6 @@ const toolCallMcpDisplaySchema = z
       .string()
       .min(1)
       .max(4 * 1024)
-      .optional(),
-    /**
-     * 官方 Server MCP 判定本次调用不可用（额度耗尽 / 无 Coding Plan）时下发的结构化标识。
-     * CLI 侧只在官方来源 + isError 时填充，UI 据此在输入框上方提示。
-     * 与 CLI contracts 的 mcpToolResultDisplayPayloadSchema 必须同步——两侧都是 strict，
-     * 少加一处会让整条 row 校验失败。
-     */
-    unavailable: z
-      .object({ code: z.enum(OFFICIAL_MCP_TOOL_ERROR_CODES) })
-      .strict()
       .optional(),
   })
   .strict();

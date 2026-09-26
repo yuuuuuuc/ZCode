@@ -41,7 +41,6 @@ export const HELP_TOGGLE_DEV_TOOLS_MENU_ID = "help.toggle-dev-tools";
 export const HELP_TOGGLE_ZCODE_STDIO_TAP_MENU_ID = "help.toggle-zcode-stdio-tap";
 const ZCODE_ENDPOINT_PROMPT_WIDTH = 460;
 const ZCODE_ENDPOINT_PROMPT_HEIGHT = 210;
-const CODING_PLAN_WEBVIEW_PARTITION = "persist:zcode-coding-plan";
 
 function resolveTargetWindow(senderWindow?: BrowserWindow | null) {
   if (senderWindow && !senderWindow.isDestroyed()) {
@@ -127,81 +126,6 @@ async function clearAllDataAndRelaunch(options: {
 
   app.relaunch();
   app.exit(0);
-}
-
-export async function clearCodingPlanWebviewStorage(options: {
-  logger: {
-    info: (...args: unknown[]) => void;
-    warn: (...args: unknown[]) => void;
-  };
-}) {
-  try {
-    // Coding Plan webview 使用独立持久 partition，默认窗口 session.clearStorageData()
-    // 不会覆盖它；退出登录/清理数据时必须显式清除，避免旧账号 token 被下一次官网首屏读到。
-    await session.fromPartition(CODING_PLAN_WEBVIEW_PARTITION).clearStorageData();
-    options.logger.info("[coding-plan-webview] cleared persistent partition storage");
-  } catch (error) {
-    options.logger.warn(
-      "[coding-plan-webview] failed to clear persistent partition storage:",
-      error,
-    );
-  }
-}
-
-async function fetchRemoteAppConfig(fetchRemoteConfig?: () => Promise<unknown>): Promise<unknown> {
-  if (!fetchRemoteConfig) throw new Error("Help config reader is unavailable");
-  return fetchRemoteConfig();
-}
-
-function resolveLocalAppConfigPath(options?: {
-  appPath?: string;
-  isPackaged?: boolean;
-  resourcesPath?: string;
-}): string {
-  const isPackaged = options?.isPackaged ?? app.isPackaged;
-  if (isPackaged) {
-    // app.getAppPath() 在正式包中指向 resources/app.asar，向上两级后会误读
-    // Contents/config。内置配置由 electron-builder 放在 resources/config，必须从 resourcesPath 解析。
-    return join(options?.resourcesPath ?? process.resourcesPath, "config/default.json");
-  }
-  return join(options?.appPath ?? app.getAppPath(), "../../config/default.json");
-}
-
-async function readLocalAppConfig(readLocalConfig?: () => unknown): Promise<unknown> {
-  const localConfigPath = resolveLocalAppConfigPath();
-  return readLocalConfig?.() ?? JSON.parse(await readFile(localConfigPath, "utf-8"));
-}
-
-async function resolveRemoteAppConfigValue(options: {
-  fetchRemoteConfig?: () => Promise<unknown>;
-  readLocalConfig?: () => unknown;
-  resolveFromConfig: (config: unknown) => string | undefined;
-  logPrefix: "feedback" | "community";
-  logger: {
-    warn: (...args: unknown[]) => void;
-  };
-}): Promise<string | undefined> {
-  try {
-    const remoteConfig = await fetchRemoteAppConfig(options.fetchRemoteConfig);
-    const remoteResolvedValue = options.resolveFromConfig(remoteConfig);
-    if (remoteResolvedValue) {
-      return remoteResolvedValue;
-    }
-  } catch (error) {
-    options.logger.warn(`[${options.logPrefix}] failed to fetch remote config:`, error);
-  }
-
-  try {
-    const localConfig = await readLocalAppConfig(options.readLocalConfig);
-    const localResolvedValue = options.resolveFromConfig(localConfig);
-    if (localResolvedValue) {
-      return localResolvedValue;
-    }
-  } catch (error) {
-    options.logger.warn(`[${options.logPrefix}] failed to read local config:`, error);
-  }
-
-  return undefined;
 }
 
 export async function resolveFeedbackUrl(options: {
@@ -321,7 +245,7 @@ function buildZCodeEndpointPromptHtml(currentValue: string): string {
   </head>
   <body>
     <form id="form">
-      <label for="endpoint">ZCode endpoint origin</label>
+      <label for="endpoint">Ycode endpoint origin</label>
       <input id="endpoint" value="${value}" placeholder="https://endpoint.example.com" spellcheck="false" />
       <div class="hint">Use an http or https origin, for example https://endpoint.example.com.</div>
       <div class="actions">
@@ -360,7 +284,7 @@ function showZCodeEndpointPromptWindow(options: {
       resizable: false,
       minimizable: false,
       maximizable: false,
-      title: "ZCode Endpoint",
+      title: "Ycode Endpoint",
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
@@ -657,7 +581,7 @@ export async function executeDesktopCommand(options: {
       } catch (error) {
         await showMessageBoxWithOptionalParent(targetWindow, {
           type: "error",
-          title: "ZCode Endpoint",
+          title: "Ycode Endpoint",
           message: "Endpoint 无效",
           detail: error instanceof Error ? error.message : String(error),
         });
@@ -673,14 +597,10 @@ export async function executeDesktopCommand(options: {
       });
       return;
     case DesktopCommandIds.ClearAllData:
-      await clearCodingPlanWebviewStorage({ logger: options.logger });
       await clearAllDataAndRelaunch({
         credentialsDir: options.credentialsDir,
         logger: options.logger,
       });
-      return;
-    case DesktopCommandIds.ClearCodingPlanWebviewStorage:
-      await clearCodingPlanWebviewStorage({ logger: options.logger });
       return;
     case DesktopCommandIds.GetCuaOsSupport:
       return resolveCuaOsSupport();

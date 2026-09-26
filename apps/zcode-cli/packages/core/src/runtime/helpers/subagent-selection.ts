@@ -4,7 +4,6 @@ import type { EffectiveModelSelectionResult } from "@zcode/shared/model-selectio
 
 const SUBAGENT_SELECTION_MESSAGES = {
   "selection-missing": "No model selected / 未选择模型",
-  "account-connection-unavailable": "Account connection unavailable / 当前账号连接不可用",
   "provider-not-found": "Provider unavailable / 供应商不存在或不可用",
   "model-not-found": "Model unavailable / 模型不存在或不可用",
   "reasoning-level-missing": "No reasoning level selected / 未选择思考档位",

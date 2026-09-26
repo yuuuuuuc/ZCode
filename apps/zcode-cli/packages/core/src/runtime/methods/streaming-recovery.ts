@@ -48,7 +48,7 @@ export function hasStreamRecoveryBudget(state: RegularTurnLoopState): boolean {
   return state.streamRecoveryRetryCount < STREAM_RECOVERY_MAX_RETRIES;
 }
 
-export function isStartPlanBusyStreamRecoveryFailure(error: unknown): boolean {
+export function isBusyAdmissionStreamRecoveryFailure(error: unknown): boolean {
   for (const record of walkErrorRecords(error)) {
     const context = asRecord(record.context);
     const providerCode =
@@ -63,21 +63,21 @@ export function isStartPlanBusyStreamRecoveryFailure(error: unknown): boolean {
   return false;
 }
 
-export function createStartPlanBusyAutoRetryExhaustedError(error: unknown): Error {
-  const providerCode = findStartPlanBusyProviderCode(error) ?? "3010";
+export function createBusyAdmissionAutoRetryExhaustedError(error: unknown): Error {
+  const providerCode = findBusyAdmissionProviderCode(error) ?? "3010";
   const exhaustedError = new Error(START_PLAN_BUSY_AUTO_RETRY_EXHAUSTED_MESSAGE, {
     cause: error instanceof Error ? error : undefined,
   }) as Error & {
     code?: string;
     context?: Record<string, unknown>;
   };
-  exhaustedError.name = "StartPlanBusyAutoRetryExhaustedError";
+  exhaustedError.name = "BusyAdmissionAutoRetryExhaustedError";
   exhaustedError.code = "model_rate_limited";
   exhaustedError.context = {
     providerCode,
     reason: "rate_limited",
     retryable: false,
-    startPlanBusyAutoRetryExhausted: true,
+    busyAdmissionAutoRetryExhausted: true,
   };
   return exhaustedError;
 }
@@ -90,7 +90,7 @@ export function beginStreamRecoveryAttempt(state: RegularTurnLoopState): StreamR
   };
 }
 
-export function beginStartPlanBusyAdmissionRetryAttempt(
+export function beginBusyAdmissionAdmissionRetryAttempt(
   state: RegularTurnLoopState,
 ): StreamRecoveryAttempt {
   state.streamRecoveryRetryCount += 1;
@@ -100,7 +100,7 @@ export function beginStartPlanBusyAdmissionRetryAttempt(
   };
 }
 
-export function getStartPlanBusyAdmissionRetryDelayMs(input: {
+export function getBusyAdmissionAdmissionRetryDelayMs(input: {
   error: unknown;
   providerId: string;
   state: RegularTurnLoopState;
@@ -108,7 +108,7 @@ export function getStartPlanBusyAdmissionRetryDelayMs(input: {
 }): number | undefined {
   if (input.turnNumber <= 0) return undefined;
   if (!START_PLAN_BUSY_RETRY_PROVIDER_IDS.has(input.providerId)) return undefined;
-  if (!isStartPlanBusyStreamRecoveryFailure(input.error)) return undefined;
+  if (!isBusyAdmissionStreamRecoveryFailure(input.error)) return undefined;
   return START_PLAN_BUSY_MAIN_TURN_ADMISSION_RETRY_DELAYS_MS[input.state.streamRecoveryRetryCount];
 }
 
@@ -277,7 +277,7 @@ function createPreviousMessageRecoveryAnchorId(assistantMessageId: MessageId): s
   return `${assistantMessageId}:${PREVIOUS_MESSAGE_ANCHOR_SUFFIX}`;
 }
 
-function findStartPlanBusyProviderCode(error: unknown): string | undefined {
+function findBusyAdmissionProviderCode(error: unknown): string | undefined {
   for (const record of walkErrorRecords(error)) {
     const context = asRecord(record.context);
     const candidates = [

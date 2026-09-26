@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { modelConfigDataSchema } from "@zcode/shared/model-config";
-import { providerConfigDataSchema, zhipuAccountAccessDataSchema } from "./provider-data-schema.js";
+import { providerConfigDataSchema } from "./provider-data-schema.js";
 import { ModelConfig, ModelConfigRules } from "./model-config.js";
 import {
   ApiKeyAccessConfig,
@@ -9,7 +9,6 @@ import {
   ProviderConfigMap,
   ProviderTemplate,
   ProviderTemplateMap,
-  ZhipuAccountAccessConfig,
 } from "./provider-config.js";
 import {
   builtinModelConfigRulesSchema,
@@ -22,12 +21,6 @@ import {
   type ProviderConfigRuleData,
   type ProviderTemplateConfigRuleData,
 } from "./rule-data-schema.js";
-
-const accountProviderConfigSchema = providerConfigDataSchema
-  .pick({ builtinModelIds: true })
-  .extend({
-    access: zhipuAccountAccessDataSchema.pick({ type: true, entitled: true }).nullable().optional(),
-  });
 
 export function parseProviderConfigMap(input: unknown): ProviderConfigMap {
   return createProviderRules(z.array(providerConfigRuleSchema).parse(input));
@@ -54,17 +47,6 @@ export function parseZCodeBuiltinProviderConfigRules(input: unknown): {
 
 export function parsePersonalProviderConfigMap(input: unknown): ProviderConfigMap {
   return createProviderRules(personalProviderConfigRulesSchema.parse(input).providerRules);
-}
-
-/** Account 运行时事实仍只有成员及权益；不是磁盘配置规则的第二种格式。 */
-export function parseAccountProviderConfigMap(input: unknown): ProviderConfigMap {
-  const parsed = z.record(z.string().min(1), accountProviderConfigSchema).parse(input);
-  return new ProviderConfigMap(
-    Object.entries(parsed).map(([providerId, config]) => [
-      providerId,
-      createProviderConfig(config),
-    ]),
-  );
 }
 
 export function parseProviderConfig(input: unknown): ProviderConfig {
@@ -145,12 +127,7 @@ function createTemplateRules(
 function createProviderConfig(config: z.infer<typeof providerConfigDataSchema>): ProviderConfig {
   return new ProviderConfig({
     ...config,
-    access:
-      config.access == null
-        ? config.access
-        : config.access.type !== "zhipu-account"
-          ? new ApiKeyAccessConfig(config.access)
-          : new ZhipuAccountAccessConfig(config.access),
+    access: config.access == null ? config.access : new ApiKeyAccessConfig(config.access),
     api: config.api == null ? config.api : new ProviderApiConfig(config.api),
   });
 }

@@ -35,12 +35,6 @@ import {
   readCronCreateAutomationSummary,
   type CronCreateAutomationSummary,
 } from "@/ToolCallBlocks/renderers/cron-create.js";
-import {
-  isOffPeakCreateToolCall,
-  OffPeakCreateTaskCard,
-  readOffPeakCreateTaskSummary,
-  type OffPeakCreateTaskSummary,
-} from "@/ToolCallBlocks/renderers/offpeak-create.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import type { AssistantPreviewCard } from "@/lib/assistantPreviewCards.js";
 import { useAssistantCodeCommentFeatureEnabled } from "@/AssistantCodeCommentFeatureProvider.js";
@@ -114,12 +108,6 @@ interface CronAutomationTurnCard {
   rowId: number;
   toolCallId: string;
   automation: CronCreateAutomationSummary;
-}
-
-interface OffPeakTurnCard {
-  rowId: number;
-  toolCallId: string;
-  task: OffPeakCreateTaskSummary;
 }
 
 const MIN_VISIBLE_API_RETRY_ATTEMPT = 3;
@@ -457,36 +445,6 @@ function resolveCronAutomationTurnCards(
   return cards;
 }
 
-// 只收本轮 status==="success" 的 OffPeakCreate；同 id 重复输出保留最新一次。
-// 刻意不复用 resolveCronAutomationTurnCards——那套带 CronDelete 撤销过滤语义，闲时无对应工具。
-function resolveOffPeakTurnCards(rows: readonly AssistantWorkRow[]): OffPeakTurnCard[] {
-  let cards: OffPeakTurnCard[] = [];
-
-  for (const row of rows) {
-    if (row.kind !== "toolCall" || row.status !== "success") {
-      continue;
-    }
-    const node = toolCallRowToLegacyNode(row);
-    if (!isOffPeakCreateToolCall(node.toolCall)) {
-      continue;
-    }
-    const task = readOffPeakCreateTaskSummary(node.toolCall);
-    if (!task) {
-      continue;
-    }
-    if (task.offPeakTaskId) {
-      cards = cards.filter((card) => card.task.offPeakTaskId !== task.offPeakTaskId);
-    }
-    cards.push({
-      rowId: row.rowId,
-      toolCallId: row.toolCallId,
-      task,
-    });
-  }
-
-  return cards;
-}
-
 function parseJsonRecord(value: unknown): Record<string, unknown> | null {
   let candidate = value;
   if (typeof candidate === "string") {
@@ -531,30 +489,6 @@ function CronAutomationTurnCards({
         <CronCreateAutomationCard
           key={`${card.rowId}:${card.toolCallId}`}
           automation={card.automation}
-          onOpenAutomationsMain={context.onOpenAutomationsMain}
-        />
-      ))}
-    </div>
-  );
-}
-
-function OffPeakTurnCards({
-  cards,
-  context,
-}: {
-  cards: readonly OffPeakTurnCard[];
-  context: ConversationRowRenderContext;
-}) {
-  if (cards.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      {cards.map((card) => (
-        <OffPeakCreateTaskCard
-          key={`${card.rowId}:${card.toolCallId}`}
-          task={card.task}
           onOpenAutomationsMain={context.onOpenAutomationsMain}
         />
       ))}
@@ -1193,10 +1127,6 @@ function ConversationTurnGroupImpl({
         : resolveWorkflowTurnCompletion(unit.header, { byRunId: workflowRunByRunId }),
     [unit.header, unit.isRunning, workflowRunByRunId],
   );
-  const offPeakTurnCards = useMemo(
-    () => (unit.isRunning ? [] : resolveOffPeakTurnCards(unit.assistantWorkRows)),
-    [unit.assistantWorkRows, unit.isRunning],
-  );
   const canRenderAssistantActions =
     !unit.timelineOnly &&
     latestAssistantTextRow?.state === "complete" &&
@@ -1398,7 +1328,6 @@ function ConversationTurnGroupImpl({
           {/* CronCreate/CronUpdate 工具本身仍按普通工具行展示；成功卡片属于整轮
               完成后的结果摘要，必须等回复结束再跟随最终 assistant 正文收尾。 */}
           <CronAutomationTurnCards cards={cronAutomationTurnCards} context={context} />
-          <OffPeakTurnCards cards={offPeakTurnCards} context={context} />
           {!isOfficeMode && unit.header?.fileChanges ? (
             <ConversationFileSummaryPanel header={unit.header} context={context} />
           ) : null}

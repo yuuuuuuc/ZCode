@@ -23,7 +23,6 @@ export interface ConversationDraftSuggestedPromptsContainerProps {
   workspacePath: string;
   workspaceIdentity?: string;
   remoteSessionId?: string;
-  isDesktop?: boolean;
 }
 
 export async function trackDraftSuggestedPluginOperation<T>(

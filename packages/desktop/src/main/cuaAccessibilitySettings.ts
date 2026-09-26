@@ -188,7 +188,7 @@ async function verifyHelperPermissionIdentityUnchanged(
   const fingerprint = captureCuaHelperBundleFingerprint(identity.appPath);
   await options.verifyHelperInstalled?.(identity.appPath);
   if (!cuaHelperBundleFingerprintUnchanged(identity.appPath, fingerprint)) {
-    throw new Error(`ZCode Computer Use changed while its ${phase} signature was being verified`);
+    throw new Error(`Ycode Computer Use changed while its ${phase} signature was being verified`);
   }
   const currentIdentity = await (
     options.resolveHelperIdentity ?? resolveHelperPermissionSubjectIdentity
@@ -198,7 +198,7 @@ async function verifyHelperPermissionIdentityUnchanged(
   }
   if (!cuaHelperBundleFingerprintUnchanged(identity.appPath, fingerprint)) {
     throw new Error(
-      `ZCode Computer Use changed while its ${phase} permission identity was being resolved`,
+      `Ycode Computer Use changed while its ${phase} permission identity was being resolved`,
     );
   }
   return fingerprint;
@@ -504,7 +504,7 @@ export async function openCuaPermissionOnboarding(
   if (platform !== "darwin") {
     return {
       success: false,
-      error: "ZCode Computer Use permissions are only available on macOS.",
+      error: "Ycode Computer Use permissions are only available on macOS.",
     };
   }
   const env = options.env ?? process.env;
@@ -598,7 +598,7 @@ export async function prepareCuaHelperPermissionDrag(
   if (platform !== "darwin") {
     return {
       success: false,
-      error: "ZCode Computer Use permissions are only available on macOS.",
+      error: "Ycode Computer Use permissions are only available on macOS.",
     };
   }
   const env = options.env ?? process.env;
@@ -620,13 +620,13 @@ export async function prepareCuaHelperPermissionDrag(
     const verifiedFingerprint = captureCuaHelperBundleFingerprint(helperAppPath);
     await (options.verifyHelperInstalled ?? defaultInstaller?.verifyInstalled)?.(helperAppPath);
     if (!cuaHelperBundleFingerprintUnchanged(helperAppPath, verifiedFingerprint)) {
-      throw new Error("ZCode Computer Use changed while its drag signature was being verified");
+      throw new Error("Ycode Computer Use changed while its drag signature was being verified");
     }
     const identity = await (
       options.resolveHelperIdentity ?? resolveHelperPermissionSubjectIdentity
     )(helperAppPath);
     if (!cuaHelperBundleFingerprintUnchanged(helperAppPath, verifiedFingerprint)) {
-      throw new Error("ZCode Computer Use changed while its drag identity was being resolved");
+      throw new Error("Ycode Computer Use changed while its drag identity was being resolved");
     }
     return {
       success: true,

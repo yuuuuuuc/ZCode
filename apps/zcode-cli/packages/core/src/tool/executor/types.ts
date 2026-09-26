@@ -12,7 +12,6 @@ import type {
   BrowserControlPort,
   ExecutionShellSelection,
   AutomationPort,
-  OffPeakPort,
   FileSystemPort,
   HttpClientPort,
   ImageProcessorPort,
@@ -105,7 +104,6 @@ export interface ToolExecutorOptions {
   workflowEscalatePort?: WorkflowEscalatePort;
   artifactStore?: ToolArtifactStorePort;
   automationPort?: AutomationPort;
-  offPeakPort?: OffPeakPort;
   sessionStore?: SessionStorePort;
   sessionModePort?: SessionModePort;
   workflowPort?: WorkflowPort;
@@ -165,7 +163,6 @@ export interface ToolExecutor {
 
 export interface ToolExecuteOptions {
   automationTurn?: boolean;
-  offPeakTurn?: boolean;
   signal?: AbortSignal;
   traceContext?: TraceContext;
   subagentModelOverride?: SubagentRunOptions["modelOverride"];
@@ -209,7 +206,6 @@ export interface ToolExecutorDeps {
   workflowEscalatePort?: WorkflowEscalatePort;
   artifactStore?: ToolArtifactStorePort;
   automationPort?: AutomationPort;
-  offPeakPort?: OffPeakPort;
   sessionStore?: SessionStorePort;
   sessionModePort?: SessionModePort;
   workflowPort?: WorkflowPort;

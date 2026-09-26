@@ -10,7 +10,6 @@ import {
   type TraceContext,
 } from "@zcode/contracts";
 import type { ToolEntry, ToolHandler } from "../types.js";
-import { assertNotOffPeakTurn } from "./off-peak.js";
 
 const MAX_SEND_MESSAGE_MODEL_BYTES = 4096;
 /**
@@ -47,10 +46,6 @@ const SEND_MESSAGE_TOOL_OUTPUT_SCHEMA = {
 
 const sendMessageHandler: ToolHandler = async (input, context) => {
   const parsed = SendMessageInputSchema.parse(input) as SendMessageInput;
-  assertNotOffPeakTurn(context, SEND_MESSAGE_TOOL_NAME, {
-    hint: OFF_PEAK_SEND_MESSAGE_HINT,
-    recoverable: true,
-  });
 
   if (!context.subagentPort?.sendMessage) {
     throw createCoreError(

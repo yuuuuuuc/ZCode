@@ -9,8 +9,7 @@ interface ModelProviderSectionLayoutProps {
   description: string;
   refreshLabel: string;
   loadingLabel: string;
-  presetLoading: boolean;
-  customLoading: boolean;
+  loading: boolean;
   onRefresh: () => void;
   addProviderLabel: string;
   onAddProvider: () => void;
@@ -22,19 +21,15 @@ interface ModelProviderSectionLayoutProps {
   children: ReactNode;
 }
 
-function shouldShowModelProviderRefreshLoading(params: {
-  presetLoading: boolean;
-  customLoading: boolean;
-}): boolean {
-  return params.presetLoading || params.customLoading;
+function shouldShowModelProviderRefreshLoading(params: { loading: boolean }): boolean {
+  return params.loading;
 }
 
 export function ModelProviderSectionLayout({
   description,
   refreshLabel,
   loadingLabel,
-  presetLoading,
-  customLoading,
+  loading,
   onRefresh,
   addProviderLabel,
   onAddProvider,
@@ -45,10 +40,7 @@ export function ModelProviderSectionLayout({
   reorderableProviderIds,
   children,
 }: ModelProviderSectionLayoutProps) {
-  const refreshButtonLoading = shouldShowModelProviderRefreshLoading({
-    presetLoading,
-    customLoading,
-  });
+  const refreshButtonLoading = shouldShowModelProviderRefreshLoading({ loading });
 
   return (
     <div className="space-y-4">
@@ -76,8 +68,7 @@ export function ModelProviderSectionLayout({
             <ModelProviderSectionNavigation
               navigationGroups={navigationGroups}
               selectedNodeKey={selectedNodeKey}
-              presetLoading={presetLoading}
-              customLoading={customLoading}
+              customLoading={loading}
               onSelectNavItem={onSelectNavItem}
               onReorderProviderIds={onReorderProviderIds}
               reorderableProviderIds={reorderableProviderIds}

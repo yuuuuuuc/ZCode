@@ -83,9 +83,7 @@ import {
 } from "./saved-workflows.js";
 import { listMcpServers } from "./mcp.js";
 import { updateInteractionPreferences } from "./interaction-preferences.js";
-import { updateAccountProviderConfig } from "./account-provider-config.js";
 import { updateModelIoPreferences } from "./model-io-preferences.js";
-import { updateOffPeakToolPolicy } from "./off-peak-tool-policy.js";
 import { updateDynamicWorkflowPolicy } from "./dynamic-workflow-policy.js";
 import { grantWorkspaceHookTrustForProtocol } from "./workspace-hook-trust.js";
 import {
@@ -204,14 +202,6 @@ export class ZCodeProtocolAgentServer {
   private readonly runtimeResources: ProtocolRuntimeResources;
   private shutdownPromise?: Promise<void>;
   readonly browserControlPort: BrowserControlPort;
-  /**
-   * 官方 MCP 身份头端口所需的最小上下文。
-   * MCP 连接池的构造早于 server，需要在 server 就绪后回填闭包持有的引用——
-   * 与 v4Gateway 同样的构造顺序收口方式。只暴露 requestClient，不外泄整个 context。
-   */
-  get officialMcpAuthRequestContext(): Pick<ZCodeProtocolAgentServerContext, "requestClient"> {
-    return this.context;
-  }
 
   private messageSink?: (message: ZCodeProtocolOutboundMessage) => void;
   private clientDisconnectError?: Error;
@@ -249,7 +239,6 @@ export class ZCodeProtocolAgentServer {
       appRuntimePreferences: {
         askUserQuestionAutoResolutionEnabled: true,
         modelIoFullRetentionEnabled: false,
-        offPeakToolEnabled: false,
         // 动态工作流灰度门 fail-closed：Host 必须显式 workspace/updateDynamicWorkflowPolicy
         // 才开启。
         dynamicWorkflowEnabled: false,
@@ -623,14 +612,10 @@ export class ZCodeProtocolAgentServer {
         }
         return grantResult;
       }
-      case zcodeProtocolMethods.providerUpdateAccountConfig:
-        return await updateAccountProviderConfig(this.context, request.params);
       case zcodeProtocolMethods.workspaceUpdateInteractionPreferences:
         return await updateInteractionPreferences(this.context, request.params);
       case zcodeProtocolMethods.workspaceUpdateModelIoPreferences:
         return await updateModelIoPreferences(this.context, request.params);
-      case zcodeProtocolMethods.workspaceUpdateOffPeakToolPolicy:
-        return await updateOffPeakToolPolicy(this.context, request.params);
       case zcodeProtocolMethods.workspaceUpdateDynamicWorkflowPolicy:
         return await updateDynamicWorkflowPolicy(this.context, request.params);
       case zcodeProtocolMethods.workspaceGenerateText:

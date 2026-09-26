@@ -286,7 +286,7 @@ Slash Commands:
     },
     terminal: {
       requiresInteractive: "TUI requires an interactive terminal.",
-      starting: "Starting ZCode... Ctrl+C to exit",
+      starting: "Starting Ycode... Ctrl+C to exit",
     },
     transcript: {
       compact: {

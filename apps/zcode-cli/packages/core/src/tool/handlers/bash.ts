@@ -136,7 +136,7 @@ async function executeBashHandler(
   // 后台命令完成后 runTaskNotificationBatch 会另起一轮通知 turn，该 turn 不带
   // turnExecutionModel，闲时 turn 结束/失败后就会落到用户自己的套餐上跑完整 agent loop。
   // 与 subagent runner 的 BACKGROUND_UNAVAILABLE 对称：闲时 turn 拒绝显式后台，也关闭超时自动转后台。
-  const backgroundDisabled = context.offPeakTurn === true;
+  const backgroundDisabled = false;
   if (parsed.run_in_background && backgroundDisabled) {
     throw createCoreError(
       CoreErrorType.ToolExecutionFailed,

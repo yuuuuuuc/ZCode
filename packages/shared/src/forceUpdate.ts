@@ -1,4 +1,7 @@
-import type { ForceUpdateConfig } from "./coding-plan-subscription.js";
+/** 远端客户端配置中的强制升级要求；只消费 minimalVersion 字段。 */
+export interface ForceUpdateConfig {
+  minimalVersion: string;
+}
 
 export interface ForceUpdateRequirement {
   currentVersion: string;

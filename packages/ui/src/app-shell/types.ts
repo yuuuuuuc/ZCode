@@ -10,7 +10,6 @@ import type {
   RemoteTarget,
   RemoteWorkspaceSessionEntry,
   UpdateStatePayload,
-  UserInfo,
 } from "@zcode/shared";
 import type { IFeedbackService, IServiceAccessor } from "@zcode/services";
 import type { BrowserNavigationRequest, RecentClosedSidePaneTab } from "@/hooks/useAppPanels.js";
@@ -73,6 +72,9 @@ export interface CreateTaskOptions {
 export type CreateTaskRequest = ZCodeProvider | CreateTaskOptions;
 
 export interface AppProps {
+  onLogout?: () => void;
+  onLogin?: () => void;
+  user?: import("@/store/index.js").UserInfo | null;
   services: IServiceAccessor;
   baseFeedbackService: IFeedbackService;
   onConnectRemote: (options: RemoteTarget, requestId?: string) => Promise<string>;
@@ -83,9 +85,6 @@ export interface AppProps {
   ) => Promise<void>;
   onCancelRemoteProject: (sessionId: string) => Promise<void>;
   onReconnectRemoteWorkspace: (workspaceKey: string) => Promise<void>;
-  onLogout?: () => void;
-  onLogin?: () => void;
-  user?: UserInfo | null;
   reconnectingRemoteWorkspaceKeys: string[];
   remoteWorkspaceErrorByWorkspaceKey: Record<string, string>;
   reconnectingRemoteWorkspaceLogsByWorkspaceKey?: Record<string, RemoteConnectionLogEntry[]>;

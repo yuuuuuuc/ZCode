@@ -302,19 +302,10 @@ export interface BackgroundResultOriginMeta {
  */
 export type TurnExecutionKind = "agent" | "controlOnly";
 
-export type OffPeakRunType = "init" | "resume";
-
 export type TurnBackgroundAttribution =
-  | { automationId: string; offPeakTaskId?: never; offPeakRunType?: never }
-  | {
-      offPeakTaskId: string;
-      offPeakRunType?: OffPeakRunType;
-      automationId?: never;
-    }
+  | { automationId: string }
   | {
       automationId?: undefined;
-      offPeakTaskId?: undefined;
-      offPeakRunType?: never;
     };
 
 /**

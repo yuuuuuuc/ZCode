@@ -5,29 +5,20 @@
 //   - 维护派发状态机：misfire 跳过、single-flight 认领、成功结算、失败退避重试
 //   - 把到期任务的派发请求发回 main（main 再翻译成 CronRun 转给 workspace host 执行 createTask+sendPrompt）
 //   - 收到 main 回报后结算 automation + automation_runs
-//   - 闲时任务（off_peak_tasks）：启动回收中断任务，认领 schedulable=1 的 queued 任务派发；
-//     与 automation 表/消息/常量全部独立，⚠ 无 misfire-skip 语义（顺延不丢弃）
 // 本进程只读写 tasks-index，不碰 UI / agent runtime；createTask 由 host 域执行。
 import {
   AutomationRepo,
   computeAutomationNextRunAt,
   isOneShotAutomation,
-  OffPeakTaskRepo,
 } from "@zcode/services/node";
 import {
   resolveWorkspaceKey,
   type ZCodeAutomation,
   type ZCodeAutomationTrigger,
   type ZCodeAutomationRun,
-  type ZCodeOffPeakTask,
 } from "@zcode/shared";
 import type { MainToSchedulerMessage, SchedulerToMainMessage } from "./schedulerProtocol.js";
 import { settleManualClaimForDispatchResult } from "./manualClaimRelease.js";
-import { settleOffPeakDispatchResult } from "./offPeakDispatchSettlement.js";
-import {
-  startSchedulerResourceTelemetry,
-  type SchedulerResourceTelemetry,
-} from "./schedulerResourceTelemetry.js";
 
 /** 轮询间隔：cron 最小粒度是分钟，20s 轮询足以按时命中且开销低。 */
 const POLL_INTERVAL_MS = 20_000;
@@ -49,21 +40,11 @@ const repo = new AutomationRepo();
 /** runId → 在途派发上下文；等 main 回报后结算。scheduler 重启丢失时靠 claimDue 的僵尸回收兜底。 */
 const inFlight = new Map<string, InFlight>();
 
-// ---- 闲时任务（off-peak）----
-const offPeakRepo = new OffPeakTaskRepo();
-/** 进程内退避表：offPeakTaskId → 下次允许派发时间/已失败次数。scheduler 重启即重置，无害。 */
-const offPeakRetryAt = new Map<string, number>();
-const offPeakRetryAttempts = new Map<string, number>();
-/** 在途派发集合：仅用于退出时释放认领；迟到结果凭 offPeakTaskId 即可结算，不依赖它。 */
-const offPeakInFlight = new Set<string>();
-
 let ticking = false;
 let tickRequested = false;
 let schedulerReady = false;
 let disposed = false;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
-/** 资源遥测：本进程唯一的自采定时器。 */
-let resourceTelemetry: SchedulerResourceTelemetry | null = null;
 
 function log(level: "info" | "warn" | "error", message: string): void {
   const msg: SchedulerToMainMessage = { type: "scheduler-log", level, message };
@@ -100,12 +81,6 @@ async function tick(): Promise<void> {
         for (const manualRun of manualRuns) {
           await handleClaimedManual(manualRun.automation, manualRun.run);
         }
-        const offPeakClaimed = await offPeakRepo.claimDue(now);
-        for (const task of offPeakClaimed) {
-          await handleOffPeakClaimed(task, now);
-        }
-        // keep-awake：上报执行中计数，main 据此 + 设置决定 powerSaveBlocker。
-        await reportOffPeakActiveCount();
       } catch (error) {
         log("error", `tick failed: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -214,52 +189,6 @@ async function handleClaimedManual(
   postDispatchRequest(automation, run.runId, run.modelSelection);
 }
 
-/** 执行中计数上报（keep-awake）：仅在值变化时发消息，减噪。 */
-let lastOffPeakActiveCount = -1;
-async function reportOffPeakActiveCount(): Promise<void> {
-  try {
-    const count = await offPeakRepo.countActive();
-    if (count === lastOffPeakActiveCount) return;
-    lastOffPeakActiveCount = count;
-    const msg: SchedulerToMainMessage = { type: "offpeak-active-count", count };
-    parentPort?.postMessage(msg);
-  } catch (error) {
-    log(
-      "warn",
-      `off-peak active count report failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-}
-
-// ---- 闲时任务派发 ----
-
-/**
- * 认领后派发闲时任务。退避中的任务立即释放认领等下轮（进程内退避表；每轮 claim+release
- * 两次写，任务数小、WAL 下开销可忽略——若退避任务成规模再把退避下沉进 claimDue）。
- */
-async function handleOffPeakClaimed(task: ZCodeOffPeakTask, now: number): Promise<void> {
-  const retryAt = offPeakRetryAt.get(task.offPeakTaskId) ?? 0;
-  if (retryAt > now) {
-    await offPeakRepo.releaseClaim(task.offPeakTaskId, { now });
-    return;
-  }
-  offPeakInFlight.add(task.offPeakTaskId);
-  const request: SchedulerToMainMessage = {
-    type: "offpeak-dispatch-request",
-    offPeakTaskId: task.offPeakTaskId,
-    prompt: task.prompt,
-    permissionMode: task.permissionMode,
-    modelSelection: task.modelSelection,
-    ...(task.conversationId ? { conversationId: task.conversationId } : {}),
-    ...(task.sessionId ? { sessionId: task.sessionId } : {}),
-    ...(task.serverTicketId ? { serverTicketId: task.serverTicketId } : {}),
-    workspacePath: task.workspacePath,
-    ...(task.workspaceIdentity ? { workspaceIdentity: task.workspaceIdentity } : {}),
-  };
-  parentPort?.postMessage(request);
-  log("info", `off-peak dispatch requested task=${task.offPeakTaskId}`);
-}
-
 async function settleDispatchResult(
   msg: Extract<MainToSchedulerMessage, { type: "cron-dispatch-result" }>,
 ): Promise<void> {
@@ -329,8 +258,6 @@ async function dispose(): Promise<void> {
   disposed = true;
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = null;
-  resourceTelemetry?.stop();
-  resourceTelemetry = null;
   // 释放本进程仍在途的认领，避免下次启动等到 CLAIM_STALE 才回收。
   for (const [, context] of inFlight) {
     try {
@@ -344,21 +271,8 @@ async function dispose(): Promise<void> {
     }
   }
   inFlight.clear();
-  for (const offPeakTaskId of offPeakInFlight) {
-    try {
-      await offPeakRepo.releaseClaim(offPeakTaskId);
-    } catch {
-      // 忽略：退出路径尽力而为。
-    }
-  }
-  offPeakInFlight.clear();
   try {
     repo.close();
-  } catch {
-    // 忽略。
-  }
-  try {
-    offPeakRepo.close();
   } catch {
     // 忽略。
   }
@@ -387,25 +301,6 @@ parentPort?.on("message", (event: Electron.MessageEvent) => {
       });
     return;
   }
-  if (msg.type === "offpeak-dispatch-result") {
-    offPeakInFlight.delete(msg.offPeakTaskId);
-    void settleOffPeakDispatchResult(
-      {
-        repo: offPeakRepo,
-        retryAt: offPeakRetryAt,
-        retryAttempts: offPeakRetryAttempts,
-        now: Date.now,
-        log,
-      },
-      msg,
-    ).catch((error) => {
-      log(
-        "error",
-        `settle off-peak dispatch result failed task=${msg.offPeakTaskId}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    });
-    return;
-  }
   if (msg.type === "scheduler-wake") {
     log("info", `manual run wake requested automation=${msg.automationId}`);
     requestTick();
@@ -414,27 +309,10 @@ parentPort?.on("message", (event: Electron.MessageEvent) => {
 
 async function main(): Promise<void> {
   await repo.ensureReady();
-  // 闲时任务中断恢复：scheduler 是 app 单例、先于任何派发启动——此刻 DB 里的
-  // running 必属上一个 app 实例残留，安全置回 queued（session 保留供 resume 续跑）。
-  try {
-    const recovered = await offPeakRepo.recoverInterrupted(Date.now());
-    if (recovered > 0) {
-      log("info", `off-peak recovered ${recovered} interrupted task(s) back to queued`);
-    }
-  } catch (error) {
-    log(
-      "error",
-      `off-peak recoverInterrupted failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
   schedulerReady = true;
   log("info", "cron scheduler started");
   requestTick();
   pollTimer = setInterval(requestTick, POLL_INTERVAL_MS);
-  // 资源遥测：60 秒自采一次 CPU / 内存发给 main（heap 只有本进程读得到）。
-  resourceTelemetry = startSchedulerResourceTelemetry({
-    postMessage: (message) => parentPort?.postMessage(message),
-  });
 }
 
 void main().catch((error) => {

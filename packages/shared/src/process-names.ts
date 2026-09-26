@@ -49,7 +49,7 @@ export function formatZCodeHostProcessName(label?: string): string {
 
 export function formatZCodeRendererProcessName(windowTitle?: string): string {
   const normalizedTitle = windowTitle?.trim();
-  if (!normalizedTitle || normalizedTitle === "ZCode") {
+  if (!normalizedTitle || normalizedTitle === "Ycode" || normalizedTitle === "ZCode") {
     return joinZCodeProcessName("renderer", "main");
   }
 
@@ -57,13 +57,10 @@ export function formatZCodeRendererProcessName(windowTitle?: string): string {
     return joinZCodeProcessName("renderer", "resource-manager");
   }
 
-  const remoteWindowPrefix = "ZCode - ";
-  if (normalizedTitle.startsWith(remoteWindowPrefix)) {
-    return joinZCodeProcessName(
-      "renderer",
-      "remote",
-      normalizedTitle.slice(remoteWindowPrefix.length),
-    );
+  const remoteWindowPrefixes = ["Ycode - ", "ZCode - "];
+  const matchedPrefix = remoteWindowPrefixes.find((prefix) => normalizedTitle.startsWith(prefix));
+  if (matchedPrefix) {
+    return joinZCodeProcessName("renderer", "remote", normalizedTitle.slice(matchedPrefix.length));
   }
 
   return joinZCodeProcessName("renderer", normalizedTitle);

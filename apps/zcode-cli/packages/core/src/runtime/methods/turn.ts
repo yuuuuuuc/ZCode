@@ -309,14 +309,7 @@ export async function executeTurnCommand(
           input: displayInput,
           messageId: userMessageId,
           inputId: options?.inputId,
-          ...(options?.automationId
-            ? { automationId: options.automationId }
-            : options?.offPeakTaskId
-              ? {
-                  offPeakTaskId: options.offPeakTaskId,
-                  ...(options.offPeakRunType ? { offPeakRunType: options.offPeakRunType } : {}),
-                }
-              : {}),
+          ...(options?.automationId ? { automationId: options.automationId } : {}),
           foregroundExecutionId: this.activeForegroundExecution?.foregroundExecutionId,
           queryId,
           inputSource: options?.inputSource,
@@ -561,8 +554,6 @@ export async function executeTurnCommand(
         loopState = {
           activeTurn,
           ...(options?.automationId ? { automationId: options.automationId } : {}),
-          // 闲时派发轮的身份进入 loop state，供工具执行边界 deny OffPeakCreate。
-          ...(options?.offPeakTaskId ? { offPeakTaskId: options.offPeakTaskId } : {}),
           anomalyWarningsInjected: 0,
           backgroundSubagentResultConsumed: options?.backgroundSubagentResultConsumed === true,
           workflowResultConsumed: options?.workflowResultConsumed === true,

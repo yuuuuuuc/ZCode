@@ -1,8 +1,5 @@
 import { databaseStartupControlSchema, databaseStartupStateSchema } from "./database-startup.js";
-import {
-  sessionCreateTelemetrySchema,
-  automationSessionCreateTelemetrySchema,
-} from "./sessionCreateTelemetry.js";
+import { automationSessionCreateTelemetrySchema } from "./sessionCreateTelemetry.js";
 /* eslint-disable max-lines -- 运行时 schema 当前集中在共享包入口，外部 relay payload 校验加入后先保持单一导出面。 */
 import { z } from "zod";
 import { zcodeProcessDiagnosticSchema } from "./process-diagnostic.js";
@@ -130,33 +127,6 @@ export const taskNotificationPayloadSchema = z.object({
   requestId: nonEmptyStringSchema.optional(),
   title: z.string(),
   body: z.string(),
-});
-
-export const telemetryRendererContextSchema = z.object({
-  clientTimezone: nonEmptyStringSchema,
-  clientLanguage: nonEmptyStringSchema,
-  screenResolution: nonEmptyStringSchema,
-});
-
-export const rendererTelemetryEventPayloadSchema = z.object({
-  context: telemetryRendererContextSchema,
-  elementName: nonEmptyStringSchema,
-  eventRegion: nonEmptyStringSchema,
-  eventType: nonEmptyStringSchema,
-  eventText: z.string().optional(),
-  eventExtraDetail: z.record(z.string(), z.string()),
-  userId: z.string().optional(),
-  talkId: z.string().optional(),
-  messageId: z.string().optional(),
-});
-
-export const armsCustomEventPayloadSchema = z.object({
-  name: nonEmptyStringSchema,
-  group: nonEmptyStringSchema,
-  value: z.number().finite().optional(),
-  properties: z
-    .record(z.string(), z.union([z.string(), z.number().finite(), z.boolean(), z.undefined()]))
-    .optional(),
 });
 
 export const broadcastMessageSchema = z.object({
@@ -656,19 +626,6 @@ export const nodeSelfResourceSampleSchema = z
   })
   .strict();
 export type NodeSelfResourceSample = z.infer<typeof nodeSelfResourceSampleSchema>;
-
-/**
- * 主窗口 renderer 每 60 秒经 preload 桥送 main 的 heap 读数
- *
- * 只带 heap：renderer 的 CPU 与 RSS 由 main 的 `getAppMetrics()` 负责，
- * renderer 自己也读不到。`strict` 保证 UI 侧不会顺手夹带路径、session 等隐私字段。
- */
-export const rendererHeapSampleSchema = z
-  .object({
-    heapUsedKb: z.number().finite().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  })
-  .strict();
-export type RendererHeapSample = z.infer<typeof rendererHeapSampleSchema>;
 
 export const hostResourceSampleResponseSchema = z
   .object({

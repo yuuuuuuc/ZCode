@@ -384,7 +384,6 @@ export function registerPlatformIpcHandlers(options: {
     PlatformChannels.GetApplicationIcon,
     (_event, request: string | ApplicationIconRequest) => getApplicationIcon(request),
   );
-  ipcMain.handle(PlatformChannels.GetDeviceId, () => options.deviceMid);
   ipcMain.handle(PlatformChannels.ExportLogs, () => exportLogs());
   ipcMain.handle(PlatformChannels.CaptureWindowScreenshot, async (event) => {
     const senderWindow = BrowserWindow.fromWebContents(event.sender);

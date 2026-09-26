@@ -746,7 +746,6 @@ export function InlineEditableProviderCard({
   }, [onDelete]);
 
   const headerProviderName = providerDisplayName;
-  const isAccountProvider = provider.config.access?.type === "zhipu-account";
   const isApiKeyProvider = isApiKeyAccess(provider.config.access);
   const effectiveHeaderVisible = headerVisible && statusSection === undefined;
 
@@ -773,35 +772,33 @@ export function InlineEditableProviderCard({
           onDelete={onDelete ? handleDeleteProvider : undefined}
           actionsVisible={headerActionsVisible}
           providerToggle={
-            isAccountProvider ? undefined : (
-              <ControlHintTooltip
-                standalone
-                title={intl.formatMessage({
-                  id: provider.enabled
-                    ? "settings.modelProvider.disableProvider"
-                    : "settings.modelProvider.enableProvider",
-                })}
-              >
-                {/* Tooltip 的 data-state 不能覆盖 Switch 的 checked 状态，否则轨道样式会消失。 */}
-                <span className="inline-flex">
-                  <Switch
-                    // 共享开关左右各扩展 12px，会覆盖相邻菜单；本标题栏仅保留 4px 横向热区。
-                    className="after:-inset-x-1"
-                    data-testid="model-provider-enabled-switch"
-                    aria-label={intl.formatMessage({
-                      id: provider.enabled
-                        ? "settings.modelProvider.disableProvider"
-                        : "settings.modelProvider.enableProvider",
-                    })}
-                    checked={provider.enabled}
-                    disabled={savingEnabled}
-                    onCheckedChange={(enabled) => {
-                      void handleProviderEnabledChange(enabled);
-                    }}
-                  />
-                </span>
-              </ControlHintTooltip>
-            )
+            <ControlHintTooltip
+              standalone
+              title={intl.formatMessage({
+                id: provider.enabled
+                  ? "settings.modelProvider.disableProvider"
+                  : "settings.modelProvider.enableProvider",
+              })}
+            >
+              {/* Tooltip 的 data-state 不能覆盖 Switch 的 checked 状态，否则轨道样式会消失。 */}
+              <span className="inline-flex">
+                <Switch
+                  // 共享开关左右各扩展 12px，会覆盖相邻菜单；本标题栏仅保留 4px 横向热区。
+                  className="after:-inset-x-1"
+                  data-testid="model-provider-enabled-switch"
+                  aria-label={intl.formatMessage({
+                    id: provider.enabled
+                      ? "settings.modelProvider.disableProvider"
+                      : "settings.modelProvider.enableProvider",
+                  })}
+                  checked={provider.enabled}
+                  disabled={savingEnabled}
+                  onCheckedChange={(enabled) => {
+                    void handleProviderEnabledChange(enabled);
+                  }}
+                />
+              </span>
+            </ControlHintTooltip>
           }
         />
       ) : null}
@@ -809,7 +806,7 @@ export function InlineEditableProviderCard({
       {statusSection}
 
       <div className="space-y-3">
-        {isAccountProvider ? null : (
+        {
           <ProviderConnectionSection
             provider={provider}
             readOnly={readOnlyEndpoints}
@@ -822,7 +819,7 @@ export function InlineEditableProviderCard({
             onBaseUrlCompositionStart={handleTechnicalInputCompositionStart}
             onBaseUrlCompositionEnd={handleTechnicalInputCompositionEnd}
           />
-        )}
+        }
 
         {isApiKeyProvider ? (
           <ProviderApiKeySection

@@ -37,7 +37,6 @@ import { useServices } from "@/hooks/useServices.js";
 import { TECHNICAL_INPUT_ATTRIBUTES } from "@/lib/technicalInputAttributes.js";
 import { ApiKeyInput } from "./ApiKeyInput.js";
 import { ModelRowInput } from "./ProviderFormControls.js";
-import { PresetProviderApiKeyBanner } from "./PresetProviderApiKeyBanner.js";
 import { type ProviderModelDraftValues } from "@/settings/model-provider-section/ProviderModelMetadata.js";
 import { ProviderModelMetadataDialog } from "@/settings/model-provider-section/ProviderModelMetadataDialog.js";
 import {
@@ -279,7 +278,6 @@ export function ProviderApiKeySection({
   apiKeyValue,
   apiKeyVisible,
   readOnly,
-  presetApiKeyUrl,
   onOpenPresetApiKey,
   onApiKeyChange,
   onApiKeyBlur,
@@ -308,9 +306,6 @@ export function ProviderApiKeySection({
         <label className="block text-ui-base text-foreground-subtle">
           {intl.formatMessage({ id: "settings.modelProvider.apiKey" })}
         </label>
-        {presetApiKeyUrl && onOpenPresetApiKey ? (
-          <PresetProviderApiKeyBanner onOpenApiKey={onOpenPresetApiKey} />
-        ) : null}
       </div>
       <ApiKeyInput
         value={apiKeyValue}

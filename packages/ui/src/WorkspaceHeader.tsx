@@ -1,3 +1,4 @@
+import type { UserInfo } from "@/store/index.js";
 import type {
   ZCodeProvider,
   ZCodeTaskMeta,
@@ -5,7 +6,6 @@ import type {
   EditorInfo,
   GitRepositorySummary,
   RemoteTarget,
-  UserInfo,
 } from "@zcode/shared";
 import { useState } from "react";
 import { TID_WORKSPACE_HEADER } from "@zcode/shared";

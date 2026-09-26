@@ -9,7 +9,6 @@ import {
   DEFAULT_EMBEDDED_BROWSER_VIEWPORT_PREFERENCE,
   embeddedBrowserViewportPreferenceSchema,
 } from "./browser-use/command-metadata.js";
-import { providerFamilyConnectionSelectionSettingsSchema } from "./provider-family-connection-selection.js";
 
 /** 引导职业枚举；单独导出供 onboarding 记录回填 settings 时做窄化校验。 */
 const appSettingsOccupationSchema = z.enum([
@@ -54,7 +53,6 @@ export const integratedTerminalShellSelectionSchema = z.discriminatedUnion("mode
     path: nonEmptyStringSchema,
   }),
 ]);
-const providerFamilyDomainSchema = z.enum(["zai", "bigmodel"]);
 
 export const postUpdateReleaseNotesPayloadSchema = z.object({
   version: nonEmptyStringSchema,
@@ -453,11 +451,6 @@ const appSettingsObjectSchema = z.object({
   zcodeInteractionBehavior: zcodeInteractionBehaviorSchema.default("queue"),
   askUserQuestionAutoResolutionEnabled: z.boolean().default(true),
   modelIoFullRetentionEnabled: z.boolean().default(false),
-  startPlanRecommendationDismissed: z.boolean().default(false),
-  providerFamilyConnectionSelections: providerFamilyConnectionSelectionSettingsSchema.default({}),
-  providerFamilyDomain: providerFamilyDomainSchema.optional(),
-  providerFamilyDomainUpdatedAt: z.number().int().nonnegative().optional(),
-  providerFamilyDomainMigrated: z.boolean().default(false),
   nativeSearchEnhancementsEnabled: z.boolean().default(true),
   onboardingOccupation: appSettingsOccupationSchema.nullish(),
   proactiveSuggestionsEnabled: z.boolean().optional(),
@@ -521,11 +514,6 @@ export const appSettingsPatchSchema = z.object({
   zcodeInteractionBehavior: zcodeInteractionBehaviorSchema.optional(),
   askUserQuestionAutoResolutionEnabled: z.boolean().optional(),
   modelIoFullRetentionEnabled: z.boolean().optional(),
-  startPlanRecommendationDismissed: z.boolean().optional(),
-  providerFamilyConnectionSelections: providerFamilyConnectionSelectionSettingsSchema.optional(),
-  providerFamilyDomain: z.union([providerFamilyDomainSchema, z.literal("")]).optional(),
-  providerFamilyDomainUpdatedAt: z.number().int().nonnegative().optional(),
-  providerFamilyDomainMigrated: z.boolean().optional(),
   nativeSearchEnhancementsEnabled: z.boolean().optional(),
   onboardingOccupation: z
     .enum([

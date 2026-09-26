@@ -1,3 +1,4 @@
+import type { UserInfo } from "@/store/index.js";
 import type {
   ZCodeTaskMeta,
   ZCodeProvider,
@@ -5,7 +6,6 @@ import type {
   EditorInfo,
   GitRepositorySummary,
   RemoteTarget,
-  UserInfo,
 } from "@zcode/shared";
 
 export interface WorkspaceHeaderState {

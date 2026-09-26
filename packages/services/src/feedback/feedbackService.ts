@@ -12,20 +12,15 @@ import { Emitter } from "@zcode/rpc";
 import { arch, platform, release, type as osType } from "node:os";
 
 import type { ICredentialService } from "../credential/credential.js";
-import type { IOAuthService } from "../oauth/oauth.js";
 import type { FeedbackUploadProgress, IFeedbackService } from "./feedback.js";
 import { FeedbackHttpClient, FeedbackUploadCanceledError } from "./feedbackHttpClient.js";
 import { cleanupLogArchive, prepareCompactLogArchive } from "./compactLogArchive.js";
 import { getFeedbackAttachmentDir } from "../paths.js";
 import { FeedbackLocalTicketStore } from "#src/feedback/feedbackLocalTicketStore.js";
 
-const ZCODE_JWT_TOKEN_KEY = "zcodejwttoken";
-
 export interface CreateFeedbackServiceOptions {
   credentialService: ICredentialService;
-  oauthService: IOAuthService;
   apiClient: ApiClient;
-  getDeviceMid?: () => string | undefined;
   apiBaseUrl?: string;
   createFullLogArchive?: (
     sourceDir: string,
@@ -59,44 +54,17 @@ function buildDeviceSnapshot(): FeedbackDeviceInfo {
   };
 }
 
+const LOCAL_TICKET_KEY = "anonymous";
+
 export function createFeedbackService(options: CreateFeedbackServiceOptions): IFeedbackService {
   const apiBaseUrl = resolveApiBaseUrl(options.apiBaseUrl);
-  function getHostDeviceMid(): string | undefined {
-    return options.getDeviceMid?.()?.trim() || undefined;
-  }
-
-  function requireHostDeviceMid(): string {
-    const deviceMid = getHostDeviceMid();
-    if (!deviceMid) {
-      throw new Error("Missing feedback device_mid");
-    }
-    return deviceMid;
-  }
-
-  async function getZcodeJwtToken(): Promise<string | undefined> {
-    return (await options.credentialService.load(ZCODE_JWT_TOKEN_KEY))?.trim() || undefined;
-  }
-
-  async function hasZcodeJwtToken(): Promise<boolean> {
-    return Boolean(await getZcodeJwtToken());
-  }
 
   const httpClient = new FeedbackHttpClient({
     baseUrl: apiBaseUrl,
     apiClient: options.apiClient,
     getAuthHeaders: async () => {
-      const headers: Record<string, string> = {};
-      const deviceMid = getHostDeviceMid();
-      // feedback 的 device_mid 必须复用宿主 deviceMid（与 provider 请求头、远控同一身份）；
-      // 不单独生成 fb_ 身份，否则同一台机器在不同系统里会被拆成两个设备。
-      if (deviceMid) {
-        headers["X-Device-Mid"] = deviceMid;
-      }
-      const jwtToken = await getZcodeJwtToken();
-      if (jwtToken) {
-        headers.Authorization = `Bearer ${jwtToken}`;
-      }
-      return headers;
+      // 账号体系已移除：反馈不再附带登录 JWT 与 deviceMid 计费身份头。
+      return {};
     },
   });
   const localTicketStore = new FeedbackLocalTicketStore();
@@ -138,9 +106,8 @@ export function createFeedbackService(options: CreateFeedbackServiceOptions): IF
             signal: controller.signal,
           },
         );
-        if (!(await hasZcodeJwtToken())) {
-          await localTicketStore.upsert(requireHostDeviceMid(), ticket);
-        }
+        // 无账号体系后统一按匿名本地工单留存，便于离线查询历史。
+        await localTicketStore.upsert(LOCAL_TICKET_KEY, ticket);
         return ticket;
       } finally {
         if (operationId && activeCreateControllers.get(operationId) === controller) {
@@ -154,10 +121,7 @@ export function createFeedbackService(options: CreateFeedbackServiceOptions): IF
       activeCreateControllers.get(key)?.abort();
     },
     list: async (query) => {
-      if (await hasZcodeJwtToken()) {
-        return httpClient.list(query);
-      }
-      const items = await localTicketStore.list(requireHostDeviceMid(), query);
+      const items = await localTicketStore.list(LOCAL_TICKET_KEY, query);
       return { items, total: items.length };
     },
     get: (id) => httpClient.get(id),

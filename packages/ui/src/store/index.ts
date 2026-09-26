@@ -6,22 +6,7 @@
  */
 import { create } from "zustand";
 import type { IBroadcastService, BroadcastMessage } from "@zcode/services";
-import type { OAuthProviderId, UserInfo } from "@zcode/shared";
-import type { CodingPlanResetType } from "@zcode/shared";
 import type { CodePreviewSettings } from "@/lib/codePreviewSettings.js";
-import type {
-  CodingPlanQuotaResetUiEntries,
-  CodingPlanQuotaResetUiEntry,
-} from "@/lib/codingPlanQuotaResetUi.js";
-import {
-  applyCodingPlanQuotaResetAutoPlayedBroadcast,
-  createCodingPlanQuotaResetStoreActions,
-  parseCodingPlanQuotaResetAutoPlayedBroadcastMessage,
-  type CodingPlanQuotaResetAutomaticObservations,
-  type CodingPlanQuotaResetAutoPlayReservation,
-  type CodingPlanQuotaResetAutoPlayReservationAttempt,
-  type CodingPlanQuotaResetAutoPlayedSlot,
-} from "@/store/codingPlanQuotaResetState.js";
 import { DEFAULT_CODE_PREVIEW_SETTINGS } from "@/lib/codePreviewSettings.js";
 import { readSafeLocalStorage, writeSafeLocalStorage } from "@/lib/browserEnvironment.js";
 import {
@@ -45,6 +30,15 @@ import {
   type InterfaceMode,
 } from "@/lib/interfaceMode.js";
 import { logger } from "@/logger.js";
+
+/** 账号体系已移除；以下类型仅为兼容既有 UI 状态形状保留，user 恒为 null。 */
+export type OAuthProviderId = string;
+export interface UserInfo {
+  id: string;
+  username?: string;
+  displayName?: string;
+  avatarUrl?: string;
+}
 
 export type LoginEntryPurpose = "app-login";
 
@@ -169,35 +163,6 @@ export interface ZCodeState {
   ) => void;
 
   /** Coding Plan 额度重置 UI 状态；entry/观察记录只在当前窗口内共享，不持久化。 */
-  codingPlanQuotaResetUiBySource: Record<string, CodingPlanQuotaResetUiEntries>;
-  /** 自动/运营完成首次被观察时所属的鉴权会话，用于区分同会话后挂载和重新登录。 */
-  codingPlanQuotaResetAutomaticObservationsBySource: Record<
-    string,
-    CodingPlanQuotaResetAutomaticObservations
-  >;
-  /** 自动完成提示"多窗口只播一次"的已播 used_at 记录；窗口内存态，可被广播合并。 */
-  codingPlanQuotaResetAutoPlayedBySource: Record<string, CodingPlanQuotaResetAutoPlayedSlot>;
-  /** 写入服务端 status / 手动 use 对账后的状态；entry 为 null 表示清空该类型。 */
-  setCodingPlanQuotaResetUiEntry: (
-    sourceKey: string,
-    resetType: CodingPlanResetType,
-    entry: CodingPlanQuotaResetUiEntry | null,
-    authSessionSeq: number,
-  ) => void;
-  /** Composer 展示前申请临时 reservation；此阶段不写 played。 */
-  reserveCodingPlanQuotaResetAutoPlay: (
-    sourceKey: string,
-    resetType: CodingPlanResetType,
-    completedAt: number,
-  ) => Promise<CodingPlanQuotaResetAutoPlayReservationAttempt>;
-  /** 组件仍有效且即将展示时提交 reservation、played 与广播。 */
-  commitCodingPlanQuotaResetAutoPlay: (
-    reservation: CodingPlanQuotaResetAutoPlayReservation,
-  ) => boolean;
-  /** 组件失效时释放尚未 commit 的 reservation。 */
-  releaseCodingPlanQuotaResetAutoPlay: (
-    reservation: CodingPlanQuotaResetAutoPlayReservation,
-  ) => Promise<void>;
 
   /** 手动请求打开 onboarding 弹窗 */
   newUserOnboardingOpen: boolean;
@@ -381,15 +346,6 @@ export function createZCodeStore(
         };
       }),
 
-    codingPlanQuotaResetUiBySource: {},
-    codingPlanQuotaResetAutomaticObservationsBySource: {},
-    codingPlanQuotaResetAutoPlayedBySource: {},
-    ...createCodingPlanQuotaResetStoreActions({
-      broadcastService,
-      readState: get,
-      writeState: (updater) => set((state) => updater(state)),
-    }),
-
     newUserOnboardingOpen: false,
     setNewUserOnboardingOpen: (open) => set({ newUserOnboardingOpen: open }),
     onboardingDialogRequested: false,
@@ -454,14 +410,6 @@ export function createZCodeStore(
 
   // 监听来自其他窗口的广播
   broadcastService.onMessage((msg: BroadcastMessage) => {
-    // 自动完成"多窗口只播一次"。其他窗口广播已播 used_at 后，本窗口合并
-    // played 记录并收起正在播放的同 used_at 提示；本地回声已在解析阶段被忽略。
-    const autoPlayed = parseCodingPlanQuotaResetAutoPlayedBroadcastMessage(msg);
-    if (autoPlayed) {
-      useStore.setState((state) => applyCodingPlanQuotaResetAutoPlayedBroadcast(state, autoPlayed));
-      return;
-    }
-
     if (!msg.channel.startsWith(STATE_CHANNEL_PREFIX)) return;
 
     const field = msg.channel.slice(STATE_CHANNEL_PREFIX.length) as BroadcastField;

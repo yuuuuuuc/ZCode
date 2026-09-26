@@ -101,7 +101,7 @@ function isProbablyBinary(buffer: Buffer): boolean {
   }
   return suspiciousBytes / buffer.length > 0.3;
 }
-const SCRATCH_WORKSPACE_ROOT_NAME = "ZCodeProject";
+const SCRATCH_WORKSPACE_ROOT_NAME = "YcodeProject";
 function validateScratchWorkspaceName(name: string): string {
   const trimmedName = name.trim();
   if (!trimmedName) {

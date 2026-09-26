@@ -132,7 +132,6 @@ export async function reconnectRemoteWorkspaceHistoryEntry({
     const sessionId = await connectRemoteWorkspaceTarget(reconnectTarget, options?.requestId, {
       workspacePath: sessionEntry.workspacePath,
       workspaceIdentity: fallbackWorkspaceIdentity,
-      connectTrigger: "reconnect",
     });
     if (reconnectTarget.kind === "ssh") {
       // Host ready 与 provider/task 等 workspace 初始化必须分阶段通知。

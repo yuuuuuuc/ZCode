@@ -1,8 +1,8 @@
 {
   "name": "@zcode/desktop",
   "private": true,
-  "description": "ZCode Desktop App",
-  "author": "ZCode",
+  "description": "Ycode Desktop App",
+  "author": "Ycode",
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
@@ -27,8 +27,6 @@
     "lint:fix": "oxlint --fix"
   },
   "dependencies": {
-    "@arms/rum-electron": "^0.0.3",
-    "@babel/runtime": "^7.24.5",
     "@fiahfy/icns": "^0.0.7",
     "@lydell/node-pty-linux-arm64": "1.2.0-beta.10",
     "@lydell/node-pty-linux-x64": "1.2.0-beta.10",
@@ -82,5 +80,5 @@
     "typescript": "^6.0.2",
     "vite": "^8.0.2"
   },
-  "productName": "ZCode"
+  "productName": "Ycode"
 }

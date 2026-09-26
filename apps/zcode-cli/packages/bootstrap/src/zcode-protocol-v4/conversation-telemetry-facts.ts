@@ -333,10 +333,6 @@ export class ConversationTelemetryFactNormalizer {
           kind: "turn.started",
           ...(inputId ? { sourceCommandId: inputId } : {}),
           ...automationAdmission(inputId, optionalString(payload.automationId)),
-          ...(optionalString(payload.offPeakTaskId)
-            ? { offPeakTaskId: optionalString(payload.offPeakTaskId) }
-            : {}),
-          ...(payload.offPeakRunType ? { offPeakRunType: payload.offPeakRunType } : {}),
           ...(payload.executionKind ? { executionKind: payload.executionKind } : {}),
           ...(payload.inputSource ? { inputSource: payload.inputSource } : {}),
           ...(backgroundSource ? { backgroundSource } : {}),

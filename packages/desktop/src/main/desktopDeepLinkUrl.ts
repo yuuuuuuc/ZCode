@@ -1,7 +1,5 @@
 const DEEP_LINK_SCHEME = "zcode";
 const DEEP_LINK_RE = /\bzcode:(?:\/\/|\/)?[^\s"'<>]+/i;
-const OAUTH_CALLBACK_HOSTS = new Set(["oauth"]);
-const PAYMENT_CALLBACK_HOST = "payment";
 const WORKSPACE_OPEN_HOST = "workspace";
 const SHARE_IMPORT_HOST = "share";
 const DEEP_LINK_ADDITIONAL_DATA_KEY = "deepLinkUrl";
@@ -12,44 +10,6 @@ function normalizeOAuthCallbackPath(pathname: string): string {
   const withoutTrailingSlash = pathname.replace(/\/+$/, "");
   const normalized = withoutTrailingSlash === "" ? "/" : withoutTrailingSlash;
   return `/${normalized.replace(/^\/+/, "")}`;
-}
-
-export function isOAuthCallbackUrl(parsedUrl: URL): boolean {
-  if (parsedUrl.protocol !== `${DEEP_LINK_SCHEME}:`) {
-    return false;
-  }
-
-  const normalizedPath = normalizeOAuthCallbackPath(parsedUrl.pathname);
-  if (OAUTH_CALLBACK_HOSTS.has(parsedUrl.hostname)) {
-    return normalizedPath === "/callback";
-  }
-
-  if (parsedUrl.hostname) {
-    return false;
-  }
-
-  const [, host, ...pathParts] = normalizedPath.split("/");
-  return Boolean(
-    host && OAUTH_CALLBACK_HOSTS.has(host) && `/${pathParts.join("/")}` === "/callback",
-  );
-}
-
-export function isPaymentCallbackUrl(parsedUrl: URL): boolean {
-  if (parsedUrl.protocol !== `${DEEP_LINK_SCHEME}:`) {
-    return false;
-  }
-
-  const normalizedPath = normalizeOAuthCallbackPath(parsedUrl.pathname);
-  if (parsedUrl.hostname === PAYMENT_CALLBACK_HOST) {
-    return normalizedPath === "/callback";
-  }
-
-  if (parsedUrl.hostname) {
-    return false;
-  }
-
-  const [, host, ...pathParts] = normalizedPath.split("/");
-  return Boolean(host === PAYMENT_CALLBACK_HOST && `/${pathParts.join("/")}` === "/callback");
 }
 
 export function isWorkspaceOpenUrl(parsedUrl: URL): boolean {
@@ -158,18 +118,6 @@ function isCompleteDeepLinkUrl(value: string): boolean {
     parsedUrl = new URL(value);
   } catch {
     return false;
-  }
-
-  if (isOAuthCallbackUrl(parsedUrl)) {
-    return parsedUrl.searchParams.has("state");
-  }
-
-  if (isPaymentCallbackUrl(parsedUrl)) {
-    return (
-      parsedUrl.searchParams.has("provider") &&
-      parsedUrl.searchParams.has("channel") &&
-      parsedUrl.searchParams.has("status")
-    );
   }
 
   if (isWorkspaceOpenUrl(parsedUrl)) {

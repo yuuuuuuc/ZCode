@@ -21,7 +21,6 @@ export interface EffectiveModelSelectionResult {
   readonly effectiveSelection: ModelSelection | null;
   readonly selectionIssue?:
     | "selection-missing"
-    | "account-connection-unavailable"
     | "provider-not-found"
     | "model-not-found"
     | "reasoning-level-missing"

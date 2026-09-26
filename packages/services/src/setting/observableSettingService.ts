@@ -21,9 +21,8 @@ export function createObservableSettingService(base: ISettingService): Observabl
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    async update(patch, expectedAccountSettings): Promise<void> {
-      if (expectedAccountSettings) await base.update(patch, expectedAccountSettings);
-      else await base.update(patch);
+    async update(patch): Promise<void> {
+      await base.update(patch);
       const keys = Object.freeze(Object.keys(patch) as (keyof AppSettings)[]);
       if (keys.length === 0) return;
       const event = Object.freeze({ keys });

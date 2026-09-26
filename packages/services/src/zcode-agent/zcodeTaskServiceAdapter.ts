@@ -3,12 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import {
-  Emitter,
-  Event,
-  emitNetworkTelemetryObservation,
-  type NetworkObservation,
-} from "@zcode/rpc";
+import { Emitter, Event } from "@zcode/rpc";
 import {
   coalesceConsecutiveZCodeAssistants,
   createSessionTraceId,
@@ -121,7 +116,6 @@ import type {
 import { createServiceLogger } from "#src/logger/serviceLogger.js";
 import {
   AUTOMATION_MUTATION_TOOL_NAMES,
-  OFF_PEAK_MUTATION_TOOL_NAMES,
 } from "#src/zcode-agent/automationToolPolicy.js";
 import type { ISettingService } from "#src/setting/setting.js";
 import type {
@@ -295,7 +289,6 @@ export function createZCodeTaskServiceAdapter(
 
   function resolvePromptToolDenylist(params: {
     automationId?: string;
-    offPeakTaskId?: string;
     toolDenylist?: string[];
   }): string[] | undefined {
     const toolDenylist = new Set(params.toolDenylist);
@@ -304,12 +297,6 @@ export function createZCodeTaskServiceAdapter(
     // automationId；cronAutomationId 仅保留任务归属和 UI 展示语义。
     if (params.automationId) {
       for (const toolName of AUTOMATION_MUTATION_TOOL_NAMES) {
-        toolDenylist.add(toolName);
-      }
-    }
-    // 闲时派发轮纵深隐藏 OffPeakCreate；不与 automation 分支合并（cron 轮放行）。
-    if (params.offPeakTaskId) {
-      for (const toolName of OFF_PEAK_MUTATION_TOOL_NAMES) {
         toolDenylist.add(toolName);
       }
     }
@@ -1633,7 +1620,6 @@ export function createZCodeTaskServiceAdapter(
     }
 
     if (event.type === "session.event") {
-      recordAgentModelNetworkTelemetry(event.event);
       if (event.event.type === "turn.started") {
         const payload = asRecord(event.event.payload);
         const inputId = stringValue(payload.inputId);
@@ -5367,104 +5353,6 @@ function apiRetryFromSessionInfoPayload(
     zcodeApiRetryFromStreamRecoveryPayload(payload) ??
     zcodeApiRetryFromModelNetworkStatusPayload(payload)
   );
-}
-
-function recordAgentModelNetworkTelemetry(event: ZCodeSessionEvent): void {
-  const observation = agentModelNetworkObservationFromEvent(event);
-  if (!observation) {
-    return;
-  }
-  try {
-    emitNetworkTelemetryObservation(observation);
-  } catch (error) {
-    // 修复原因：agent 模型网络遥测属于旁路指标，sink 异常不能影响主会话消息流。
-    logger.warn(undefined, "上报 agent 模型网络遥测失败", error);
-  }
-}
-
-function agentModelNetworkObservationFromEvent(
-  event: ZCodeSessionEvent,
-): NetworkObservation | null {
-  const payload = asRecord(event.payload);
-  const type = stringValue(payload.type);
-  if (type !== "model_request_completed" && type !== "model_request_failed") {
-    return null;
-  }
-  // 修复原因：retryable failed 只是同一次逻辑请求的中间 attempt，最终 completed/failed 会带总 attempt。
-  // 如果这里也计数，会把成功率、失败率和重试率同时放大。
-  if (type === "model_request_failed" && booleanValue(payload.retryable) === true) {
-    return null;
-  }
-
-  const durationMs = Math.max(0, Math.round(numberValue(payload.durationMs) ?? 0));
-  const statusCode = nonNegativeIntegerValue(payload.statusCode);
-  const ok = type === "model_request_completed";
-  return {
-    transport: "http",
-    interface: buildAgentModelNetworkInterface(payload),
-    durationMs,
-    ok,
-    ...(statusCode !== undefined ? { statusCode } : {}),
-    ...(ok ? {} : { errorKind: classifyAgentModelNetworkError(payload, statusCode) }),
-    attempt: positiveIntegerValue(payload.attempt) ?? 1,
-  };
-}
-
-function buildAgentModelNetworkInterface(payload: Record<string, unknown>): string {
-  const providerKind = safeNetworkDimension(stringValue(payload.providerKind)) ?? "unknown";
-  const transport = safeNetworkDimension(stringValue(payload.transport)) ?? "unknown";
-  const base = normalizeAgentModelBaseUrl(stringValue(payload.baseURL));
-  return `zcode_agent.model.${providerKind}.${transport}.${base}`;
-}
-
-function normalizeAgentModelBaseUrl(value: string | undefined): string {
-  if (!value) {
-    return "unknown";
-  }
-  try {
-    const parsed = new URL(value);
-    const pathname = parsed.pathname.replace(/\/+$/u, "") || "/";
-    const safePath = pathname.length > 80 ? `${pathname.slice(0, 80)}...` : pathname;
-    return `${parsed.host}${safePath}`;
-  } catch {
-    return safeNetworkDimension(value, 120) ?? "unknown";
-  }
-}
-
-function safeNetworkDimension(value: string | undefined, maxLength = 48): string | undefined {
-  const trimmed = value?.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-  const safe = trimmed.replace(/[?#[\]{}|\\^`"'<>\s]+/gu, "_");
-  return safe.length > maxLength ? `${safe.slice(0, maxLength)}...` : safe;
-}
-
-function classifyAgentModelNetworkError(
-  payload: Record<string, unknown>,
-  statusCode: number | undefined,
-): string {
-  const reason = stringValue(payload.reason);
-  switch (reason) {
-    case "timeout":
-    case "stream_idle_timeout":
-      return "timeout";
-    case "network_error":
-    case "stale_connection":
-      return "connection_reset";
-    case "proxy_error":
-      return "proxy_error";
-    case "tls_error":
-      return "tls_error";
-    default:
-      if (statusCode !== undefined && statusCode >= 500) {
-        return "server_error";
-      }
-      if (statusCode !== undefined && statusCode >= 400) {
-        return "client_error";
-      }
-      return "other";
-  }
 }
 
 type ContextUsageUpdate = Pick<

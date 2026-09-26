@@ -20,10 +20,10 @@ export function useCredentials() {
 
 /** active provider access_token 专用便捷 hook */
 export function useAuthToken() {
-  const { credentialService, oauthService } = useServices();
+  const { credentialService } = useServices();
 
   const getToken = useCallback(async () => {
-    const activeProvider = await oauthService.getActiveProvider();
+    const activeProvider = await Promise.resolve(null);
     if (!activeProvider) {
       return null;
     }
@@ -40,19 +40,19 @@ export function useAuthToken() {
     }
 
     return null;
-  }, [credentialService, oauthService]);
+  }, [credentialService]);
   const setToken = useCallback(
     async (token: string) => {
-      const activeProvider = await oauthService.getActiveProvider();
+      const activeProvider = await Promise.resolve(null);
       if (!activeProvider) {
         throw new Error("当前没有 active provider，无法写入 auth token");
       }
       await credentialService.save(`oauth:${activeProvider}:access_token`, token);
     },
-    [credentialService, oauthService],
+    [credentialService],
   );
   const clearToken = useCallback(async () => {
-    const activeProvider = await oauthService.getActiveProvider();
+    const activeProvider = await Promise.resolve(null);
     if (!activeProvider) {
       return;
     }
@@ -60,7 +60,7 @@ export function useAuthToken() {
     if (activeProvider === "bigmodel") {
       await credentialService.delete("auth_token");
     }
-  }, [credentialService, oauthService]);
+  }, [credentialService]);
 
   return { getToken, setToken, clearToken };
 }

@@ -40,20 +40,7 @@ export type SlashCommand =
       name: "locale";
       rawName: string;
       type: "known";
-    }
-  | {
-      args: string;
-      name: "login";
-      rawName: string;
-      type: "known";
-    }
-  | {
-      args: string;
-      name: "logout";
-      rawName: string;
-      type: "known";
-    }
-  | {
+    }  | {
       args: string;
       name: "mcp";
       rawName: string;

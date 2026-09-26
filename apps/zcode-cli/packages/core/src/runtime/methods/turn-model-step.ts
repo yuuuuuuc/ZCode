@@ -47,12 +47,12 @@ import {
 import { createStreamingToolCoordinator } from "./streaming-tool-coordinator.js";
 import { persistCancelledStreamSnapshot } from "./cancelled-stream-persistence.js";
 import {
-  beginStartPlanBusyAdmissionRetryAttempt,
-  createStartPlanBusyAutoRetryExhaustedError,
+  beginBusyAdmissionAdmissionRetryAttempt,
+  createBusyAdmissionAutoRetryExhaustedError,
   emitStreamRecoveryRetryEvents,
   emitStreamRecoveryStarted,
-  getStartPlanBusyAdmissionRetryDelayMs,
-  isStartPlanBusyStreamRecoveryFailure,
+  getBusyAdmissionAdmissionRetryDelayMs,
+  isBusyAdmissionStreamRecoveryFailure,
 } from "./streaming-recovery.js";
 import type { RegularTurnLoopState } from "./turn-loop-state.js";
 import {
@@ -286,7 +286,7 @@ async function runModelBackedTurnStepImpl(
       }
       return "continue";
     }
-    const admissionRetryDelayMs = getStartPlanBusyAdmissionRetryDelayMs({
+    const admissionRetryDelayMs = getBusyAdmissionAdmissionRetryDelayMs({
       error: finalError,
       providerId: executionModelSelection.providerId,
       state,
@@ -295,7 +295,7 @@ async function runModelBackedTurnStepImpl(
     if (!state.turnAbortSignal.aborted && admissionRetryDelayMs !== undefined) {
       // 第二轮及以后 Start Plan 可能在首 token 前被 admission 并发限制拒绝；
       // 这时没有文本或 tool anchor，旧 stream recovery 不会启动，必须关闭空 assistant 后短重试。
-      const recoveryAttempt = beginStartPlanBusyAdmissionRetryAttempt(state);
+      const recoveryAttempt = beginBusyAdmissionAdmissionRetryAttempt(state);
       this.logger?.warn("Main turn retrying after Start Plan admission busy", {
         ...traceContextToLogContext(modelTraceContext),
         event: "model.main_turn.retry_start_plan_admission_busy",
@@ -356,11 +356,11 @@ async function runModelBackedTurnStepImpl(
     if (
       state.streamRecoveryRetryCount > 0 &&
       !state.turnAbortSignal.aborted &&
-      isStartPlanBusyStreamRecoveryFailure(finalError)
+      isBusyAdmissionStreamRecoveryFailure(finalError)
     ) {
       // Start Plan 运行中断流会先走 core stream recovery；恢复次数耗尽后，
       // 继续抛原 provider 文案会和首轮繁忙失败无法区分，UI 也就不能展示“自动重试达到最大次数”。
-      finalError = createStartPlanBusyAutoRetryExhaustedError(finalError);
+      finalError = createBusyAdmissionAutoRetryExhaustedError(finalError);
     }
     await streamingToolCoordinator.abandon(
       state.turnAbortSignal.aborted ? "cancelled" : "model_failed",

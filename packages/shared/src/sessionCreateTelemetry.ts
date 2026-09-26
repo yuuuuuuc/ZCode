@@ -3,7 +3,7 @@ import { z } from "zod";
 export type SessionCreateSource = "group" | "project" | "session";
 export type SessionCreateClientKind = "desktop" | "mobile" | "web";
 
-/** 手机转发只开放本事件；公共用户/设备身份仍由桌面 TelemetryCore 注入。 */
+/** 手机转发只开放本事件。 */
 export const sessionCreateTelemetrySchema = z
   .object({
     elementName: z.literal("session_create"),

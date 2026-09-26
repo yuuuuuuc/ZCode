@@ -1,4 +1,3 @@
-import { recordArmsCustomEventForE2E } from "@zcode/ui";
 import { DesktopCommandIds, buildLocalMediaPreviewUrl, type IPlatformService } from "@zcode/shared";
 
 import { desktopBrowserPlatformBridge } from "./desktopBrowserPlatformBridge.js";
@@ -51,16 +50,8 @@ export function createDesktopPlatform(options: {
     startCuaHelperPermissionDrag: window.zcode.startCuaHelperPermissionDrag
       ? () => window.zcode.startCuaHelperPermissionDrag?.()
       : undefined,
-    registerOAuthState: (payload) => window.zcode.registerOAuthState(payload),
-    onOAuthCallback: (callback) => window.zcode.onOAuthCallback(callback),
-    onPaymentCallback: (callback) => window.zcode.onPaymentCallback(callback),
     onShareImport: (callback) => window.zcode.onShareImport?.(callback) ?? (() => {}),
     notifyRendererReady: () => window.zcode.notifyRendererReady(),
-    reportTelemetryEvent: (payload) => window.zcode.reportTelemetryEvent(payload),
-    reportArmsCustomEvent: (payload) => {
-      recordArmsCustomEventForE2E(payload);
-      return window.zcode.reportArmsCustomEvent(payload);
-    },
     getRendererActionTraceConfig: window.zcode.getRendererActionTraceConfig
       ? () => window.zcode.getRendererActionTraceConfig!()
       : undefined,
@@ -70,9 +61,6 @@ export function createDesktopPlatform(options: {
     reportLocalTtftBatch: (batch) => window.zcode.reportLocalTtftBatch(batch),
     reportRendererActionTraceBatch: window.zcode.reportRendererActionTraceBatch
       ? (batch) => window.zcode.reportRendererActionTraceBatch!(batch)
-      : undefined,
-    reportRendererHeapSample: window.zcode.reportRendererHeapSample
-      ? (sample) => window.zcode.reportRendererHeapSample!(sample)
       : undefined,
     showTaskNotification: (payload) => window.zcode.showTaskNotification(payload),
     syncWindowTabs: (paths) => window.zcode.syncWindowTabs(paths),
@@ -158,7 +146,5 @@ export function createDesktopPlatform(options: {
       window.zcode.getSystemLocale?.() ??
       Promise.resolve(navigator.language.toLowerCase().startsWith("zh") ? "zh-CN" : "en-US"),
     setTitleBarTheme: (theme) => window.zcode.setTitleBarTheme(theme),
-    getDeviceId: () =>
-      (window as Window & { __ZCODE_DEVICE_ID__?: string }).__ZCODE_DEVICE_ID__ ?? "",
   };
 }

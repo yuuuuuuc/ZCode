@@ -11,7 +11,6 @@ import {
   PROTOCOL_V4_LIMITS,
   type ConversationRow,
   type ConversationSnapshot,
-  type ConversationOpenTiming,
   type ConversationTopicFrame,
   type SessionModelTransition,
   type ToolCallRow,
@@ -107,10 +106,6 @@ export interface ConversationStoreState {
   snapshot: ConversationSnapshot | null;
   subscriptionId: string | null;
   lastError: string | null;
-  /** 首次 conversation subscribe 的低频 Host/CLI timing；不进入 snapshot 事实。 */
-  openTiming?: ConversationOpenTiming;
-  /** Renderer 首帧 timing；与 snapshot 一起通知，避免 UI 读取到半更新的诊断状态。 */
-  rendererTiming?: SessionOpenRendererTiming;
   optimisticCommands: readonly OptimisticCommand[];
   /** loadOlder 在途标记（自动预取防重入）。 */
   loadingOlder: boolean;
@@ -129,19 +124,11 @@ export interface ConversationStoreState {
   turnNavigatorDirectoryRevision: number;
 }
 
-export interface SessionOpenRendererTiming {
-  rendererPrepareMs?: number;
-  initialFrameTransportMs?: number;
-  rendererSnapshotApplyMs?: number;
-  snapshotAppliedAt?: number;
-}
-
 const INITIAL_STATE: ConversationStoreState = {
   status: "connecting",
   snapshot: null,
   subscriptionId: null,
   lastError: null,
-  rendererTiming: undefined,
   optimisticCommands: [],
   loadingOlder: false,
   sessionPlans: [],
@@ -310,8 +297,6 @@ export class ConversationProjectionStore {
   private readonly offRuntimeLifecycle: (() => void) | null = null;
   private runtimeRecycleRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private runtimeRecycleRetryAttempt = 0;
-  private sessionOpenRendererTiming: SessionOpenRendererTiming = {};
-  private initialSubscribeAckAt: number | null = null;
   private planQueryInFlight = false;
   private planQueryPending = false;
   /** accepted input 的 projection confirmation watchdog；不承载命令，也不生成本地事实。 */
@@ -366,10 +351,6 @@ export class ConversationProjectionStore {
     return this.state;
   }
 
-  getSessionOpenRendererTiming(): SessionOpenRendererTiming {
-    return { ...this.sessionOpenRendererTiming };
-  }
-
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -393,14 +374,12 @@ export class ConversationProjectionStore {
     options: {
       forceSnapshot?: boolean;
       initialOverflowRetry?: boolean;
-      rendererPrepareStartedAt?: number;
     } = {},
   ): Promise<void> {
     if (this.closed) return;
     const generation = ++this.generation;
     this.discardRecovery();
     const snapshot = options.forceSnapshot ? null : this.state.snapshot;
-    const connectStartedAt = options.rendererPrepareStartedAt ?? monotonicNow();
     const subscribeStartedAt = monotonicNow();
     logger.lifecycle.info("v4 conversation store connect started", {
       event: "v4.conversation.store.connect.started",
@@ -410,12 +389,8 @@ export class ConversationProjectionStore {
       status: "started",
       topic: this.topic,
     });
-    this.sessionOpenRendererTiming = {
-      rendererPrepareMs: roundedDuration(connectStartedAt, subscribeStartedAt),
-    };
-    this.initialSubscribeAckAt = null;
     this.connectInFlight += 1;
-    this.setState({ status: "connecting", rendererTiming: this.sessionOpenRendererTiming });
+    this.setState({ status: "connecting" });
     try {
       const result = await this.transport.subscribe({
         topic: this.topic,
@@ -442,12 +417,10 @@ export class ConversationProjectionStore {
       // 会原子替换整个投影，旧恢复流已无意义；否则其迟到失败会把 live 的新订阅打成 error。
       this.discardRecovery();
       this.runtimeRecycleRetryAttempt = 0;
-      this.initialSubscribeAckAt = monotonicNow();
       this.setState({
         status: "live",
         subscriptionId: result.ack.subscriptionId,
         lastError: null,
-        openTiming: result.ack.openTiming,
       });
       this.subscriptionHasAppliedBase = Boolean(
         snapshot && result.ack.mode === "resume" && result.ack.logEpoch === snapshot.logEpoch,
@@ -605,7 +578,6 @@ export class ConversationProjectionStore {
     const awaitingInitial =
       this.awaitingInitial?.subscriptionId === frame.subscriptionId ? this.awaitingInitial : null;
     const deliveryKind = delivery?.deliveryKind ?? "online";
-    const frameReceivedAt = monotonicNow();
     // RPC 时序无法证明帧用途。只有 publisher 标记的 initial 才消费
     // awaitingInitial；recovery 必须优先清除此状态，避免 recovery gap 被误判为
     // original subscribe gap 而换新 subId。迟到 online duplicate 不得消费任何闸门。
@@ -637,7 +609,6 @@ export class ConversationProjectionStore {
       subscribeMode: initial?.mode ?? null,
       recovery: deliveryKind === "recovery",
       online: deliveryKind === "online",
-      frameReceivedAt,
     });
   }
 
@@ -647,7 +618,6 @@ export class ConversationProjectionStore {
       subscribeMode: "snapshot" | "resume" | null;
       recovery: boolean;
       online: boolean;
-      frameReceivedAt?: number;
     },
   ): void {
     if (frame.payload.kind === "snapshot") {
@@ -672,23 +642,6 @@ export class ConversationProjectionStore {
       // applied base；其中的持久 transition 可能早于本次订阅，不能冒充实时新事件。
       // 首帧只播种观察基线，后续 online 跃迁才通知 pane。
       this.observeModelTransition(frame.payload.snapshot, context.online && hadAppliedBase);
-      if (context.subscribeMode !== null && context.frameReceivedAt !== undefined) {
-        const snapshotAppliedAt = monotonicNow();
-        this.sessionOpenRendererTiming = {
-          ...this.sessionOpenRendererTiming,
-          ...(this.initialSubscribeAckAt === null
-            ? {}
-            : {
-                initialFrameTransportMs: roundedDuration(
-                  this.initialSubscribeAckAt,
-                  context.frameReceivedAt,
-                ),
-              }),
-          rendererSnapshotApplyMs: roundedDuration(context.frameReceivedAt, snapshotAppliedAt),
-          snapshotAppliedAt,
-        };
-        this.setState({ rendererTiming: this.sessionOpenRendererTiming });
-      }
       if (context.recovery) this.markRecoveryFrameSeen();
       return;
     }

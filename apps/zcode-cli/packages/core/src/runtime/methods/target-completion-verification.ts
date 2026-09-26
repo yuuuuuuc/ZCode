@@ -23,7 +23,7 @@ import { isRuntimeAttachmentEntry, type RuntimeMessageEntry } from "../../agent/
 import { createRefreshRuntimeHeadersBeforeModelAttempt } from "./model-runtime-headers.js";
 import { resolveModelRequestSessionTypeFromTaskType } from "./model-request-session-type.js";
 import { createRuntimeModel } from "./runtime-model.js";
-import { isStartPlanBusyStreamRecoveryFailure } from "./streaming-recovery.js";
+import { isBusyAdmissionStreamRecoveryFailure } from "./streaming-recovery.js";
 import { recordModelUsageFact } from "./usage-observability.js";
 import { runTargetCompletionVerificationWithTelemetry } from "./target-completion-verification-telemetry.js";
 
@@ -349,7 +349,7 @@ async function generateTargetCompletionVerificationText(
       if (
         input.abortSignal?.aborted ||
         retryDelayMs === undefined ||
-        !isTargetVerifierStartPlanBusyFailure(error, input.model.providerId)
+        !isTargetVerifierBusyAdmissionFailure(error, input.model.providerId)
       ) {
         throw error;
       }
@@ -373,10 +373,10 @@ async function generateTargetCompletionVerificationText(
   throw new Error("Goal completion verification retry loop exhausted unexpectedly.");
 }
 
-function isTargetVerifierStartPlanBusyFailure(error: unknown, providerId: string): boolean {
+function isTargetVerifierBusyAdmissionFailure(error: unknown, providerId: string): boolean {
   return (
     START_PLAN_TARGET_VERIFIER_RETRY_PROVIDER_IDS.has(providerId) &&
-    isStartPlanBusyStreamRecoveryFailure(error)
+    isBusyAdmissionStreamRecoveryFailure(error)
   );
 }
 

@@ -1,4 +1,4 @@
-/* eslint-disable max-lines -- 跨端 platform contract 集中声明 renderer 能力；OAuth 与 browser lifecycle 必须保持 desktop/web 类型合同，本 MR 不拆分平台边界。 */
+/* eslint-disable max-lines -- 跨端 platform contract 集中声明 renderer 能力；browser lifecycle 必须保持 desktop/web 类型合同，本 MR 不拆分平台边界。 */
 import type {
   DockerConnectOptions,
   RemoteTarget,
@@ -12,14 +12,11 @@ import type {
   MigrateLegacyCommonMcpResult,
   SaveCliMcpToUserDirectoryRequest,
 } from "./mcp.js";
-import type { OAuthStateRegistration } from "./oauth.js";
 import type { AppSettings, Locale } from "./protocol.js";
-import type { ArmsCustomEventPayload, RendererTelemetryEventPayload } from "./telemetry.js";
 import type {
   RendererActionTraceBatchV1,
   RendererActionTraceConfigV1,
 } from "./rendererActionTrace.js";
-import type { RendererHeapSample } from "./validation.js";
 import type {
   CuaAccessibilitySettingsResult,
   OpenCuaPermissionOnboardingOptions,
@@ -450,7 +447,6 @@ export interface ConnectRemoteRequest {
   requestId?: string;
   workspacePath?: string;
   workspaceIdentity?: string;
-  connectTrigger?: import("./remoteUsageTelemetry.js").RemoteWorkspaceConnectTrigger;
 }
 
 export interface CancelPendingRemoteConnectionRequest {
@@ -490,7 +486,6 @@ export const DesktopCommandIds = {
   SetZCodeEndpointCustom: "setZCodeEndpointCustom",
   ResetZCodeEndpoint: "resetZCodeEndpoint",
   ClearAllData: "clearAllData",
-  ClearCodingPlanWebviewStorage: "clearCodingPlanWebviewStorage",
   GetCuaOsSupport: "getCuaOsSupport",
 } as const;
 
@@ -574,7 +569,6 @@ export interface IPlatformService {
     context?: {
       workspacePath: string;
       workspaceIdentity?: string;
-      connectTrigger?: import("./remoteUsageTelemetry.js").RemoteWorkspaceConnectTrigger;
     },
   ): Promise<{ success: boolean; error?: string; sessionId?: string }>;
 
@@ -616,7 +610,7 @@ export interface IPlatformService {
     payload?: MigrateLegacyCommonMcpRequest,
   ): Promise<MigrateLegacyCommonMcpResult>;
 
-  /** 打开外部 URL（用于 OAuth 跳转浏览器） */
+  /** 打开外部 URL */
   openExternal(url: string): void;
 
   /** 按系统应用标识读取真实 App 图标；非 Desktop 平台可不实现。 */
@@ -660,21 +654,6 @@ export interface IPlatformService {
   /** 从权限浮窗把 Helper.app 拖进 macOS 权限列表。Desktop only。 */
   startCuaHelperPermissionDrag?(): void;
 
-  /** 上报 OAuth state 给 main process，用于 deep link 路由 */
-  registerOAuthState(payload: OAuthStateRegistration): void;
-
-  /**
-   * 注册 OAuth deep link 回调监听
-   * @returns disposer 函数，调用后只移除当前回调
-   */
-  onOAuthCallback(callback: (url: string) => void): () => void;
-
-  /**
-   * 注册支付 deep link 回调监听
-   * @returns disposer 函数，调用后只移除当前回调
-   */
-  onPaymentCallback(callback: (url: string) => void): () => void;
-
   /** 注册 `zcode://share/import?code=...` 导入意图。 */
   onShareImport?(callback: (payload: { shareCode: string }) => void): () => void;
 
@@ -683,12 +662,6 @@ export interface IPlatformService {
 
   /** 触发任务状态对应的系统通知，由宿主环境决定是否真正展示 */
   showTaskNotification(payload: TaskNotificationPayload): void;
-
-  /** 通过宿主环境统一上报 UI 侧 telemetry 事件 */
-  reportTelemetryEvent(payload: RendererTelemetryEventPayload): Promise<void>;
-
-  /** 通过宿主环境上报 ARMS 自定义事件；Web 端当前为空实现 */
-  reportArmsCustomEvent(payload: ArmsCustomEventPayload): Promise<void>;
 
   /** 读取 Desktop Renderer 用户操作 Trace 的当前灰度配置；Web/手机不实现。 */
   getRendererActionTraceConfig?(): Promise<RendererActionTraceConfigV1>;
@@ -699,12 +672,6 @@ export interface IPlatformService {
   /** Renderer → Main：发送已结束的 ui_action batch；严格旁路、fire-and-forget。 */
   reportRendererActionTraceBatch?(batch: RendererActionTraceBatchV1): void;
   reportLocalTtftBatch?(batch: import("./localTtft.js").LocalTtftBatch): void;
-
-  /**
-   * Renderer → Main：主窗口 renderer 每 60 秒的 heap 读数，进 `renderer_main` 角色事件。单向 send、fire-and-forget；
-   * Web 端与手机远控没有桥，不实现即 no-op。
-   */
-  reportRendererHeapSample?(sample: RendererHeapSample): void;
 
   /** 同步当前窗口所有 tab 的 workspace 路径到 main 进程（用于跨窗口去重） */
   syncWindowTabs(paths: string[]): void;
@@ -959,12 +926,4 @@ export interface IPlatformService {
 
   /** 同步桌面标题栏亮/暗色，驱动原生窗口控制按钮配色 */
   setTitleBarTheme(theme: DesktopTitleBarTheme): Promise<void>;
-
-  /** 获取当前设备的稳定标识符
-   *
-   * - 桌面端：基于 userData 路径的 SHA-256，始终稳定且唯一
-   * - 手机端（Web 远程控制）：物理属性指纹（browserPlatform | screen.width | screen.height | colorDepth），
-   *   抗浏览器/网络/语言/时区变化，换手机才会变
-   */
-  getDeviceId(): string;
 }

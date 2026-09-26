@@ -11,10 +11,6 @@ import {
 } from "@zcode/ui";
 import "@zcode/ui/styles.css";
 import { connectViaWebSocket } from "@zcode/client";
-import { WebCallbackPage } from "./auth/WebCallbackPage.js";
-import { createWebAuthService } from "./auth/webAuthService.js";
-import { WEB_ZAI_OAUTH_CONFIG, resolveWebAuthDevReturnTo } from "./auth/webZaiOAuthConfig.js";
-import { parseOAuthState, resolveSafeAppReturnTo } from "./auth/oauthStateCodec.js";
 import { resolveWebCommunityUrl, resolveWebHelpConfig } from "./communityUrl.js";
 import {
   ConversationShareLandingLoader,
@@ -71,7 +67,6 @@ async function resolveFeedbackUrl(): Promise<string | undefined> {
 }
 
 const root = createRoot(document.getElementById("root")!);
-const webAuthService = createWebAuthService();
 
 // 初始化 Web 端流式 clientId，确保所有 hook 在首次渲染前就使用稳定 ID
 {
@@ -87,33 +82,6 @@ interface WebBootstrapResult {
   allowOpenWorkspace?: boolean;
 }
 
-function isWebOAuthCallback(params: URLSearchParams): boolean {
-  return (
-    ["/cn/share/callback", "/share/callback"].includes(window.location.pathname) &&
-    params.has("state") &&
-    (params.has("code") || params.has("error"))
-  );
-}
-
-function renderWebAuthCallbackPage(): void {
-  document.title = "ZCode - Sign In";
-  const callbackState = parseOAuthState(
-    new URLSearchParams(window.location.search).get("state") ?? "",
-  );
-  const safeRetryTarget = resolveSafeAppReturnTo(callbackState?.app_return_to);
-  root.render(
-    <WebCallbackPage
-      authService={webAuthService}
-      onSuccess={({ appReturnTo }) => {
-        window.location.replace(appReturnTo ?? "/");
-      }}
-      onRetry={() => {
-        window.location.replace(safeRetryTarget ?? "/");
-      }}
-    />,
-  );
-}
-
 async function renderConversationSharePage(): Promise<void> {
   // 页面语言跟随路径前缀：/cn/share 中文，裸 /share 英文。
   const routeLocale = resolveConversationShareRouteLocale(window.location.pathname);
@@ -121,7 +89,7 @@ async function renderConversationSharePage(): Promise<void> {
   document.documentElement.lang = routeLocale;
   // 分享页必须设置 title：否则浏览器标签只显示 index.html 的通用标题。
   // 会话标题要等 preview 加载完，先给一个语言正确的兜底。
-  document.title = routeLocale === "zh-CN" ? "ZCode 会话分享" : "ZCode Conversation Share";
+  document.title = routeLocale === "zh-CN" ? "Ycode 会话分享" : "Ycode Conversation Share";
   const shareCode = resolveConversationShareCodeFromPath(window.location.pathname);
   if (!shareCode) {
     root.render(
@@ -160,26 +128,12 @@ async function renderConversationSharePage(): Promise<void> {
       window.location.reload();
       return;
     }
-    void webAuthService.logout();
   };
   root.render(
     <ConversationShareLandingLoader
       shareCode={shareCode}
       client={client}
-      getAccessToken={() => getMockToken() ?? webAuthService.getZCodeJwtToken()}
-      onLogin={(provider) => {
-        if (mockMode) {
-          window.sessionStorage.setItem("zcode:share:mock-auth", "owner");
-          window.location.reload();
-          return;
-        }
-        webAuthService.startLogin({
-          provider,
-          appReturnTo: window.location.href,
-          redirectUri: WEB_ZAI_OAUTH_CONFIG.shareRedirectUri,
-          devReturnTo: resolveWebAuthDevReturnTo(WEB_ZAI_OAUTH_CONFIG),
-        });
-      }}
+      getAccessToken={() => getMockToken()}
       onLogout={onLogout}
       locale={routeLocale}
       theme={resolveWebThemePreference("zai-light")}
@@ -255,13 +209,8 @@ function createWebPlatform(): IPlatformService {
     openInFileManager: () =>
       Promise.resolve({ success: false, error: "Not supported in web mode" }),
     openExternalFile: () => Promise.resolve({ success: false, error: "Not supported in web mode" }),
-    registerOAuthState: (_payload) => {},
-    onOAuthCallback: () => () => {},
-    onPaymentCallback: () => () => {},
     onShareImport: () => () => {},
     notifyRendererReady: () => {},
-    reportTelemetryEvent: async () => {},
-    reportArmsCustomEvent: () => Promise.resolve(),
     showTaskNotification: (payload) => {
       if (document.hasFocus()) {
         return;
@@ -334,20 +283,6 @@ function createWebPlatform(): IPlatformService {
     executeDesktopCommand: () => Promise.resolve(),
     setApplicationLocale: (_locale) => Promise.resolve(),
     setTitleBarTheme: () => Promise.resolve(),
-    getDeviceId: () => {
-      const nav = globalThis.navigator as Navigator & { platform?: string };
-      const platform = nav?.platform ?? "";
-      const screenWidth = globalThis.screen?.width;
-      const screenHeight = globalThis.screen?.height;
-      const colorDepth = globalThis.screen?.colorDepth;
-      const parts = [
-        platform,
-        screenWidth !== undefined ? String(screenWidth) : "",
-        screenHeight !== undefined ? String(screenHeight) : "",
-        colorDepth !== undefined ? String(colorDepth) : "",
-      ];
-      return parts.filter(Boolean).join("|");
-    },
   };
 }
 
@@ -415,7 +350,7 @@ function WebBootstrapErrorScreen({ message }: { message: string }) {
 }
 
 function renderWebBootstrapError(error: unknown): void {
-  document.title = "ZCode - Web";
+  document.title = "Ycode - Web";
   root.render(
     <WebBootstrapErrorScreen message={error instanceof Error ? error.message : String(error)} />,
   );
@@ -423,11 +358,6 @@ function renderWebBootstrapError(error: unknown): void {
 
 async function bootstrapWebApp() {
   const params = new URLSearchParams(window.location.search);
-  if (isWebOAuthCallback(params)) {
-    renderWebAuthCallbackPage();
-    return;
-  }
-
   if (isConversationSharePath(window.location.pathname)) {
     await renderConversationSharePage();
     return;
@@ -446,7 +376,7 @@ async function bootstrapWebApp() {
       onClose: () => {},
     });
     const platform = createWebPlatform();
-    document.title = "ZCode - Web + Server";
+    document.title = "Ycode - Web + Server";
 
     root.render(
       <AppErrorBoundary>

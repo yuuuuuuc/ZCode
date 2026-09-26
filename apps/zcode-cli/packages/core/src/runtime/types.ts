@@ -20,7 +20,6 @@ import type {
   WorkspaceHookBundleSnapshot,
   WorkspaceId,
 } from "@zcode/contracts";
-import type { ZCodeProviderAccountAccess } from "@zcode/shared";
 import type { EffectiveModelSelectionResult } from "@zcode/shared/model-selection";
 import type { RuntimeMessageEntry } from "../agent/message-history.js";
 import type {
@@ -71,7 +70,6 @@ import type {
   BrowserControlPort,
   ExecutionShellSelection,
   AutomationPort,
-  OffPeakPort,
   FileSystemPort,
   HttpClientPort,
   ImageProcessorPort,
@@ -366,7 +364,6 @@ export interface AgentRuntimeDeps {
   runtimeTaskRegistry?: RuntimeTaskRegistry;
   artifactStore?: ToolArtifactStorePort;
   automationPort?: AutomationPort;
-  offPeakPort?: OffPeakPort;
   contextSourcePort?: ContextSourcePort;
   eventSink?: SessionEventSink;
   logger?: Logger;
@@ -395,7 +392,6 @@ export type RuntimeModelFactory = (input: RuntimeModelFactoryInput) => Model;
 export interface ProviderRuntimeHeadersPort {
   shouldRefreshBeforeModelRequest?(input: { providerId: string; modelId: string }): boolean;
   refreshBeforeModelRequest(input: {
-    accountAccess?: ZCodeProviderAccountAccess;
     abortSignal?: AbortSignal;
     modelId: string;
     providerId: string;
@@ -727,7 +723,6 @@ export interface PermissionDecisionResult {
 
 export interface ExecuteToolsOptions {
   automationTurn?: boolean;
-  offPeakTurn?: boolean;
   signal?: AbortSignal;
   traceContext?: TraceContext;
   /** 仅透传给当前 turn 同步等待的 Agent child。 */

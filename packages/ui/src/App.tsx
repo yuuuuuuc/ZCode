@@ -47,7 +47,7 @@ import {
 } from "@/lib/settingsNavigation.js";
 import { runWorkspaceVisibleCommand } from "@/lib/workspaceVisibleCommand.js";
 import { ZCODE_PRODUCT_DOCS_URL } from "@/lib/productDocs.js";
-import appLogoUrl from "@/assets/provider-icons/logo-zai.svg";
+import appLogoUrl from "@/assets/ycode-logo.svg";
 import { resolveTheme } from "@/useTheme.js";
 import { WorkspaceShellLayout } from "@/app-shell/WorkspaceShellLayout.js";
 import { useAppChromeState } from "@/app-shell/useAppChromeState.js";
@@ -63,7 +63,6 @@ import { useTaskSidePaneMemoryBridge } from "@/app-shell/useTaskSidePaneMemoryBr
 import { resolveAppWorkspaceRpcTarget } from "@/app-shell/workspaceRpcTarget.js";
 import { useWorkspaceServicesResolution } from "@/hooks/useWorkspaceServices.js";
 import { useWorkspaceTerminalTaskNotifications } from "@/hooks/useTaskNotifications.js";
-import { useOffPeakTaskNotifications } from "@/hooks/useOffPeakTaskNotifications.js";
 import type { AppProps, WorkspaceMainView } from "@/app-shell/types.js";
 import type {
   ChatSearchResultHighlightRequest,
@@ -137,15 +136,11 @@ export function App({
   const isOfficeMode = useIsOfficeMode();
   const platform = usePlatform();
   // 进程内存本地诊断日志：每窗口一个 60s 采样器，
-  // 经门控后写桌面主日志；Web 端无日志桥时为 no-op。同一次读数还经 preload 桥把 heap 送 main 的
-  // renderer_main 资源事件，无桥时同样 no-op。
-  const reportRendererHeapSample = platform.reportRendererHeapSample;
+  // 经门控后写桌面主日志；Web 端无日志桥时为 no-op。
   useEffect(() => {
-    const memoryDiagnosticsLogger = startMemoryDiagnosticsLogger({
-      reportHeapSample: reportRendererHeapSample,
-    });
+    const memoryDiagnosticsLogger = startMemoryDiagnosticsLogger();
     return () => memoryDiagnosticsLogger.stop();
-  }, [reportRendererHeapSample]);
+  }, []);
   const activeWorkspaceRpcTarget = useTabStore(
     useShallow((state) => {
       if (!state.activeTabId) {
@@ -279,13 +274,6 @@ export function App({
     enabled: notificationEnabled,
     rpcReady: workspaceRpcReady,
     platform,
-    formatMessage: intl.formatMessage,
-  });
-  // 闲时任务终态/等确认通知：仅桌面本地链路，main 进程按 status:taskId 去重多窗口重复。
-  useOffPeakTaskNotifications({
-    offPeakTaskService: services.offPeakTaskService,
-    platform,
-    enabled: Boolean(notificationEnabled && isDesktop),
     formatMessage: intl.formatMessage,
   });
   const lastHandledDraftSidePaneCloseRef = useRef({
