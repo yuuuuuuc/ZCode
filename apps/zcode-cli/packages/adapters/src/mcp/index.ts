@@ -1420,7 +1420,6 @@ class NodeMcpAdapter implements McpPort {
       error?: string;
       failureKind?: McpServerStatus["failureKind"];
       protocolEra?: McpServerStatus["protocolEra"];
-      serverRequestId?: string;
       toolCount?: number;
     } = {},
   ): McpServerStatus {
@@ -1433,7 +1432,6 @@ class NodeMcpAdapter implements McpPort {
       error: extra.error,
       failureKind: extra.failureKind,
       protocolEra: extra.protocolEra,
-      serverRequestId: extra.serverRequestId,
     };
   }
 }

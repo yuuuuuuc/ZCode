@@ -690,7 +690,6 @@ export const zcodeMcpServerStatusSnapshotSchema = z
     updatedAt: nonEmptyString,
     error: z.string().optional(),
     failureKind: mcpServerFailureKindSchema.optional(),
-    serverRequestId: nonEmptyString.optional(),
     protocolEra: z.enum(["legacy", "modern"]).optional(),
     authorization: z
       .object({

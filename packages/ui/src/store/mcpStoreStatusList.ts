@@ -4,7 +4,6 @@ type MappedMcpServerStatus = {
   authorization?: ZCodeMcpServerStatusSnapshot["authorization"];
   error?: string;
   failureKind?: ZCodeMcpServerStatusSnapshot["failureKind"];
-  serverRequestId?: string;
   status: McpServerStatus;
 };
 
@@ -22,14 +21,12 @@ function mapRuntimeStatusToUi(snapshot: ZCodeMcpServerStatusSnapshot): MappedMcp
         status: snapshot.status,
         error: snapshot.error,
         failureKind: snapshot.failureKind,
-        serverRequestId: snapshot.serverRequestId,
       };
     case "failed":
       return {
         status: "error",
         error: snapshot.error,
         failureKind: snapshot.failureKind ?? "connection_failed",
-        serverRequestId: snapshot.serverRequestId,
       };
     case "disabled":
       return { status: "unknown", error: snapshot.error };
@@ -38,7 +35,6 @@ function mapRuntimeStatusToUi(snapshot: ZCodeMcpServerStatusSnapshot): MappedMcp
         status: "unknown",
         error: snapshot.error ?? "Project MCP server requires explicit connection before use.",
         failureKind: snapshot.failureKind ?? "status_unavailable",
-        serverRequestId: snapshot.serverRequestId,
       };
   }
 }
@@ -73,7 +69,6 @@ export function mergeMcpServerStatusSnapshots(
       authorization: mapped.authorization,
       error: mapped.error,
       failureKind: mapped.failureKind,
-      serverRequestId: mapped.serverRequestId,
       toolCount: snapshot.toolCount,
       changed: false,
       lastConnected:

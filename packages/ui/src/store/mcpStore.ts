@@ -475,7 +475,6 @@ export const useMcpStore = create<McpStoreState>((set, get) => {
                 authorization: undefined,
                 error,
                 failureKind: status === "error" ? "connection_failed" : undefined,
-                serverRequestId: undefined,
                 toolCount: status === "connected" ? s.toolCount : undefined,
                 changed: status === "error" ? s.changed : false,
                 lastConnected: status === "connected" ? new Date() : s.lastConnected,
@@ -511,7 +510,6 @@ export const useMcpStore = create<McpStoreState>((set, get) => {
             authorization: undefined,
             error: undefined,
             failureKind: undefined,
-            serverRequestId: undefined,
             toolCount: undefined,
           };
         }),
@@ -538,7 +536,6 @@ export const useMcpStore = create<McpStoreState>((set, get) => {
             authorization: undefined,
             error,
             failureKind: "status_unavailable",
-            serverRequestId: undefined,
             toolCount: undefined,
           };
         }),

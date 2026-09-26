@@ -93,7 +93,6 @@ export interface PluginMcpServerItem {
   pluginMarketplace: string;
   pluginName: string;
   runtimeServerName: string;
-  serverRequestId?: string;
   status?: McpServerStatus;
   toolCount?: number;
 }
@@ -288,7 +287,7 @@ function mapPluginRuntimeStatus(
   snapshot: ZCodeMcpServerStatusSnapshot | undefined,
 ): Pick<
   PluginMcpServerItem,
-  "authorization" | "error" | "failureKind" | "serverRequestId" | "status" | "toolCount"
+  "authorization" | "error" | "failureKind" | "status" | "toolCount"
 > {
   if (!snapshot) {
     return {};
@@ -307,7 +306,6 @@ function mapPluginRuntimeStatus(
         authorization: snapshot.authorization,
         error: snapshot.error,
         failureKind: snapshot.failureKind,
-        serverRequestId: snapshot.serverRequestId,
         status: snapshot.status,
         toolCount: snapshot.toolCount,
       };
@@ -315,7 +313,6 @@ function mapPluginRuntimeStatus(
       return {
         error: snapshot.error ?? "MCP server failed",
         failureKind: snapshot.failureKind ?? "connection_failed",
-        serverRequestId: snapshot.serverRequestId,
         status: "error",
         toolCount: snapshot.toolCount,
       };
@@ -323,7 +320,6 @@ function mapPluginRuntimeStatus(
       return {
         error: snapshot.error,
         failureKind: snapshot.failureKind,
-        serverRequestId: snapshot.serverRequestId,
         status: "unknown",
         toolCount: snapshot.toolCount,
       };
@@ -331,7 +327,6 @@ function mapPluginRuntimeStatus(
       return {
         error: snapshot.error ?? "Project MCP server requires explicit connection before use.",
         failureKind: snapshot.failureKind ?? "status_unavailable",
-        serverRequestId: snapshot.serverRequestId,
         status: "unknown",
         toolCount: snapshot.toolCount,
       };

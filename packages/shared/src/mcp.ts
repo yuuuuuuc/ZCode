@@ -120,7 +120,6 @@ export interface ZCodeMcpServer {
   lastConnected?: Date;
   error?: string;
   failureKind?: McpServerFailureKind;
-  serverRequestId?: string;
   toolCount?: number;
   authorization?: {
     type: "oauth_authorization_code";
