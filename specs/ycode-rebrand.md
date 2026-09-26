@@ -37,3 +37,13 @@
 - **不改**（兼容契约）：`@zcode/*` npm scope、`window.zcode` IPC 桥、`ZCODE_*` 环境变量、`zcode-protocol`、`~/.zcode` 数据路径、CLI bin 名 `zcode`、后端域名、二进制图标资源（`packages/desktop/build/icon*`、`public/logo/icons/*`，需后续以正式设计资产替换）。
 
 **验收**：`pnpm dev:desktop` 启动后窗口标题、登录/欢迎页、设置页、托盘均显示 Ycode；grep 用户可见文案无 "ZCode" 残留（技术标识符除外）；`pnpm typecheck` 与 `pnpm lint` 通过。
+
+## 4. 移除启动强制升级检查（官方锁死通道）
+
+**规则**：Ycode 桌面端启动不再请求 `zcode.z.ai/api/v1/client/configs` 做强制升级判定。官方配置不再保有「让 Ycode 无法启动」的远程通道，网络失败或服务端下线都不影响启动。
+
+- 移除启动 gate：`forceUpdateGuard.ts`（含 `maybeBlockStartupForForceUpdate`、10s 超时拉取、minimalVersion 比对）、`forceUpdatePrompt.ts`（强更弹窗）、`main/index.ts` 的 `forceUpdateMainWindowCreationBlocked` 状态与 `canCreateWindow`/open-url/second-instance 的强更拦截分支。
+- 移除共享判定：`packages/shared/src/forceUpdate.ts`（`resolveForceUpdateRequirement`/`compareSemverVersions`）、`remoteAppConfig.ts` 的 `getForceUpdateMinimalVersionFromConfig` 与 `forceUpdate` 配置字段、i18n `forceUpdate.*` 文案。
+- **保留**：`autoUpdater.ts` 全部能力（帮助菜单「检查更新」、自动轮询、下载安装状态机）。它是用户手动触发的普通更新功能，不阻塞启动；其内部 `ForceAutoUpdateState`/`activeForceAutoUpdateListener` 强更联动分支在无监听者时自然退化为普通更新路径，不清理以避免重写状态机引入回归。
+
+**验收**：全仓 grep 无 `maybeBlockStartupForForceUpdate`、`ForceUpdateRequirement`、`resolveForceUpdateRequirement` 残留；打包版启动不再向官方端点发 `/api/v1/client/configs` 强更请求；`pnpm typecheck` 通过。

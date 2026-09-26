@@ -32,7 +32,6 @@ import type {
   McpToolDescriptor,
   TraceContext,
 } from "@zcode/contracts";
-import { ZCODE_MCP_SERVER_REQUEST_ID_META_KEY } from "@zcode/contracts";
 import { normalizeMcpToolDescriptor } from "./descriptor.js";
 import {
   type McpServerFailureKind,
@@ -172,23 +171,6 @@ class NodeMcpAdapter implements McpPort {
   private readonly telemetry?: McpTelemetryTracker;
   private readonly connectionGenerations = new Map<string, number>();
   private credentialStore?: SharedZCodeCredentialStore;
-  /**
-   * 官方鉴权失败分类的暂存槽。不能从 error 对象读——SDK 的 version
-  /**
-   * span → 服务端 request id。只有官方 MCP 会写入（唯一能看到响应头的地方是 auth fetch
-   * wrapper），供 in-band 失败（HTTP 200 + `isError`）把 id 带回 tool result。
-   *
-   * 用 span 而不是 traceId 作键：traceId 覆盖整个顶层 session，同一 session 的多次调用
-   * 共用它，关联会串号；span 是一次 tool call 的粒度。
-   *
-   * 有界并即取即删：拿不到匹配的 span（如 initialize / tools/list，它们没有 `_meta`）
-   * 就让条目自然被挤出，绝不"取最近一次"兜底——那会把上一次调用的 id 贴到这一次的失败上。
-   */
-  private readonly serverRequestIdBySpan = new Map<string, string>();
-  private readonly connectionDiagnosticByServer = new Map<
-    string,
-    Pick<McpServerStatus, "failureKind" | "serverRequestId">
-  >();
   private readonly records = new Map<string, McpServerRecord>();
   private readonly workingDirectory?: string;
 
@@ -275,7 +257,6 @@ class NodeMcpAdapter implements McpPort {
     const startedAt = Date.now();
     const timeoutMs = config.timeoutMs ?? DEFAULT_MCP_TIMEOUT_MS;
     const generation = this.nextConnectionGeneration(name);
-    this.connectionDiagnosticByServer.delete(name);
     this.logger?.info("MCP server connection started", {
       event: "mcp.server.connect.started",
       mcpServerName: name,
@@ -492,19 +473,6 @@ class NodeMcpAdapter implements McpPort {
     }
   }
 
-  /** 取出并清除该 span 的 request id。取不到返回 undefined，不做任何兜底猜测。 */
-  private takeServerRequestId(spanId: string | undefined): string | undefined {
-    if (!spanId) return undefined;
-    const requestId = this.serverRequestIdBySpan.get(spanId);
-    if (requestId !== undefined) this.serverRequestIdBySpan.delete(spanId);
-    return requestId;
-  }
-
-  /**
-   * 解析 stdio 官方 MCP 本次出站协议消息的身份头。
-   * 返回 undefined 表示"不是官方 stdio server"——此时 `_meta` 里绝不能出现该键，否则等于把
-   * 身份头广播给任意第三方插件。
-   */
   private async callToolOnClient(
     client: McpClient,
     request: McpCallToolRequest,
@@ -546,9 +514,6 @@ class NodeMcpAdapter implements McpPort {
 
       const durationMs = Date.now() - startedAt;
       const isError = typeof result.isError === "boolean" ? result.isError : false;
-      // 官方 MCP 的 in-band 失败（配额耗尽、无套餐）是 HTTP 200 + isError，wrapper 那条
-      // 非 2xx warn 覆盖不到；request id 也只有 wrapper 能看到，所以在这里按 span 取回。
-      const serverRequestId = this.takeServerRequestId(request.trace?.spanId);
       const outcome = {
         ...logBase,
         contentBlocks: Array.isArray(result.content) ? result.content.length : 0,
@@ -556,7 +521,6 @@ class NodeMcpAdapter implements McpPort {
         hasStructuredContent: result.structuredContent !== undefined,
         // 业务级失败（isError）与传输级失败不同，必须能分开统计。
         isError,
-        ...(serverRequestId ? { serverRequestId } : {}),
       };
       if (isError) {
         // 之前 in-band 失败只有这条 debug，而生产 logger 最低级别是 Info——等于配额耗尽
@@ -573,11 +537,7 @@ class NodeMcpAdapter implements McpPort {
           : [{ type: "text", text: "" }],
         structuredContent: result.structuredContent,
         isError: typeof result.isError === "boolean" ? result.isError : undefined,
-        // 只在失败时附加：成功路径上它是纯噪声。服务端已给的键一律不覆盖。
-        _meta:
-          isError && serverRequestId
-            ? { ...meta, [ZCODE_MCP_SERVER_REQUEST_ID_META_KEY]: serverRequestId }
-            : meta,
+        _meta: meta,
       };
     } catch (error) {
       const durationMs = Date.now() - startedAt;
@@ -587,14 +547,11 @@ class NodeMcpAdapter implements McpPort {
       const timedOut =
         /timed?\s*out|timeout/i.test(message) ||
         (error instanceof Error && error.name === "AbortError");
-      // 传输级失败也带上：4xx/5xx 时 SDK 抛出的 message 里没有 request id。
-      const serverRequestId = this.takeServerRequestId(request.trace?.spanId);
       this.logger?.warn("MCP tool call failed", {
         ...logBase,
         argumentKeys,
         durationMs,
         error: message,
-        ...(serverRequestId ? { serverRequestId } : {}),
         errorName: error instanceof Error ? error.name : "unknown",
         status: "failed",
         timedOut,
@@ -785,7 +742,6 @@ class NodeMcpAdapter implements McpPort {
     }
     await Promise.all(Array.from(this.records.keys()).map((name) => this.closeRecord(name)));
     this.records.clear();
-    this.connectionDiagnosticByServer.clear();
     this.logger?.info("MCP adapter closed", {
       durationMs: Date.now() - startedAt,
       event: "mcp.adapter.closed",
@@ -924,7 +880,6 @@ class NodeMcpAdapter implements McpPort {
         await this.closeClientAndTransport(name, client, transport);
         return this.records.get(name)?.status ?? status;
       }
-      this.connectionDiagnosticByServer.delete(name);
       this.records.set(name, {
         client,
         config,
@@ -1178,24 +1133,15 @@ class NodeMcpAdapter implements McpPort {
       transport,
     } = input;
     const message = error instanceof Error ? error.message : String(error);
-    const responseDiagnostic = this.connectionDiagnosticByServer.get(name);
-    this.connectionDiagnosticByServer.delete(name);
     const failureKind =
-      responseDiagnostic?.failureKind ??
       (error instanceof McpTimeoutError && fallbackFailureKind !== "tool_list_failed"
         ? "connection_timeout"
         : undefined) ??
       fallbackFailureKind ??
       "connection_failed";
-    const displayMessage = responseDiagnostic?.serverRequestId
-      ? `${message} - ${responseDiagnostic.serverRequestId}`
-      : message;
     const status = this.createStatus(config, "failed", {
-      error: displayMessage,
+      error: message,
       failureKind,
-      ...(responseDiagnostic?.serverRequestId
-        ? { serverRequestId: responseDiagnostic.serverRequestId }
-        : {}),
     });
     const recentStderr = getRecentStderr?.();
     const mcpTransportPid = getStdioTransportPid(transport);
@@ -1208,7 +1154,7 @@ class NodeMcpAdapter implements McpPort {
       ...this.connectionContext,
       connectDurationMs,
       durationMs: Date.now() - startedAt,
-      error: displayMessage,
+      error: message,
       event: "mcp.server.failed",
       listToolsDurationMs,
       mcpServerName: name,

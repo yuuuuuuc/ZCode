@@ -241,9 +241,6 @@ function resolveMcpServerConfig(
   } as McpServerConfig;
 }
 
-/**
- * 严格解析 `auth` 的实现已移到 mcp-official-auth.ts（mcp.ts 已到 max-lines 上限）。
- */
 function resolveMcpOAuthConfig(
   value: unknown,
   context: VariableContext,

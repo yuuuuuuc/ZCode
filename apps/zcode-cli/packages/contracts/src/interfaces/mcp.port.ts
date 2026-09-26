@@ -80,7 +80,6 @@ export interface McpServerStatus {
   updatedAt: string;
   error?: string;
   failureKind?: McpServerFailureKind;
-  serverRequestId?: string;
   protocolEra?: "legacy" | "modern";
   authorization?: {
     type: "oauth_authorization_code";
@@ -111,16 +110,6 @@ export const ZCODE_MCP_BROWSER_SCREENSHOT_CONTENT_INDICES_META_KEY =
  * `ZCODE_MCP_BROWSER_SCREENSHOT_CONTENT_INDICES_META_KEY` 的处置）。
  */
 export const ZCODE_MCP_NODE_REPL_CUA_APP_META_KEY = "zcode/nodeReplCuaApp";
-/**
- * 官方 Server MCP 响应头里的 `x-request-id`，附在失败的 tool result 上（值为 string）。
- *
- * 用短前缀 `zcode/` 而不是 `com.zcode/`：这不是跨语言协议——服务端在 header 里给，客户端
- * 读到后自己搬进 `_meta`，产出与消费都在客户端（`com.zcode/` 留给 Go 侧直接产出的键，
- * 如 `com.zcode/mcp-unavailable`）。
- *
- * 只在 `isError` 时附加：这是给人看的排障线索（拿它去查服务端日志），成功路径上是纯噪声。
- */
-export const ZCODE_MCP_SERVER_REQUEST_ID_META_KEY = "zcode/officialMcpServerRequestId";
 
 export interface McpToolDescriptor {
   serverName: string;

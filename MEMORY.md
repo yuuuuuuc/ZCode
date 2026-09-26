@@ -1,2 +1,3 @@
 - [ycode 已合入 v3.14.3](memory/ycode-main-v3143-merge.md) — origin/ycode 是 6cc93f2；未登录侧栏显示 Yuuc，不要写无值的恢复登录属性
+- [开源化改造审查与修复](memory/ycode-opensource-audit.md) — 模型链无损失，强更锁启动已删；远程凭据/分享页 401 仍未处理
 - [Windows 许可证图解析锁文件](memory/windows-license-lockfile-graph.md) — 不要 spawn pnpm ls；snapshot 键不能 lastIndexOf("@")

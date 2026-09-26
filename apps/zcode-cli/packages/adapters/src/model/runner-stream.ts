@@ -977,7 +977,6 @@ async function handleStreamChunk(input: {
   emittedEvent: boolean;
   emittedRetryBoundaryEvent: boolean;
   retryScheduled: boolean;
-  /** off-peak 排队重试：外层 for 冻结 attempt 预算。 */
   terminalError?: TerminalStreamChunkError;
   visibleEvents: ModelStreamEvent[];
 }> {
@@ -1183,7 +1182,6 @@ async function handleStreamErrorEvent(
     retryBudget: input.input.request.modelRetryBudget,
     streamErrorChunkObserved: true,
   });
-  // off-peak 排队 429 豁免预算：不消耗 maxAttempts，SSE 可见输出边界仍适用。
   if (retryWithRepairedHistory) {
     failureDecision.canRetry = true;
   }
@@ -1477,8 +1475,7 @@ function streamChunkResult(
     emittedEvent: boolean;
     emittedRetryBoundaryEvent: boolean;
     retryScheduled: boolean;
-    /** off-peak 排队重试：外层 for 冻结 attempt 预算。 */
-      terminalError?: TerminalStreamChunkError;
+    terminalError?: TerminalStreamChunkError;
     visibleEvents: ModelStreamEvent[];
   }> = {},
 ) {
@@ -1487,7 +1484,7 @@ function streamChunkResult(
     emittedEvent: false,
     emittedRetryBoundaryEvent: false,
     retryScheduled: false,
-      visibleEvents: [],
+    visibleEvents: [],
     ...overrides,
   };
 }
