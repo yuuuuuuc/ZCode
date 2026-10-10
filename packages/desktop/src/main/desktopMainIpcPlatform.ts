@@ -86,17 +86,19 @@ export function registerPlatformIpcHandlers(options: {
   acknowledgePostUpdateReleaseNotes: (version: string) => Promise<void>;
   syncActiveTaskSession: (windowId: number, sessionId: string | null) => void;
   syncTaskRealtimeWorkspaceKeys: (windowId: number, workspaceKeys: Iterable<string>) => void;
-  restorePreviouslyEnabledWebRemoteControl: (
+  // Ycode 裁剪了官方 Web Remote Control，这三处回调可能不被接线。调用点统一用
+  // 可选链兜底：即使调用方漏传 stub 也只退化为 no-op，不再崩主进程（fail-closed）。
+  restorePreviouslyEnabledWebRemoteControl?: (
     windowId: number,
     contexts: Array<{ workspacePath: string }>,
   ) => void;
   getUpdateState: () => UpdateStatePayload;
   openUpdateStatusWindow: () => void;
-  syncWebRemoteControlWorkspaces: (
+  syncWebRemoteControlWorkspaces?: (
     windowId: number,
     workspaces: WebRemoteControlWorkspaceTarget[],
   ) => void;
-  syncWebRemoteControlTasks: (windowId: number, tasks: WebRemoteControlTaskTarget[]) => void;
+  syncWebRemoteControlTasks?: (windowId: number, tasks: WebRemoteControlTaskTarget[]) => void;
   getDesktopSessionActivity: () => {
     runningAgentSessionCount: number;
   };
@@ -280,7 +282,7 @@ export function registerPlatformIpcHandlers(options: {
     if (win) {
       options.windowWorkspaceMap.set(win.id, new Set(result.data));
       options.syncTaskRealtimeWorkspaceKeys(win.id, result.data);
-      options.restorePreviouslyEnabledWebRemoteControl(
+      options.restorePreviouslyEnabledWebRemoteControl?.(
         win.id,
         result.data.map((workspacePath) => ({ workspacePath })),
       );
@@ -302,7 +304,7 @@ export function registerPlatformIpcHandlers(options: {
       return;
     }
 
-    options.syncWebRemoteControlWorkspaces(win.id, result.data);
+    options.syncWebRemoteControlWorkspaces?.(win.id, result.data);
   });
 
   ipcMain.on(PlatformChannels.SyncWebRemoteControlTasks, (event, payload: unknown) => {
@@ -320,7 +322,7 @@ export function registerPlatformIpcHandlers(options: {
       return;
     }
 
-    options.syncWebRemoteControlTasks(win.id, result.data);
+    options.syncWebRemoteControlTasks?.(win.id, result.data);
   });
 
   ipcMain.on(PlatformChannels.SyncWindowUnreadCount, (event, payload: unknown) => {

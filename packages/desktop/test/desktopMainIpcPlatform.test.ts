@@ -211,6 +211,132 @@ describe("registerPlatformIpcHandlers", () => {
     ]);
   });
 
+  it("does not crash SyncWindowTabs when Web remote control recovery is not wired", async () => {
+    const { registerPlatformIpcHandlers } = await import("../src/main/desktopMainIpcPlatform.js");
+    const targetWindow = { id: 9 };
+    electronMocks.browserWindowFromWebContents.mockReturnValue(targetWindow);
+    const windowWorkspaceMap = new Map<number, Set<string>>();
+    const syncTaskRealtimeWorkspaceKeys = vi.fn();
+
+    // Ycode 裁剪 WRC：故意不传 restorePreviouslyEnabledWebRemoteControl，复现
+    // index.ts 漏 stub 时 SyncWindowTabs 在主进程抛 "is not a function" 的现场。
+    registerPlatformIpcHandlers({
+      logger: { info: vi.fn(), warn: vi.fn() },
+      applyApplicationLocale: vi.fn(async () => {}),
+      focusWorkspaceInExistingWindow: vi.fn(() => ({ activated: false })),
+      windowWorkspaceMap,
+      windowUnreadCountMap: new Map(),
+      currentApplicationLocale: () => "en-US",
+      executeDesktopCommand: vi.fn(async () => {}),
+      acknowledgePostUpdateReleaseNotes: vi.fn(async () => {}),
+      syncTaskRealtimeWorkspaceKeys,
+      getUpdateState: vi.fn(() => ({ status: "idle" })),
+      deviceMid: "test-device-mid",
+    });
+
+    const handler = electronMocks.handlers.get(PlatformChannels.SyncWindowTabs);
+    expect(handler).toBeDefined();
+    expect(() => handler?.({ sender: {} }, ["/workspace/one"])).not.toThrow();
+    expect(windowWorkspaceMap.get(9)).toEqual(new Set(["/workspace/one"]));
+    expect(syncTaskRealtimeWorkspaceKeys).toHaveBeenCalledWith(9, ["/workspace/one"]);
+  });
+
+  it("does not crash Web remote control sync channels when callbacks are not wired", async () => {
+    const { registerPlatformIpcHandlers } = await import("../src/main/desktopMainIpcPlatform.js");
+    electronMocks.browserWindowFromWebContents.mockReturnValue({ id: 11 });
+
+    registerPlatformIpcHandlers({
+      logger: { info: vi.fn(), warn: vi.fn() },
+      applyApplicationLocale: vi.fn(async () => {}),
+      focusWorkspaceInExistingWindow: vi.fn(() => ({ activated: false })),
+      windowWorkspaceMap: new Map(),
+      windowUnreadCountMap: new Map(),
+      currentApplicationLocale: () => "en-US",
+      executeDesktopCommand: vi.fn(async () => {}),
+      acknowledgePostUpdateReleaseNotes: vi.fn(async () => {}),
+      syncTaskRealtimeWorkspaceKeys: vi.fn(),
+      getUpdateState: vi.fn(() => ({ status: "idle" })),
+      deviceMid: "test-device-mid",
+    });
+
+    const workspacesHandler = electronMocks.handlers.get(
+      PlatformChannels.SyncWebRemoteControlWorkspaces,
+    );
+    const tasksHandler = electronMocks.handlers.get(PlatformChannels.SyncWebRemoteControlTasks);
+    expect(() =>
+      workspacesHandler?.(
+        { sender: {} },
+        [{ workspacePath: "/workspace/one", label: "one", kind: "local" }],
+      ),
+    ).not.toThrow();
+    expect(() =>
+      tasksHandler?.(
+        { sender: {} },
+        [
+          {
+            taskId: "task-1",
+            title: "Task",
+            workspacePath: "/workspace/one",
+            workspaceLabel: "one",
+            workspaceKind: "local",
+            createdAt: 1,
+            updatedAt: 2,
+          },
+        ],
+      ),
+    ).not.toThrow();
+  });
+
+  it("forwards Web remote control workspace and task snapshots to wired callbacks", async () => {
+    const { registerPlatformIpcHandlers } = await import("../src/main/desktopMainIpcPlatform.js");
+    const syncWebRemoteControlWorkspaces = vi.fn();
+    const syncWebRemoteControlTasks = vi.fn();
+    electronMocks.browserWindowFromWebContents.mockReturnValue({ id: 12 });
+
+    registerPlatformIpcHandlers({
+      logger: { info: vi.fn(), warn: vi.fn() },
+      applyApplicationLocale: vi.fn(async () => {}),
+      focusWorkspaceInExistingWindow: vi.fn(() => ({ activated: false })),
+      windowWorkspaceMap: new Map(),
+      windowUnreadCountMap: new Map(),
+      currentApplicationLocale: () => "en-US",
+      executeDesktopCommand: vi.fn(async () => {}),
+      acknowledgePostUpdateReleaseNotes: vi.fn(async () => {}),
+      syncTaskRealtimeWorkspaceKeys: vi.fn(),
+      getUpdateState: vi.fn(() => ({ status: "idle" })),
+      syncWebRemoteControlWorkspaces,
+      syncWebRemoteControlTasks,
+      deviceMid: "test-device-mid",
+    });
+
+    const workspacePayload = [
+      { workspacePath: "/workspace/one", label: "one", kind: "local" as const },
+    ];
+    const taskPayload = [
+      {
+        taskId: "task-1",
+        title: "Task",
+        workspacePath: "/workspace/one",
+        workspaceLabel: "one",
+        workspaceKind: "local" as const,
+        createdAt: 1,
+        updatedAt: 2,
+      },
+    ];
+
+    electronMocks.handlers.get(PlatformChannels.SyncWebRemoteControlWorkspaces)?.(
+      { sender: {} },
+      workspacePayload,
+    );
+    electronMocks.handlers.get(PlatformChannels.SyncWebRemoteControlTasks)?.(
+      { sender: {} },
+      taskPayload,
+    );
+
+    expect(syncWebRemoteControlWorkspaces).toHaveBeenCalledWith(12, workspacePayload);
+    expect(syncWebRemoteControlTasks).toHaveBeenCalledWith(12, taskPayload);
+  });
+
   it("runs generalized CUA permission onboarding for Screen Recording", async () => {
     const { registerPlatformIpcHandlers } = await import("../src/main/desktopMainIpcPlatform.js");
 

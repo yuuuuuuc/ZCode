@@ -1973,6 +1973,12 @@ app.whenReady().then(async () => {
         taskRealtimeBus.updateHostWorkspaceKeys(hostId, workspaceKeys);
       }
     },
+    // Ycode 裁剪了官方 Web Remote Control，main 侧没有真实的恢复/同步实现。
+    // SyncWindowTabs 等处理器仍会调用这些回调，漏传会导致主进程 "is not a function"
+    // 崩溃（启动/切标签页时必现），因此显式提供 no-op stub，保持 fail-closed。
+    restorePreviouslyEnabledWebRemoteControl: () => undefined,
+    syncWebRemoteControlWorkspaces: () => undefined,
+    syncWebRemoteControlTasks: () => undefined,
     getUpdateState: getAutoUpdaterState,
     openUpdateStatusWindow,
     getAutoUpdatePreferences,
