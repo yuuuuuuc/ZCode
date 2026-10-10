@@ -33,6 +33,7 @@ export interface V4ChatPaneProps {
   workspacePath: string;
   workspaceIdentity?: string;
   readOnly?: boolean;
+  isDesktop?: boolean;
   compactForRemoteControl?: boolean;
   /** CLI session id；null = draft 首发。 */
   sessionId: string | null;
@@ -79,6 +80,7 @@ export interface V4ChatPaneProps {
  * 外层按 workspace 包 V4ConversationProvider；单 pane paneId 固定 workspace-main。
  */
 export function V4ChatPane({
+  isDesktop,
   workspacePath,
   workspaceIdentity,
   readOnly = false,

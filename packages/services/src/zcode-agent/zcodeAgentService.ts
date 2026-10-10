@@ -4925,6 +4925,104 @@ export function createZCodeAgentService(
       return processManager.onRuntimeLifecycle(listener);
     },
 
+    async syncDynamicWorkflowUserMode(params: { mode?: import("@zcode/shared").DynamicWorkflowMode }): Promise<void> {
+      void params;
+    },
+    async openMcpUiInstance(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async validateMcpUiInstance(params: any): Promise<void> {
+      void params;
+    },
+    async recycleMcpUiInstance(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async closeMcpUiInstance(params: any): Promise<void> {
+      void params;
+    },
+    async readMcpResource(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async sampleMcpApp(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async cancelMcpAppSampling(params: any): Promise<{ cancelled: boolean }> {
+      void params;
+      return { cancelled: true };
+    },
+    async callMcpToolForUi(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async cancelMcpToolCallForUi(params: any): Promise<{ cancelled: boolean }> {
+      void params;
+      return { cancelled: true };
+    },
+    async readMcpResourceForUi(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async listMcpResourcesForUi(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async listMcpResourceTemplatesForUi(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async subscribeMcpResourceForUi(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async unsubscribeMcpResourceForUi(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async registerAppToolsForUi(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async unregisterAppToolsForUi(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async claimAppToolCallForUi(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async resolveAppToolCallForUi(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async listPluginUiSurfaces(params: any): Promise<any> {
+      void params;
+      throw new Error("MCP UI host bridge is unavailable in this Ycode build");
+    },
+    async saveSavedWorkflowFromRun(params: any): Promise<any> {
+      void params;
+      throw new Error("Saved workflow bridge is unavailable in this Ycode build");
+    },
+    async findSavedWorkflowForRun(params: any): Promise<any> {
+      void params;
+      throw new Error("Saved workflow bridge is unavailable in this Ycode build");
+    },
+    async respondProviderRuntimeHeaders(params: any): Promise<void> {
+      void params;
+    },
+    onDynamicProviderRuntimeHeadersRequest(_params: any) {
+      return (_listener: any) => ({ dispose() {} });
+    },
+    onDynamicWorkspaceProviderRuntimeHeadersRequest(_params: any) {
+      return (_listener: any) => ({ dispose() {} });
+    },
+    onDynamicWorkspaceProviderRuntimeHeadersCancelled(_params: any) {
+      return (_listener: any) => ({ dispose() {} });
+    },
+
     async disposeWorkspace(params): Promise<void> {
       const workspaceKey = resolveWorkspaceKey(params);
       // 释放不仅要终止当前进程，还要让已排队的 provider-ready continuation 失效；

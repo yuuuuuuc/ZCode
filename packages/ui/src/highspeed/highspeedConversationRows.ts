@@ -1,1 +1,7 @@
-export function resolveNextHighspeedExpiryMs(): number | null { return null; }
+/** Ycode stub: Highspeed conversation row helpers removed. */
+export function resolveNextHighspeedExpiryMs(
+  _rows?: unknown,
+  _nowMs?: number,
+): number | null {
+  return null;
+}

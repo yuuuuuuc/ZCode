@@ -144,6 +144,22 @@ async function renderConversationSharePage(): Promise<void> {
 function createWebPlatform(): IPlatformService {
   return {
     canSelectFilePath: false,
+    startWebRemoteControl: async () =>
+      ({
+        ok: false,
+        error: "Web remote control host APIs are unavailable in plain Web mode",
+      }) as unknown as Awaited<ReturnType<IPlatformService["startWebRemoteControl"]>>,
+    refreshWebRemoteControlPairing: async () =>
+      ({
+        ok: false,
+        error: "Web remote control host APIs are unavailable in plain Web mode",
+      }) as unknown as Awaited<ReturnType<IPlatformService["refreshWebRemoteControlPairing"]>>,
+    stopWebRemoteControl: async () => {},
+    getWebRemoteControlStatus: async () =>
+      ({ enabled: false, status: "idle" }) as unknown as Awaited<
+        ReturnType<IPlatformService["getWebRemoteControlStatus"]>
+      >,
+
     // Web 端无法打开系统目录选择框
     selectDirectory: () => Promise.resolve(null),
     // Web 端无法打开系统文件选择框

@@ -1,6 +1,7 @@
 import { createStore } from "zustand/vanilla";
 import { logger } from "@/logger.js";
-import type { MarketingAction } from "@zcode/shared";
+/** Ycode stub: marketing actions removed. */
+type MarketingAction = { type: "navigate"; args: Record<string, never> };
 import type { SettingsSectionId } from "@/lib/settingsNavigation.js";
 
 export type MarketingNavigationTarget = Extract<MarketingAction, { type: "navigate" }>["args"];

@@ -16,18 +16,24 @@ export function attachPluginUiResourceDeltaFeed(
   let entry = feeds.get(store);
   if (!entry) {
     const sessionKey = buildPluginUiSessionKey(scope);
-    const off = store.onLiveDeltas((deltas) => {
-      for (const delta of deltas) {
-        if (
-          delta.op === "pluginUi.resourceUpdated" ||
-          delta.op === "pluginUi.resourceListChanged" ||
-          delta.op === "pluginUi.appToolCall" ||
-          delta.op === "pluginUi.instanceClosed"
-        ) {
-          dispatchPluginUiResourceDelta(sessionKey, delta);
-        }
-      }
-    });
+    const maybeStore = store as ConversationProjectionStore & {
+      onLiveDeltas?: (listener: (deltas: readonly { op?: string }[]) => void) => () => void;
+    };
+    const off =
+      typeof maybeStore.onLiveDeltas === "function"
+        ? maybeStore.onLiveDeltas((deltas) => {
+            for (const delta of deltas) {
+              if (
+                delta.op === "pluginUi.resourceUpdated" ||
+                delta.op === "pluginUi.resourceListChanged" ||
+                delta.op === "pluginUi.appToolCall" ||
+                delta.op === "pluginUi.instanceClosed"
+              ) {
+                dispatchPluginUiResourceDelta(sessionKey, delta as never);
+              }
+            }
+          })
+        : () => {};
     entry = { count: 0, off };
     feeds.set(store, entry);
   }

@@ -6,8 +6,16 @@ import { parse as parseYaml } from "yaml";
 export const hashBytes = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const unsupportedCanvas = new Set([
   "@napi-rs/canvas-android-arm64",
+  "@napi-rs/canvas-darwin-arm64",
+  "@napi-rs/canvas-darwin-x64",
   "@napi-rs/canvas-linux-arm-gnueabihf",
+  "@napi-rs/canvas-linux-arm64-gnu",
+  "@napi-rs/canvas-linux-arm64-musl",
   "@napi-rs/canvas-linux-riscv64-gnu",
+  "@napi-rs/canvas-linux-x64-gnu",
+  "@napi-rs/canvas-linux-x64-musl",
+  "@napi-rs/canvas-wasm32-wasi",
+  "@napi-rs/canvas-win32-x64-msvc",
 ]);
 const noticeName =
   /(?:^|[._-])(?:licen[sc]es?|copying|notice|copyright|unlicense|third.party|ofl)(?:[._-]|$)/iu;

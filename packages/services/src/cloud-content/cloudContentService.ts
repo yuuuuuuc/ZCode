@@ -33,7 +33,7 @@ export function createCloudContentService(options: {
   const lifetime = new AbortController();
   const pending = new Set<Promise<unknown>>();
   const leases = new Set<string>();
-  const trusted = (url: URL) => options.publishedAssets?.allowsUrl(url) === true;
+  const trusted = (url: URL) => options.publishedAssets?.allowsUrl?.(url.href) === true;
   const cache = createContentBundleCache({
     cacheRoot: options.cacheRoot,
     isTrustedUrl: trusted,
@@ -91,14 +91,21 @@ export function createCloudContentService(options: {
     return listening;
   }
   return {
-    async readPublishedMedia({ asset, kind }) {
+    async readPublishedMedia({ asset, kind }): Promise<string> {
       if (disposed || !options.publishedAssets) throw new Error("cloud_content_disabled");
-      return options.publishedAssets?.readMedia(asset, kind);
+      const reader = options.publishedAssets.readMedia;
+      if (!reader) throw new Error("cloud_content_disabled");
+      // Ycode: published media reader may be a simple path fetcher.
+      const result = await (reader as (path: string, kind?: string) => Promise<unknown>)(
+        typeof asset === "string" ? asset : String(asset?.id ?? ""),
+        kind,
+      );
+      return typeof result === "string" ? result : String(result ?? "");
     },
     async prepare({ bundle }) {
       const parsed = contentBundleSchema.parse(bundle);
       if (disposed) throw new Error("cloud_content_disposed");
-      if (!options.publishedAssets?.allows({ src: parsed.url, sha256: parsed.sha256 }))
+      if (options.publishedAssets?.allowsUrl && !options.publishedAssets.allowsUrl(parsed.url))
         throw new Error("cloud_content_source");
       const operation = (async () => {
         usedCache = true;

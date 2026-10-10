@@ -593,7 +593,7 @@ function AssistantHistoryStatus({
   );
   const savedDurationLabel =
     segment.workStatus?.state === "completed" &&
-    highspeedMeta?.savedDurationMs !== undefined &&
+    typeof highspeedMeta?.savedDurationMs === "number" &&
     highspeedMeta.savedDurationMs > 0
       ? formatConversationWorkDuration(highspeedMeta.savedDurationMs, intl, locale)
       : null;
@@ -1215,7 +1215,10 @@ function ConversationTurnGroupImpl({
   const isHighspeed = highspeedTurn !== null || visibleUserRows.some((row) => row.highspeed);
   const highspeedExpiresAt = Math.max(
     highspeedTurn?.card.expiresAt ?? Number.NEGATIVE_INFINITY,
-    ...visibleUserRows.flatMap((row) => (row.highspeed ? [row.highspeed.expiresAt] : [])),
+    ...visibleUserRows.flatMap((row) => {
+      const expiresAt = row.highspeed?.expiresAt;
+      return typeof expiresAt === "number" ? [expiresAt] : [];
+    }),
   );
   // Bug 根因：紫色流光过去只看“本轮曾使用 Highspeed”，卡过期后 metadata 仍会保留，
   // 导致 fallback 阶段仍在执行的 Tool 被永久染成紫色。运行态样式必须同时服从卡片有效期。
@@ -1229,9 +1232,9 @@ function ConversationTurnGroupImpl({
     if (
       highspeedTurn?.metrics &&
       highspeedTurn.metricsPersistedAt !== undefined &&
-      highspeedTurn.metrics.regularTps > 0 &&
+      (highspeedTurn.metrics.regularTps ?? 0) > 0 &&
       highspeedTurn.metrics.highspeedTps !== undefined &&
-      highspeedTurn.metrics.highspeedTps > 0
+      (highspeedTurn.metrics.highspeedTps ?? 0) > 0
     ) {
       target = {
         cardId: highspeedTurn.card.cardId,
@@ -1241,27 +1244,30 @@ function ConversationTurnGroupImpl({
       target = unit.highspeedOutputFooterTarget;
     } else if (
       highspeedMeta?.outputTokens !== undefined &&
-      highspeedMeta.outputTokens > 0 &&
+      (highspeedMeta.outputTokens ?? 0) > 0 &&
       highspeedMeta.highspeedTps !== undefined &&
-      highspeedMeta.highspeedTps > 0 &&
+      (highspeedMeta.highspeedTps ?? 0) > 0 &&
       highspeedMeta.regularTps !== undefined &&
-      highspeedMeta.regularTps > 0
+      (highspeedMeta.regularTps ?? 0) > 0
     ) {
       // Bug 原因：冷恢复后 Renderer 内存记录为空，但 transcript 已持久化完整分享统计；
       // 只依赖 highspeedTurn 会让可见的历史分享按钮永久 disabled。
-      target = {
-        cardId: highspeedMeta.cardId,
-        metrics: {
-          outputTokens: highspeedMeta.outputTokens,
-          // 分享接口不要求 durationMs；缺失时仅让本地耗时降级为 0，不阻塞分享。
-          durationMs: highspeedMeta.durationMs ?? 0,
-          regularTps: highspeedMeta.regularTps,
-          highspeedTps: highspeedMeta.highspeedTps,
-          ...(highspeedMeta.savedDurationMs !== undefined
-            ? { savedDurationMs: highspeedMeta.savedDurationMs }
-            : {}),
-        },
-      };
+      if (!highspeedMeta.cardId) {
+        target = null;
+      } else {
+        target = {
+          cardId: highspeedMeta.cardId,
+          metrics: {
+            outputTokens: highspeedMeta.outputTokens ?? 0,
+            durationMs: highspeedMeta.durationMs ?? 0,
+            regularTps: highspeedMeta.regularTps ?? 0,
+            highspeedTps: highspeedMeta.highspeedTps ?? 0,
+            ...(highspeedMeta.savedDurationMs !== undefined
+              ? { savedDurationMs: highspeedMeta.savedDurationMs }
+              : {}),
+          },
+        };
+      }
     }
     // 卡片和历史标识继续保留，但不超过 1.2x 或缺少完整耗时数据时不提供分享入口。
     return target && isHighspeedShareEligible(target.metrics) ? target : null;

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 /* oxlint-disable eslint(max-lines) -- footer 聚合账户、主题、模式和快捷键菜单。 */
 import type { UserInfo } from "@/store/index.js";
 import type { Locale } from "@zcode/shared";
@@ -80,6 +81,7 @@ function getAvatarFallbackText(user: UserInfo | null | undefined): string {
 }
 
 export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterComponent({
+  banner,
   theme,
   localeMenuValue,
   onLocaleChange,
@@ -96,6 +98,7 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
   isDesktop = false,
   className,
 }: {
+  banner?: ReactNode;
   theme: Theme;
   localeMenuValue: Locale | "system";
   onLocaleChange: (value: string) => void;

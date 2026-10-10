@@ -74,3 +74,11 @@ rg -n "appARMSBootstrap|telemetryCore|@arms/rum" -g '!node_modules/**' -g '!docs
 - Repo: https://github.com/yuuuuuuc/ZCode
 - 上游: https://github.com/zai-org/ZCode
 - 执行环境: 本机 box `/workspace/ZCode`（非 Cursor CloudAgent）
+
+## Follow-up completed (2026-10-10, quality gates + Windows release prep)
+
+- `pnpm typecheck`（不含 desktop e2e）：**绿**。裁剪相关 e2e/wdio fixtures 已删除；release typecheck 不再包含 `tsconfig.e2e.json`。
+- `pnpm lint`：**0 errors**（warnings only）。
+- `pnpm architecture:check`：**绿**（补 `packages/services/src/gen-ui/contract.test.ts`）。
+- `node scripts/licenses.mjs notices/check`：**通过**；`@arms` 已从 notices/inventory 清除；跳过未安装的 `@napi-rs/canvas-*` 可选平台包。
+- 版本字段保持 **3.15.1**（与 upstream tag / root `package.json` 对齐）。

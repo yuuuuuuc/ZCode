@@ -91,6 +91,7 @@ export function createProviderProvisioningTarget(
             syncId: envelope.syncId,
             status: "applied" as const,
             personalProviderCount: personalUpdate.providers.keys().length,
+            credentialCount: 0,
             configRevision: snapshot.sourceRevisions.config,
             rolledBack: false,
           } satisfies ProviderProvisioningResult;
@@ -105,6 +106,7 @@ export function createProviderProvisioningTarget(
               syncId: envelope.syncId,
               status: "rollback_failed",
               personalProviderCount: before.providers.keys().length,
+              credentialCount: 0,
               errorMessage: `${formatError(error)}；回滚失败：${formatError(rollbackError)}`,
               rolledBack: false,
             } satisfies ProviderProvisioningResult;
@@ -113,6 +115,7 @@ export function createProviderProvisioningTarget(
             syncId: envelope.syncId,
             status: "failed",
             personalProviderCount: before.providers.keys().length,
+            credentialCount: 0,
             errorMessage: formatError(error),
             rolledBack: true,
           } satisfies ProviderProvisioningResult;

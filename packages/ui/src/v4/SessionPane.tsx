@@ -266,6 +266,10 @@ export interface SessionPaneProps {
   rootSessionId?: string;
   /** subagent 右侧详情等观察视图：不显示 composer/input，也不发送行内编辑类命令。 */
   readOnly?: boolean;
+  /** 桌面壳层标记；影响部分桌面专属入口的展示。 */
+  isDesktop?: boolean;
+  /** 远控紧凑布局：隐藏部分桌面专用 chrome。 */
+  compactForRemoteControl?: boolean;
   /** 观察视图的显式例外：允许文件摘要恢复 workspace，但不开放会话编辑能力。 */
   allowWorkspaceFileRewind?: boolean;
   /** 框选副屏：保留普通 composer/tools，但隐藏并禁止 edit/retry/fork/goal。 */

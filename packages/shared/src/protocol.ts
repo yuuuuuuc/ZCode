@@ -383,6 +383,13 @@ export interface AppSettings {
     workspaceIdentity?: string;
     initialTaskId?: string;
   };
+  /**
+   * 用户覆盖的动态工作流模式；未设置时跟随服务端提供的模式；只在功能已提供时生效。
+   * 选回提供的模式时删除该字段，未改动的安装继续跟随服务端翻转。
+   */
+  dynamicWorkflowMode?: DynamicWorkflowMode;
+  /** 已启用的内置 Agent CLI；UI 对外仍展示为“Install”，底层语义保持为启用内置能力。 */
+  enabledBuiltinAgentCliProviders?: ZCodeProvider[];
   /** 设置页里的临时 endpoint override；正式/测试默认 base url 由 ZCODE_BASE_URL env 管理。 */
   zcodeEndpointOrigin?: string;
 }

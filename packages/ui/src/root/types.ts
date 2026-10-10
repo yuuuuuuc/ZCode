@@ -1,11 +1,11 @@
 import type {
   IPlatformService,
-  UserInfo,
   WebRemoteControlMobileNavigationIntent,
   WebRemoteControlTaskTarget,
   WebRemoteControlWorkspaceListResult,
   WebRemoteControlWorkspaceSwitchOptions,
 } from "@zcode/shared";
+import type { UserInfo } from "@/store/index.js";
 import type { IServiceAccessor } from "@zcode/services";
 import type { ReactNode } from "react";
 import type { CreateTaskRequest } from "@/app-shell/types.js";

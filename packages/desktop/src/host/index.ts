@@ -1192,6 +1192,13 @@ function formatRemoteTargetForLog(target: RemoteTarget): string {
     }
     case "docker":
       return `docker:${target.container}`;
+    case "server": {
+      const server = target as { kind: "server"; url?: string; host?: string; port?: number };
+      if (server.url) return `server:${server.url}`;
+      return `server:${server.host ?? "unknown"}:${server.port ?? ""}`;
+    }
+    default:
+      return `remote:${(target as { kind: string }).kind}`;
   }
 }
 
