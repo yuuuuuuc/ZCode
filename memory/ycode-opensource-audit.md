@@ -13,6 +13,11 @@ metadata:
 
 **已修复（2026-10-10，第二批复核）**：`Provider request auth is unavailable` 全供应商阻断——Host 对 `interactionRequestProviderRuntimeHeaders` 曾无条件 fail-closed，而 CLI 端口 `shouldRefreshBeforeModelRequest` 恒 true，导致 api-key 供应商每次请求发出前必失败。修复为双保险：CLI 端口门控改读 `YCODE_VENDOR_SERVICES.officialAccountCredentials`（当前恒 false，整体跳过刷新链）；Host 对误调用方回 `headersApplied: true, requestAuth: {}`（adapter 的 `applyModelRequestAuth` 只在 `requestAuth.apiKey` 非空时覆盖，静态 Key 不丢）。规格见 `docs/provider-runtime-headers-api-key-era.md`。
 
+**已修复（2026-10-11，3.15.5，commit 62a09563）**：启动/切标签页必崩 `TypeError: t.restorePreviouslyEnabledWebRemoteControl is not a function`。根因是裁剪官方 Web Remote Control 后，`packages/desktop/src/main/index.ts` 的 `registerPlatformIpcHandlers({...})` 漏传三个 WRC 回调（`restorePreviouslyEnabledWebRemoteControl` / `syncWebRemoteControlWorkspaces` / `syncWebRemoteControlTasks`），而 `desktopMainIpcPlatform.ts` 的 `SyncWindowTabs` 处理器无条件调用第一个 → 运行时 undefined 崩主进程。修复：index.ts 补三个 no-op stub（`() => undefined`）；`desktopMainIpcPlatform.ts` 三处调用改 `options.xxx?.(...)` 并把回调类型标为可选，漏 stub 只退化为 no-op。保持 fail-closed，未重新启用 WRC。`registerWebRemoteControlIpcHandlers`（`desktopWebRemoteControlIpc.ts`）在生产代码中从未被接线，WRC main 模块是裁剪后的死代码；对应 `desktopMainIpcRemoteTelemetry.test.ts` 已 skip。
+
+**Why:** 裁剪上游功能时，main 侧 `register*IpcHandlers` 的必填回调极易漏接线，且**根 `pnpm typecheck` 只跑 `packages/desktop/tsconfig.host.json`，不含 `packages/desktop/tsconfig.main.json`**，所以 main 里漏传必填字段不会被类型检查拦住，只能靠运行时或单测暴露——这次就是漏网到运行时才崩。
+**How to apply:** 改 desktop main 的 IPC 注册时，除了根 typecheck，务必对新增/改动的调用点补单测（缺省不抛 + 接线后调用）；不要指望 `pnpm typecheck` 覆盖 main。单独 `npx tsc -p packages/desktop/tsconfig.main.json --noEmit` 有大量预存错误，只能用来对比"改动前后错误集"，不能当门禁。另：本机 `pnpm fmt:check`（oxfmt）对大量未改动文件也报格式问题，不是可用门禁。相关：[[ycode-main-v3143-merge]]
+
 **测试基线现状（2026-10-10，Windows 实测）**：账号裁剪遗留一批死测试——services 全量 60 文件红（多为 import 已删除的 `offPeakSelection` fixture / `accountRequestAuthService`），bootstrap `zcode-protocol.test.ts` 7 例预存红（含 `BUILTIN_MODEL_PROVIDER_IDS.*` 账号 id 已删）、`provider-runtime-headers-cancel.test.ts` 首例因动态 import 计入 5s 超时必挂、bootstrap `tsc --noEmit` 有 352 个预存错误（依赖未构建的兄弟包）。跑测试必须 `pnpm exec vitest`（裸 `npx vitest` 会拉错二进制且根 node_modules 曾缺 vitest，先 `pnpm install --frozen-lockfile`）。
 
 **Why:** 后续修测试或验证时，先对照这些预存红名单，不要把历史欠账当成新回归；也不要用 npx。

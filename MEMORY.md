@@ -1,4 +1,4 @@
 - [ycode 已合入 v3.14.3](memory/ycode-main-v3143-merge.md) — origin/ycode 是 6cc93f2；未登录侧栏显示 Yuuc，不要写无值的恢复登录属性
-- [开源化改造审查与修复](memory/ycode-opensource-audit.md) — 模型链无损失，强更锁已删；2026-10-10 修 runtime headers 阻断 api-key；测试预存红名单；远程凭据/分享页 401 未处理
+- [开源化改造审查与修复](memory/ycode-opensource-audit.md) — 模型链无损失，强更锁已删；2026-10-10 修 runtime headers 阻断 api-key；2026-10-11（3.15.5）修 WRC 回调漏接线崩溃，根 typecheck 不覆盖 desktop main；测试预存红名单；远程凭据/分享页 401 未处理
 - [Windows 许可证图解析锁文件](memory/windows-license-lockfile-graph.md) — 不要 spawn pnpm ls；snapshot 键不能 lastIndexOf("@")
 - [全仓架构审查已落盘](memory/architecture-review-2026-09-26.md) — docs/architecture-review-2026-09-26/ 八份文档；无 CI/6 个测试/session 契约声明漂移
