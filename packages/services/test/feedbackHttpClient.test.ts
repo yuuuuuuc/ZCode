@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { mkdtemp, rm, truncate, writeFile } from "node:fs/promises";
 import { release, tmpdir } from "node:os";
@@ -11,6 +11,7 @@ import type {
   FeedbackTicketSeverity,
   FeedbackTicketType,
 } from "@zcode/shared";
+import { setVendorServiceSettingsSnapshot } from "@zcode/shared";
 import type { ICredentialService } from "../src/credential/credential.js";
 import { FeedbackHttpClient } from "../src/feedback/feedbackHttpClient.js";
 import { createFeedbackService } from "../src/feedback/feedbackService.js";
@@ -107,6 +108,13 @@ function makeClient(
 }
 
 describe("FeedbackHttpClient", () => {
+  beforeEach(() => {
+    setVendorServiceSettingsSnapshot({ vendorServiceFeedbackEnabled: true });
+  });
+  afterEach(() => {
+    setVendorServiceSettingsSnapshot(null);
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -887,6 +895,13 @@ describe("FeedbackHttpClient", () => {
 });
 
 describe("createFeedbackService", () => {
+  beforeEach(() => {
+    setVendorServiceSettingsSnapshot({ vendorServiceFeedbackEnabled: true });
+  });
+  afterEach(() => {
+    setVendorServiceSettingsSnapshot(null);
+  });
+
   afterEach(() => {
     setDataBaseDir(null);
     vi.unstubAllGlobals();
