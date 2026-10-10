@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { YCODE_VENDOR_SERVICES } from "@zcode/shared";
 import { createProviderRuntimeHeadersPort } from "../src/zcode-protocol/provider-runtime-headers.js";
 import type { ZCodeProtocolAgentServerContext } from "../src/zcode-protocol/server-types.js";
 import type { ZCodeAppOptions } from "../src/app/types.js";
@@ -61,6 +62,17 @@ it("真实工厂同样装配唯一请求端口，完整账号事实透传而不�
   } finally {
     vi.restoreAllMocks();
   }
+});
+it("ycode 无账号凭据权威：shouldRefreshBeforeModelRequest 跟随产品开关返回 false", () => {
+  const port = createProviderRuntimeHeadersPort(
+    { requestClient: vi.fn() } as unknown as ZCodeProtocolAgentServerContext,
+    workspace,
+  );
+  // 门控契约 = YCODE_VENDOR_SERVICES.officialAccountCredentials：api-key 时代整体跳过
+  // 刷新链；账号凭据若重新启用，此断言随开关一起翻转为 true。
+  expect(port.shouldRefreshBeforeModelRequest?.({ providerId: "any", modelId: "any" })).toBe(
+    YCODE_VENDOR_SERVICES.officialAccountCredentials,
+  );
 });
 it("取消 runtime headers 反向 RPC 后向 Host 发送同一请求的专用取消通知", async () => {
   const controller = new AbortController();

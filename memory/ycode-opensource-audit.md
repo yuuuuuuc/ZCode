@@ -11,6 +11,13 @@ metadata:
 
 **已修复（2026-09-26，spec 第 4 节）**：官方强更锁启动通道整链删除——`forceUpdateGuard.ts`、`forceUpdatePrompt.ts`、`shared/forceUpdate.ts`、`remoteAppConfig.getForceUpdateMinimalVersionFromConfig`、main/index.ts 的 gate 与拦截分支、i18n `forceUpdate.*`。`autoUpdater.ts` 原样保留（帮助菜单「检查更新」是普通功能；其 `activeForceAutoUpdateListener` 恒 null 后自然退化，勿清理以免重写状态机）。同时清理了 `/login`/`/logout` 帮助条目、MCP `serverRequestId`/`connectionDiagnosticByServer` 死链（含 contracts 的 `McpServerStatus.serverRequestId` 与 `ZCODE_MCP_SERVER_REQUEST_ID_META_KEY`）、runner-stream 悬挂注释、`isRestoringOAuthSession` 死字段。TUI `app-submit.ts` 的 `/login` redact 正则有意保留：命令已删，但用户误把 API key 当消息发送时它仍遮蔽 transcript。
 
+**已修复（2026-10-10，第二批复核）**：`Provider request auth is unavailable` 全供应商阻断——Host 对 `interactionRequestProviderRuntimeHeaders` 曾无条件 fail-closed，而 CLI 端口 `shouldRefreshBeforeModelRequest` 恒 true，导致 api-key 供应商每次请求发出前必失败。修复为双保险：CLI 端口门控改读 `YCODE_VENDOR_SERVICES.officialAccountCredentials`（当前恒 false，整体跳过刷新链）；Host 对误调用方回 `headersApplied: true, requestAuth: {}`（adapter 的 `applyModelRequestAuth` 只在 `requestAuth.apiKey` 非空时覆盖，静态 Key 不丢）。规格见 `docs/provider-runtime-headers-api-key-era.md`。
+
+**测试基线现状（2026-10-10，Windows 实测）**：账号裁剪遗留一批死测试——services 全量 60 文件红（多为 import 已删除的 `offPeakSelection` fixture / `accountRequestAuthService`），bootstrap `zcode-protocol.test.ts` 7 例预存红（含 `BUILTIN_MODEL_PROVIDER_IDS.*` 账号 id 已删）、`provider-runtime-headers-cancel.test.ts` 首例因动态 import 计入 5s 超时必挂、bootstrap `tsc --noEmit` 有 352 个预存错误（依赖未构建的兄弟包）。跑测试必须 `pnpm exec vitest`（裸 `npx vitest` 会拉错二进制且根 node_modules 曾缺 vitest，先 `pnpm install --frozen-lockfile`）。
+
+**Why:** 后续修测试或验证时，先对照这些预存红名单，不要把历史欠账当成新回归；也不要用 npx。
+**How to apply:** 验证改动时跑定向文件 + stash 对照基线；修同一批账号遗留死测试时优先按本文件记录的位置排查。相关：[[windows-license-lockfile-graph]]
+
 **未处理的已知风险**：
 1. `packages/desktop/src/host/remoteWorkspaceServiceCollection.ts` 远程/WSL workspace 的 provider api key 解析链已删（resolveProviderApiKey 恒 null），远程会话模型调用可能无凭据，未实测。
 2. `packages/web/src/main.tsx:131` 分享页 `getAccessToken={() => getMockToken()}`，非 mock 模式分享预览会 401。

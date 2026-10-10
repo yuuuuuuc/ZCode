@@ -6,7 +6,6 @@ import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 import { createSqliteSessionStore } from "@zcode/adapters/storage";
 import {
-  BUILTIN_MODEL_PROVIDER_IDS,
   ZCODE_SESSION_RUNTIME_PREFERENCES_REQUEST_TIMEOUT_MS,
   zcodeProtocolMethods,
   zcodeMessagePartSchema,
@@ -3472,24 +3471,26 @@ describe("ZCodeProtocolAgentServer", () => {
     );
 
     const runtimeHeadersPort = createdAppOptions[0]?.providerRuntimeHeadersPort;
+    // ycode：无账号凭据权威（officialAccountCredentials=false），刷新链对任意供应商关闭；
+    // 账号型 builtin 供应商同样跳过，避免请求发出前被阻断。
     expect(
       runtimeHeadersPort?.shouldRefreshBeforeModelRequest?.({
-        providerId: BUILTIN_MODEL_PROVIDER_IDS.zaiStartPlan,
+        providerId: "account:zai-start-plan",
         modelId: "glm-5.1",
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       runtimeHeadersPort?.shouldRefreshBeforeModelRequest?.({
-        providerId: BUILTIN_MODEL_PROVIDER_IDS.bigmodelStartPlan,
+        providerId: "account:bigmodel-start-plan",
         modelId: "glm-5.1",
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       runtimeHeadersPort?.shouldRefreshBeforeModelRequest?.({
-        providerId: BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan,
+        providerId: "account:zai-individual-coding-plan",
         modelId: "glm-5.1",
       }),
-    ).toBe(true);
+    ).toBe(false);
 
     await expect(
       runtimeHeadersPort?.refreshBeforeModelRequest({
@@ -3498,7 +3499,7 @@ describe("ZCodeProtocolAgentServer", () => {
           family: "zai",
           mode: "start-plan",
         },
-        providerId: BUILTIN_MODEL_PROVIDER_IDS.zaiStartPlan,
+        providerId: "account:zai-start-plan",
         modelId: "glm-5.1",
         reason: "model-request",
         sessionId: "sess_test" as never,
@@ -3550,7 +3551,7 @@ describe("ZCodeProtocolAgentServer", () => {
 
     await expect(
       createdAppOptions[0]?.providerRuntimeHeadersPort?.refreshBeforeModelRequest({
-        providerId: BUILTIN_MODEL_PROVIDER_IDS.zaiStartPlan,
+        providerId: "account:zai-start-plan",
         modelId: "glm-5.1",
         reason: "model-request",
         sessionId: "sess_test" as never,
@@ -3568,7 +3569,7 @@ describe("ZCodeProtocolAgentServer", () => {
     try {
       const port = createdAppOptions[0]!.providerRuntimeHeadersPort!;
       const input = {
-        providerId: BUILTIN_MODEL_PROVIDER_IDS.zaiStartPlan,
+        providerId: "account:zai-start-plan",
         modelId: "glm-5.1",
         reason: "model-request" as const,
         sessionId: "sess_test" as never,

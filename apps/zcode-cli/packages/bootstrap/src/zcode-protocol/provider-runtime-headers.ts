@@ -1,4 +1,4 @@
-import { requestVerificationTimeoutMessage } from "@zcode/shared";
+import { requestVerificationTimeoutMessage, YCODE_VENDOR_SERVICES } from "@zcode/shared";
 import { randomUUID } from "node:crypto";
 import {
   zcodeProtocolMethods,
@@ -23,9 +23,11 @@ export function createProviderRuntimeHeadersPort(
 ): NonNullable<ZCodeAppOptions["providerRuntimeHeadersPort"]> {
   return {
     shouldRefreshBeforeModelRequest() {
-      // Account 请求由绑定 Model 决定是否进入鉴权，不能把所有账号收窄到旧 Start ID。
-      // 普通 API 不进入此端口；Team/Individual 继续复用请求级鉴权合同。
-      return true;
+      // ycode：Host 侧账号凭据权威已随账号体系移除（officialAccountCredentials=false），
+      // api-key 供应商的静态 Key 已随 provider 配置注入 CLI Registry。此时刷新链只会拿到
+      // Host 的空应用兜底应答，纯属每轮多一次 RPC，故按产品开关整体跳过；
+      // 自建部署若重新启用账号凭据，该门控自动恢复请求期刷新。
+      return YCODE_VENDOR_SERVICES.officialAccountCredentials;
     },
     async refreshBeforeModelRequest(input) {
       const requestId = `${input.sessionId}:provider-runtime-headers:${randomUUID()}`;

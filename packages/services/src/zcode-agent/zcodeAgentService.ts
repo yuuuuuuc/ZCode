@@ -1917,31 +1917,26 @@ export function createZCodeAgentService(
             });
             return;
           }
-          const pendingKey = providerRuntimeHeadersRequestKey({
-            ...workspace,
-            sessionId: parsed.data.sessionId,
-            requestId: parsed.data.requestId,
-          });
-          const pending = {
-            client,
-            protocolRequestId: request.id,
-            request: parsed.data,
-          };
-          pendingProviderRuntimeHeaders.set(pendingKey, pending);
-          logger.info(request.trace?.traceId, "收到 ZCode provider runtime headers 请求", {
-            modelId: parsed.data.modelSelection.modelId,
-            providerId: parsed.data.providerId,
-            requestId: parsed.data.requestId,
-            sessionId: parsed.data.sessionId,
-            turnId: parsed.data.turnId ?? null,
-            workspaceKey: resolveWorkspaceKey(workspace),
-            workspacePath: workspace.workspacePath,
-          });
-          // 账号凭据解析已随账号体系移除；该请求无人应答只会滞留到 CLI 侧 180s 超时，直接快速失败。
-          pendingProviderRuntimeHeaders.delete(pendingKey);
-          void pending.client.respond(pending.protocolRequestId, {
-            headersApplied: false,
-            errorMessage: "Provider request auth is unavailable",
+          logger.info(
+            request.trace?.traceId,
+            "收到 ZCode provider runtime headers 请求，无账号凭据权威，按空应用应答",
+            {
+              modelId: parsed.data.modelSelection.modelId,
+              providerId: parsed.data.providerId,
+              requestId: parsed.data.requestId,
+              sessionId: parsed.data.sessionId,
+              turnId: parsed.data.turnId ?? null,
+              workspaceKey: resolveWorkspaceKey(workspace),
+              workspacePath: workspace.workspacePath,
+            },
+          );
+          // ycode：账号凭据解析已随账号体系移除，正常链路已在 CLI 端口关闭刷新；
+          // 对误调用方（旧版 CLI 等）不再 fail-closed 阻断模型请求，改为成功空应用。
+          // adapter 对空 requestAuth 不会覆盖 Registry 静态 apiKey
+          // （见 docs/provider-runtime-headers-api-key-era.md），缺 Key 时由上游返回真实错误。
+          void client.respond(request.id, {
+            headersApplied: true,
+            requestAuth: {},
           });
           return;
         }
