@@ -17,6 +17,7 @@ Ycode 是 AI 编程工作台，提供桌面应用、浏览器界面和终端 Age
 
 ## 更新
 
+- 2026-10-11：更新至 Ycode v3.15.4 版本（修复 API-key 供应商 "Provider request auth is unavailable"）。
 - 2026-10-10：更新至 Ycode v3.15.3 版本。
 - 2026-9-23：更新至 Ycode v3.14.3 版本。
 

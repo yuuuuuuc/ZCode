@@ -15,6 +15,7 @@ Ycode is an AI coding workspace with desktop, browser, and terminal interfaces. 
 
 ## Updates
 
+- 2026-10-11: Updated to Ycode v3.15.4 (fix API-key providers failing with "Provider request auth is unavailable").
 - 2026-10-10: Updated to Ycode v3.15.3.
 - 2026-9-23: Updated to Ycode v3.14.3.
 
