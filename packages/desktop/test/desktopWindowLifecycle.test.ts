@@ -407,6 +407,102 @@ describe("desktopWindowLifecycle createWindow", () => {
       expect.objectContaining({ type: "init-local" }),
     );
   });
+
+  it("window closed 在缺少 webRemoteControlManager 时不抛 disposeWindow", () => {
+    // Ycode 裁剪官方 web remote control 后 index 不再注入 manager。
+    // 关窗 closed 路径必须 fail-closed，不能 TypeError: Cannot read properties of undefined (reading 'disposeWindow')。
+    const closedListeners: Array<() => void> = [];
+    const webContents = {
+      id: 90,
+      on: vi.fn(),
+    };
+    const win = {
+      id: 90,
+      webContents,
+      on: vi.fn((event: string, listener: () => void) => {
+        if (event === "closed") closedListeners.push(listener);
+      }),
+      isDestroyed: vi.fn(() => false),
+      show: vi.fn(),
+      focus: vi.fn(),
+    };
+    vi.mocked(createBrowserWindow).mockReturnValue(win as never);
+    const disposeHostProcess = vi.fn();
+    const disposeRemoteWorkspaceSessionsForWindow = vi.fn();
+    const windowHostProcessMap = new Map<number, { pid: number }>();
+    windowHostProcessMap.set(90, { pid: 4242 });
+
+    createWindow({
+      iconPath: "/tmp/icon.png",
+      preloadPath: "/tmp/preload.js",
+      logger: { info: vi.fn(), warn: vi.fn() },
+      forceQuitRef: { current: false },
+      windowHostProcessMap: windowHostProcessMap as never,
+      spawnHostProcess: vi.fn(),
+      disposeHostProcess,
+      syncAutoUpdaterStateToWindow: vi.fn(),
+      syncReadyUpdateToWindow: vi.fn(),
+      syncPostUpdateReleaseNotesToWindow: vi.fn(),
+      // intentionally omit webRemoteControlManager
+      disposeRemoteWorkspaceSessionsForWindow,
+      reattachRemoteWorkspaceSessionsForWindow: vi.fn(),
+      agentSpawnFallbackCwd: "/tmp/fallback",
+      deviceMid: "device-mid",
+      runtimeProcessEnvFallbackPatch: {},
+    });
+
+    expect(closedListeners).toHaveLength(1);
+    expect(() => closedListeners[0]!()).not.toThrow();
+    expect(disposeHostProcess).toHaveBeenCalledWith(
+      { pid: 4242 },
+      "local-90:window-closed",
+    );
+    expect(disposeRemoteWorkspaceSessionsForWindow).toHaveBeenCalledWith(
+      90,
+      "local-90:window-closed",
+    );
+    expect(windowHostProcessMap.has(90)).toBe(false);
+  });
+
+  it("window closed 在 webRemoteControlManager.disposeWindow 缺失时也不抛", () => {
+    const closedListeners: Array<() => void> = [];
+    const webContents = {
+      id: 91,
+      on: vi.fn(),
+    };
+    const win = {
+      id: 91,
+      webContents,
+      on: vi.fn((event: string, listener: () => void) => {
+        if (event === "closed") closedListeners.push(listener);
+      }),
+      isDestroyed: vi.fn(() => false),
+      show: vi.fn(),
+      focus: vi.fn(),
+    };
+    vi.mocked(createBrowserWindow).mockReturnValue(win as never);
+
+    createWindow({
+      iconPath: "/tmp/icon.png",
+      preloadPath: "/tmp/preload.js",
+      logger: { info: vi.fn(), warn: vi.fn() },
+      forceQuitRef: { current: false },
+      windowHostProcessMap: new Map(),
+      spawnHostProcess: vi.fn(),
+      disposeHostProcess: vi.fn(),
+      syncAutoUpdaterStateToWindow: vi.fn(),
+      syncReadyUpdateToWindow: vi.fn(),
+      syncPostUpdateReleaseNotesToWindow: vi.fn(),
+      webRemoteControlManager: {} as never, // present but disposeWindow stripped
+      disposeRemoteWorkspaceSessionsForWindow: vi.fn(),
+      reattachRemoteWorkspaceSessionsForWindow: vi.fn(),
+      agentSpawnFallbackCwd: "/tmp/fallback",
+      deviceMid: "device-mid",
+      runtimeProcessEnvFallbackPatch: {},
+    });
+
+    expect(() => closedListeners[0]!()).not.toThrow();
+  });
 });
 
 describe("desktopWindowLifecycle handleDarwinWindowCloseRequest", () => {

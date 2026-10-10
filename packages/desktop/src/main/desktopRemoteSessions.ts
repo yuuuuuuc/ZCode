@@ -125,11 +125,12 @@ export function createRemoteWorkspaceSessionManager(options: {
   createMessageChannel?: () => { port1: MessagePortMain; port2: MessagePortMain };
   rendererAttachmentReadyTimeoutMs?: number;
   monotonicNowMs?: () => number;
-  webRemoteControlManagerRef: {
+  /** Optional: Ycode omits web remote control manager; fail-closed when absent. */
+  webRemoteControlManagerRef?: {
     current: {
       failRemoteSession(sessionId: string, reason: string, failure: WebRemoteControlFailure): void;
     } | null;
-  };
+  } | null;
   providerProvisioningCoordinator?: ProviderProvisioningEnvironmentCoordinator;
 }) {
   const pendingByRequestKey = new Map<string, PendingConnect>();
@@ -482,7 +483,7 @@ export function createRemoteWorkspaceSessionManager(options: {
     const win = BrowserWindow.getAllWindows().find(
       (candidate) => candidate.webContents.id === webContentsId,
     );
-    options.webRemoteControlManagerRef.current?.failRemoteSession(
+    options.webRemoteControlManagerRef?.current?.failRemoteSession(
       event.remoteSessionId,
       "window-host:connection-closed",
       {

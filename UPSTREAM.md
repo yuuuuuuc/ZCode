@@ -80,10 +80,12 @@ pnpm lint
 - 官方账号登录入口已删除；用户通过设置页配置 API Key
 - 策略项 `officialAccountLogin: false` 保留，便于日后 gated stub 合回
 
-### 6. 关窗清理（3.15.2 修复）
+### 6. 关窗清理（3.15.2 / 3.15.3 修复）
 
 - OAuth 剥离后深链清理函数更名为 `clearPendingRoutesForWindow`
-- `desktopMainIpcRemote.ts` 关窗必须调用该函数（或已导出的同名别名），**不得**调用未导入的 `clearOAuthRoutesForWindow`（Windows 会 `ReferenceError` 崩溃）
+- `desktopMainIpcRemote.ts` / `index.ts` 关窗必须调用该函数（或已导出的同名别名），**不得**调用未导入的 `clearOAuthRoutesForWindow`（Windows 会 `ReferenceError` 崩溃）
+- Ycode 裁剪官方 web remote control 后，`createWindow` **不再注入** `webRemoteControlManager`；`desktopWindowLifecycle.ts` 的 `closed` 路径必须对 `disposeWindow` **optional-chain / no-op**（3.15.3：`Cannot read properties of undefined (reading 'disposeWindow')`）
+- `createRemoteWorkspaceSessionManager` 的 `webRemoteControlManagerRef` 可为 null；连接断开时用 `?.current?.failRemoteSession`
 
 ## 冲突热点
 
@@ -92,7 +94,7 @@ pnpm lint
 3. `desktopRuntimeEnv.ts`（保留 Ycode userData 名，保留 `.zcode` 共享）
 4. `ycode-features.ts` 与其引用点
 5. `autoUpdater.ts` 自有 Release 分流须在 startup/poll 之前
-6. `desktopMainIpcRemote.ts` 关窗清理符号
+6. `desktopMainIpcRemote.ts` / `desktopWindowLifecycle.ts` 关窗清理符号（OAuth clear* + WRC disposeWindow）
 
 ## 同步后自检
 
@@ -100,5 +102,6 @@ pnpm lint
 pnpm check:defaults
 pnpm typecheck && pnpm lint
 rg -n "clearOAuthRoutesForWindow\(windowWebContentsId\)" packages/desktop/src/main/
+rg -n "webRemoteControlManager\.disposeWindow" packages/desktop/src/main/
 rg -n "dev.zcode.app" packages/desktop/scripts/
 ```

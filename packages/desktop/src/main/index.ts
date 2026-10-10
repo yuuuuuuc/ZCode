@@ -678,6 +678,9 @@ const remoteSessionManager = createRemoteWorkspaceSessionManager({
   resolveRemoteAssetDirs: () =>
     resolveRemoteAssetDirs({ locale: currentApplicationLocale }, hostProcessLocalEnv),
   resolveWslTarget: resolveCanonicalWslTarget,
+  // Ycode strips web remote control; keep a null ref so connection-closed never
+  // touches undefined.disposeWindow / failRemoteSession.
+  webRemoteControlManagerRef: { current: null },
 });
 
 const deviceMid = ensureDesktopDeviceMidSync();

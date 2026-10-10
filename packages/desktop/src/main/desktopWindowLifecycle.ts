@@ -36,7 +36,8 @@ export function createWindow(options: {
   syncAutoUpdaterStateToWindow: (win: BrowserWindow) => void;
   syncReadyUpdateToWindow: (win: BrowserWindow) => void;
   syncPostUpdateReleaseNotesToWindow: (win: BrowserWindow) => void;
-  webRemoteControlManager: { disposeWindow(windowId: number): Promise<void> };
+  /** Optional: Ycode strips web remote control; closed path must no-op when absent. */
+  webRemoteControlManager?: { disposeWindow?(windowId: number): Promise<void> | void } | null;
   disposeRemoteWorkspaceSessionsForWindow: (windowId: number, reason: string) => void;
   reattachRemoteWorkspaceSessionsForWindow: (win: BrowserWindow, reason: string) => void;
   bootstrap?: WindowBootstrapOptions;
@@ -261,7 +262,9 @@ export function createWindow(options: {
       options.disposeHostProcess(child, `${label}:window-closed`);
       options.windowHostProcessMap.delete(wcId);
     }
-    void options.webRemoteControlManager.disposeWindow(browserWindowId);
+    // Ycode may omit webRemoteControlManager (official remote-control stripped).
+    // Optional-chain so window close never crashes on undefined.disposeWindow.
+    void options.webRemoteControlManager?.disposeWindow?.(browserWindowId);
     options.disposeRemoteWorkspaceSessionsForWindow(wcId, `${label}:window-closed`);
   });
 
