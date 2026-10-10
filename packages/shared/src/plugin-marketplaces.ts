@@ -1,3 +1,4 @@
+import { YCODE_VENDOR_SERVICES } from "./ycode-features.js";
 export interface DefaultPluginMarketplace {
   id: string;
   source: string;
@@ -38,26 +39,34 @@ export const DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS: ReadonlySet<string> = new Set(
   // bootstrap 的「Settings 默认启用集合与 CLI 的官方插件声明一致」单测机械对照两者。
 ]);
 
-export const DEFAULT_PLUGIN_MARKETPLACES: DefaultPluginMarketplace[] = [
-  {
-    // ZCode 官方唯一市场：本地 seed 分片与 CDN 分片在 Agent storage 内合并。
-    // CDN manifest 的 name 必须与该 canonical id 一致。
-    id: ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
-    source: "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json",
-    name: ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
-    description: "Official Ycode plugins marketplace: built-in and community plugins for Ycode.",
-    pluginCount: 0,
-  },
-  {
-    id: CLAUDE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
-    source: "anthropics/claude-plugins-official",
-    name: CLAUDE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
-    description:
-      "Directory of popular Claude Code extensions including development tools, productivity plugins, and MCP integrations",
-    // 只内置官方 catalog 来源，不把远端 manifest 快照打包进仓库；首次刷新前数量未知。
-    pluginCount: 0,
-  },
-];
+/**
+ * 远端市场源默认不播种。内置/官方插件定义仍由 DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS 控制，
+ * 与本开关无关。自建部署可把 YCODE_VENDOR_SERVICES.pluginMarketplaceRemoteSource 置为 true。
+ */
+const ZCODE_OFFICIAL_MARKETPLACE: DefaultPluginMarketplace = {
+  // ZCode 官方唯一市场：本地 seed 分片与 CDN 分片在 Agent storage 内合并。
+  // CDN manifest 的 name 必须与该 canonical id 一致。
+  id: ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
+  source: "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json",
+  name: ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
+  description: "Official Ycode plugins marketplace: built-in and community plugins for Ycode.",
+  pluginCount: 0,
+};
+
+const CLAUDE_OFFICIAL_MARKETPLACE: DefaultPluginMarketplace = {
+  id: CLAUDE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
+  source: "anthropics/claude-plugins-official",
+  name: CLAUDE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
+  description:
+    "Directory of popular Claude Code extensions including development tools, productivity plugins, and MCP integrations",
+  // 只内置官方 catalog 来源，不把远端 manifest 快照打包进仓库；首次刷新前数量未知。
+  pluginCount: 0,
+};
+
+export const DEFAULT_PLUGIN_MARKETPLACES: DefaultPluginMarketplace[] =
+  YCODE_VENDOR_SERVICES.pluginMarketplaceRemoteSource
+    ? [ZCODE_OFFICIAL_MARKETPLACE, CLAUDE_OFFICIAL_MARKETPLACE]
+    : [];
 
 // 商店「公开」分段只有一个 ZCode 官方市场 id，内置与 CDN 不再拆分身份。
 export const PUBLIC_STORE_MARKETPLACE_IDS = [ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID] as const;

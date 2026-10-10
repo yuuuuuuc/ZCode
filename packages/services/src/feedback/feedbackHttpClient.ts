@@ -1,4 +1,4 @@
-import { redactFeedbackText } from "@zcode/shared";
+import { isVendorServiceEnabled, redactFeedbackText } from "@zcode/shared";
 /* eslint-disable max-lines -- 反馈 HTTP 客户端集中维护新后端协议、鉴权头合并、OSS 表单直传和响应归一化。 */
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
@@ -314,6 +314,10 @@ export class FeedbackHttpClient {
     init?: ApiRequestInit,
     authHeaders?: Record<string, string>,
   ): Promise<T> {
+    // Ycode：反馈默认关闭，请求在这里统一截断。附件上传先经此接口取凭证，因此 OSS 直传也被阻断。
+    if (!isVendorServiceEnabled("feedback")) {
+      throw new Error("Feedback is disabled in this build");
+    }
     const headers = mergeFeedbackRequestHeaders(
       authHeaders ?? (await this.options.getAuthHeaders()),
       init?.headers,

@@ -1,6 +1,6 @@
 {
   "name": "zcode",
-  "version": "3.15.1",
+  "version": "3.15.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -35,6 +35,8 @@
     "test:unit": "vitest run --exclude \"packages/desktop/test/e2e/**/*.test.ts\"",
     "test:unit:affected": "node scripts/run-affected-unit-tests.mjs",
     "test:docker:web-app-gateway": "node scripts/test-web-app-gateway-reset.mjs",
+    "check:defaults": "node scripts/check-defaults-regression.mjs",
+    "audit:upstream": "node scripts/audit-upstream-sync.mjs",
     "verify:pre-push": "pnpm run lint && pnpm run architecture:check -- --changed && pnpm run test:unit:affected",
     "build": "pnpm -r build",
     "build:desktop-agent:bytecode": "node scripts/build-desktop-agent-bytecode.mjs",

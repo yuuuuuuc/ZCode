@@ -19,6 +19,8 @@ export type UpdateCheckResultPayload =
       version: string;
       channel?: ElectronReleaseChannel;
       releaseNotes?: PostUpdateReleaseNotesPayload;
+      /** 自有 GitHub Release 下载页；存在时 UI 显示「前往下载」而非应用内安装。 */
+      downloadUrl?: string;
     }
   | { kind: "downloading"; version: string }
   | { kind: "already-downloading"; version: string; progress: string }
@@ -38,6 +40,8 @@ export type UpdateStatePayload =
       version: string;
       channel?: ElectronReleaseChannel;
       releaseNotes?: PostUpdateReleaseNotesPayload;
+      /** 自有 GitHub Release 下载页；存在时 UI 显示「前往下载」而非应用内安装。 */
+      downloadUrl?: string;
     }
   | {
       kind: "download-progress";

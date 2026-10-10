@@ -31,6 +31,7 @@ export { DEFAULT_LOCALE } from "./protocol.js";
 export { ZCODE_VERSION, ZCODE_COMMIT, ZCODE_BUILD_TIME } from "./version.js";
 export type { HelloMessage, HelloAckMessage } from "./handshake.js";
 export type { ZCodeEnv, ZCodeProductFlavor } from "./env.js";
+export * from "./ycode-features.js";
 export type { RemoteAssetInstallMode } from "./remoteAssetInstallMode.js";
 export type {
   RemoteResourcePackageId,
@@ -67,6 +68,7 @@ export {
   ZCODE_BUILD_COMMIT_ID_ENV,
   RUNTIME_ZCODE_DEBUG,
   ZCODE_WORKSPACE_IDENTITY_ENV,
+  ZCODE_TELEMETRY_ENABLED,
   normalizeZCodeEnv,
   normalizeZCodeProductFlavor,
 } from "./env.js";

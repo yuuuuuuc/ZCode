@@ -129,7 +129,7 @@ export function registerRemoteIpcHandlers(options: {
       // BrowserWindow 的 closed 阶段里 webContents 可能已被 Electron 释放。
       // 之前这里直接读取 win.webContents.id，会把正常关窗流程变成主进程未捕获异常。
       // 提前缓存 id 后再做清理，避免访问已经销毁的对象。
-      clearOAuthRoutesForWindow(windowWebContentsId);
+      clearPendingRoutesForWindow(windowWebContentsId);
     });
   });
 

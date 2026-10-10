@@ -466,11 +466,11 @@ describe("desktopOAuthDeepLink share import routing", () => {
     electronMocks.getFocusedWindow.mockReturnValue(targetWindow);
     electronMocks.getAllWindows.mockReturnValue([targetWindow]);
 
-    const { clearOAuthRoutesForWindow, deliverPendingDeepLink, handleDeepLink } =
+    const { clearPendingRoutesForWindow, deliverPendingDeepLink, handleDeepLink } =
       await import("../src/main/desktopOAuthDeepLink.js");
 
     expect(handleDeepLink(buildShareImportUrl("share-code-3"), logger)).toBe(true);
-    clearOAuthRoutesForWindow(61);
+    clearPendingRoutesForWindow(61);
 
     deliverPendingDeepLink(laterWindow.webContents);
     expect(laterWindow.webContents.send).not.toHaveBeenCalledWith(

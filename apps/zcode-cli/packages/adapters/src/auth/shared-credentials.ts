@@ -1,3 +1,4 @@
+import { YCODE_VENDOR_SERVICES, isOfficialAccountCredentialKey } from "@zcode/shared";
 import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -128,8 +129,16 @@ export function createSharedZCodeCredentialStore(
     },
 
     async load(key: string): Promise<string | null> {
+      const validatedKey = validateCredentialKey(key);
+      // Ycode：官方账号派生凭据一律当作不存在，理由见 ycode-features.ts。
+      if (
+        !YCODE_VENDOR_SERVICES.officialAccountCredentials &&
+        isOfficialAccountCredentialKey(validatedKey)
+      ) {
+        return null;
+      }
       const rawCredentials = await readRawCredentialRecord(filePath);
-      const rawValue = rawCredentials[validateCredentialKey(key)];
+      const rawValue = rawCredentials[validatedKey];
       if (rawValue === undefined) {
         return null;
       }
@@ -141,6 +150,12 @@ export function createSharedZCodeCredentialStore(
       const rawCredentials = await readRawCredentialRecord(filePath);
       return Object.fromEntries(
         validatedKeys.map((key) => {
+          if (
+            !YCODE_VENDOR_SERVICES.officialAccountCredentials &&
+            isOfficialAccountCredentialKey(key)
+          ) {
+            return [key, null];
+          }
           const rawValue = rawCredentials[key];
           return [key, rawValue === undefined ? null : cipher.decrypt(rawValue)];
         }),

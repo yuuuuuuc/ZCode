@@ -40,6 +40,7 @@ vi.mock("../src/main/desktopNotifications.js", () => ({
 
 vi.mock("../src/main/desktopOAuthDeepLink.js", () => ({
   clearOAuthRoutesForWindow: vi.fn(),
+  clearPendingRoutesForWindow: vi.fn(),
   deliverPendingDeepLink: vi.fn(() => false),
   parseOAuthStateRegistration: vi.fn(),
   registerOAuthState: vi.fn(),

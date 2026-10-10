@@ -1700,6 +1700,7 @@ const enUS: Record<string, string> = {
   "updateDialog.releaseDate": "{date}",
   "updateDialog.releaseNotesExpand": "Show",
   "updateDialog.releaseNotesCollapse": "Hide",
+  "updateDialog.goToDownload": "Go to download",
   "updateDialog.downloadAndUpdate": "Download update",
   "updateDialog.cancelDownload": "Cancel download",
   "updateDialog.autoDownloadAndInstall": "Automatically download and install updates next time",

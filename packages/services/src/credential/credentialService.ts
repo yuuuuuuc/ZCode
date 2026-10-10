@@ -6,6 +6,8 @@ import {
   credentialRecordSchema,
   credentialValueSchema,
   formatZodError,
+  YCODE_VENDOR_SERVICES,
+  isOfficialAccountCredentialKey,
 } from "@zcode/shared";
 import type { ICredentialService } from "./credential.js";
 import {
@@ -92,6 +94,13 @@ export function createCredentialService(
   return {
     async load(key: string): Promise<string | null> {
       const validatedKey = credentialKeySchema.parse(key);
+      // Ycode：官方账号派生凭据一律当作不存在，理由见 ycode-features.ts 的 officialAccountCredentials。
+      if (
+        !YCODE_VENDOR_SERVICES.officialAccountCredentials &&
+        isOfficialAccountCredentialKey(validatedKey)
+      ) {
+        return null;
+      }
       const creds = await readAll();
       const rawValue = creds[validatedKey];
       if (rawValue === undefined) {

@@ -44,3 +44,25 @@ export const RUNTIME_ZCODE_DEBUG =
 
 /** Agent 子进程注入的 workspace identity 环境变量（跨 Workspace Identity 约定，非账号链）。 */
 export const ZCODE_WORKSPACE_IDENTITY_ENV = "ZCODE_WORKSPACE_IDENTITY";
+
+/**
+ * 官方遥测总开关（运行时）。Ycode 已移除 ARMS / 官方 telemetry 装配；
+ * 即便合回上游模块，也必须显式设置环境变量才开启（1/true/on/yes/enabled）。
+ * 未设置或其它取值一律视为关闭。
+ */
+function readTelemetryEnabledFlag(value: string | undefined): boolean {
+  const normalized = value?.trim().toLowerCase();
+  return (
+    normalized === "1" ||
+    normalized === "true" ||
+    normalized === "on" ||
+    normalized === "yes" ||
+    normalized === "enabled"
+  );
+}
+
+export const ZCODE_TELEMETRY_ENABLED: boolean =
+  typeof process !== "undefined"
+    ? readTelemetryEnabledFlag(process.env.ZCODE_TELEMETRY_ENABLED)
+    : false;
+

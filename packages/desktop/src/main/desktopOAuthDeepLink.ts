@@ -379,3 +379,7 @@ export function clearPendingRoutesForWindow(windowId: number): void {
     }
   }
 }
+
+/** @deprecated OAuth 路由已裁剪；保留同名别名，避免关窗清理仍引用旧符号时崩溃。 */
+export const clearOAuthRoutesForWindow = clearPendingRoutesForWindow;
+

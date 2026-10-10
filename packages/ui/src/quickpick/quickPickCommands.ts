@@ -1,3 +1,4 @@
+import { YCODE_VENDOR_SERVICES } from "@zcode/shared";
 export type QuickPickCommandIcon =
   | "book"
   | "browser"
@@ -229,24 +230,26 @@ export function createQuickPickCommands({
     },
   ];
 
-  commands.push({
-    id: "feedback",
-    sectionId: "app",
-    titleId: "quickPick.command.feedback",
-    icon: "feedback",
-    keywords: [
-      "feedback",
-      "issue",
-      "support",
-      "tickets",
-      "问题上报",
-      "问题反馈",
-      "反馈",
-      "我的反馈",
-      "工单",
-    ],
-    run: handlers.openFeedback,
-  });
+  if (YCODE_VENDOR_SERVICES.feedback) {
+    commands.push({
+      id: "feedback",
+      sectionId: "app",
+      titleId: "quickPick.command.feedback",
+      icon: "feedback",
+      keywords: [
+        "feedback",
+        "issue",
+        "support",
+        "tickets",
+        "问题上报",
+        "问题反馈",
+        "反馈",
+        "我的反馈",
+        "工单",
+      ],
+      run: handlers.openFeedback,
+    });
+  }
 
   if (canOpenCommunity) {
     commands.push({

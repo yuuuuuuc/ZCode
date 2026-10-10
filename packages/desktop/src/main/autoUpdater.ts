@@ -8,6 +8,7 @@ import {
   DEFAULT_LOCALE,
   DEFAULT_ZCODE_ENDPOINT_ORIGIN,
   PlatformChannels,
+  YCODE_VENDOR_SERVICES,
   ZCODE_VERSION,
   desktopMenuMessageIds,
   formatDesktopMenuMessage,
@@ -20,6 +21,7 @@ import {
   type UpdateStatePayload,
 } from "@zcode/shared";
 import { logger } from "./logger.js";
+import { checkSelfHostedRelease } from "./githubReleaseUpdates.js";
 import { ManifestUpdateProvider, getElectronReleasePlatform } from "./manifestUpdateProvider.js";
 
 export const CHECK_FOR_UPDATE_MENU_ID = "check-for-update";
@@ -1823,6 +1825,12 @@ export async function initAutoUpdater(options: InitAutoUpdaterOptions = {}): Pro
     await skipAvailableUpdateVersion(validatedVersion, options.settingService);
   });
 
+  // Ycode：自有 Release 模式不启用 electron-updater 的启动检查与轮询。
+  // 这两条路径会请求厂商 manifest；本分支只由用户手动触发，走 GitHub Release 检测。
+  if (YCODE_VENDOR_SERVICES.selfHostedReleaseUpdates) {
+    return;
+  }
+
   triggerCheckForUpdates("startup");
   ensureAutoUpdatePollInterval();
   app.on("before-quit", (event) => {
@@ -1972,6 +1980,50 @@ export function requestAutoUpdateCheckWithoutWindow(reason = "force-update") {
     });
 }
 
+/**
+ * 自有 Release 检测路径：只判断版本并带上下载页，不触发 electron-updater 的下载或安装。
+ */
+async function runSelfHostedReleaseCheck(targetWindow: BrowserWindow): Promise<void> {
+  const checkId = beginAutoUpdateCheck();
+  setAutoUpdaterMenuState({ kind: "checking", enabled: true });
+  const currentVersion = getCurrentAppVersionForUpdate();
+  try {
+    const outcome = await checkSelfHostedRelease(currentVersion);
+    if (targetWindow.isDestroyed()) {
+      return;
+    }
+    if (outcome.kind === "error") {
+      setAutoUpdaterMenuState({ kind: "idle", enabled: true });
+      targetWindow.webContents.send(PlatformChannels.UpdateCheckResult, {
+        kind: "error",
+        message: outcome.message,
+      } satisfies UpdateCheckResultPayload);
+      return;
+    }
+    if (outcome.kind === "up-to-date") {
+      setAutoUpdaterMenuState({ kind: "idle", enabled: true });
+      targetWindow.webContents.send(PlatformChannels.UpdateCheckResult, {
+        kind: "up-to-date",
+        currentVersion: outcome.currentVersion,
+      } satisfies UpdateCheckResultPayload);
+      return;
+    }
+    setAutoUpdaterMenuState({
+      kind: "update-available",
+      enabled: true,
+      version: outcome.release.version,
+      downloadUrl: outcome.release.downloadUrl,
+    });
+    targetWindow.webContents.send(PlatformChannels.UpdateCheckResult, {
+      kind: "available",
+      version: outcome.release.version,
+      downloadUrl: outcome.release.downloadUrl,
+    } satisfies UpdateCheckResultPayload);
+  } finally {
+    completeAutoUpdateCheck("self-hosted release check", checkId);
+  }
+}
+
 export function checkForUpdateMenuClick(originWindow?: BrowserWindow | null) {
   logger.info("[auto-update] user clicked Check for Updates");
 
@@ -1992,6 +2044,12 @@ export function checkForUpdateMenuClick(originWindow?: BrowserWindow | null) {
     targetWindow.webContents.send(PlatformChannels.UpdateCheckResult, {
       kind: "dev-skipped",
     } satisfies UpdateCheckResultPayload);
+    return;
+  }
+
+  if (YCODE_VENDOR_SERVICES.selfHostedReleaseUpdates) {
+    // 自有 Release 检测取代厂商 manifest：只报版本并给出下载页，不下载不安装。
+    void runSelfHostedReleaseCheck(targetWindow);
     return;
   }
 
@@ -2018,6 +2076,17 @@ export function checkForUpdateMenuClick(originWindow?: BrowserWindow | null) {
     } satisfies UpdateCheckResultPayload);
     return;
   }
+  if (menuState.kind === "update-available") {
+    targetWindow.webContents.send(PlatformChannels.UpdateCheckResult, {
+      kind: "available",
+      version: menuState.version,
+      ...(menuState.channel ? { channel: menuState.channel } : {}),
+      ...(menuState.releaseNotes ? { releaseNotes: menuState.releaseNotes } : {}),
+      ...(menuState.downloadUrl ? { downloadUrl: menuState.downloadUrl } : {}),
+    } satisfies UpdateCheckResultPayload);
+    return;
+  }
+
   if (checkForUpdatesInFlight) {
     logger.info("[auto-update] skip manual check: check already in flight");
     targetWindow.webContents.send(PlatformChannels.UpdateCheckResult, {

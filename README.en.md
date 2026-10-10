@@ -15,7 +15,7 @@ Ycode is an AI coding workspace with desktop, browser, and terminal interfaces. 
 
 ## Updates
 
-- 2026-10-10: Updated to Ycode v3.15.1.
+- 2026-10-10: Updated to Ycode v3.15.2.
 - 2026-9-23: Updated to Ycode v3.14.3.
 
 ## Setup
@@ -41,6 +41,18 @@ Additional setup and build commands:
 | `pnpm build`                   | Recursively run each workspace package's build script, including its asset preparation steps                                        |
 
 The default `bootstrap` skips remote asset preparation and is suitable for local desktop development. Run the corresponding preparation command when working with remote workspaces or validating remote distribution assets.
+
+
+## Side-by-side with official ZCode
+
+Ycode **shares** the `~/.zcode` data root (sessions, settings, credentials) with official ZCode, but uses a separate Electron `userData` directory (`Ycode` / `Ycode Dev` / `Ycode Preview`), so both apps can be installed and launched side by side.
+
+Notes:
+
+- Running **different sessions** in parallel is generally safe (SQLite WAL + lock retries).
+- Do **not** operate on the **same session** from both clients at once (active-run markers are not cross-process mutexes).
+- Do **not** edit settings in both clients at once (`setting.json` / `provider_config.json` have no cross-process lock).
+- In-app “Check for Updates” only queries this fork’s GitHub Releases and opens the download page; it will not install official ZCode from the vendor manifest.
 
 ## Development and Usage
 

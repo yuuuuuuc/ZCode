@@ -82,3 +82,16 @@ rg -n "appARMSBootstrap|telemetryCore|@arms/rum" -g '!node_modules/**' -g '!docs
 - `pnpm architecture:check`：**绿**（补 `packages/services/src/gen-ui/contract.test.ts`）。
 - `node scripts/licenses.mjs notices/check`：**通过**；`@arms` 已从 notices/inventory 清除；跳过未安装的 `@napi-rs/canvas-*` 可选平台包。
 - 版本字段保持 **3.15.1**（与 upstream tag / root `package.json` 对齐）。
+
+## Libre-inspired sustainability (2026-10-10, v3.15.2)
+
+后续上游同步请优先阅读仓库根目录 [`UPSTREAM.md`](../UPSTREAM.md)，并在合并后运行：
+
+```bash
+git fetch upstream --no-tags
+pnpm check:defaults
+pnpm audit:upstream   # optional
+```
+
+策略真相源：`packages/shared/src/ycode-features.ts`（默认关闭厂商服务；自有 GitHub Release 更新检测）。
+版本规则：`major.minor` 跟上游线，`patch` 由 Ycode 自增（本船为 **3.15.2**）。

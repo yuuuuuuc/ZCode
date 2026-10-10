@@ -10,7 +10,11 @@ import {
   PERSONAL_PROVIDER_CONFIG_FILE_NAME,
 } from "@zcode/provider-node";
 import { getAppConfigDir as resolveAppConfigDir } from "./paths.js";
-import { buildLocalMediaPreviewUrl, type ProviderProvisioningTrigger } from "@zcode/shared";
+import {
+  buildLocalMediaPreviewUrl,
+  isVendorServiceEnabled,
+  type ProviderProvisioningTrigger,
+} from "@zcode/shared";
 
 export {
   materializeZCodeBuiltinProviderConfig,
@@ -1998,16 +2002,19 @@ export function createLocalServices(options: {
     // 账号体系已移除：分享以匿名身份调用后端。
     tokenProvider: async (): Promise<string | null> => null,
   });
-  const conversationShareService: IConversationShareServiceType = isDesktopAttachedRemote
-    ? createUnsupportedConversationShareService({
-        message: "Conversation publishing is not available for remote workspaces",
-      })
-    : new ConversationShareService({
-        zcodeAgentService,
-        zcodeSessionService,
-        client: conversationShareClient,
-        artifactSource: createLocalConversationShareArtifactSource(),
-      });
+  const conversationShareService: IConversationShareServiceType =
+    isDesktopAttachedRemote || !isVendorServiceEnabled("conversationShare")
+      ? createUnsupportedConversationShareService({
+          message: isDesktopAttachedRemote
+            ? "Conversation publishing is not available for remote workspaces"
+            : "Conversation sharing is disabled in this build",
+        })
+      : new ConversationShareService({
+          zcodeAgentService,
+          zcodeSessionService,
+          client: conversationShareClient,
+          artifactSource: createLocalConversationShareArtifactSource(),
+        });
   // 注册链上的懒工厂（如 OffPeak）会各自创建 tasks-index sqlite repo；先收集到本数组，
   // services 集合建好后在 return 前统一登记进 sharedSqliteRepos 侧表
   const sqliteReposToClose: Array<{ close(): void }> = [];
