@@ -1,3 +1,4 @@
+import type { RequestVerificationReason } from "@zcode/shared";
 import { traceContextToLogContext } from "../deps.js";
 import type { ModelRequestAuth } from "@zcode/contracts";
 import type { Model, TraceContext } from "../deps.js";
@@ -12,8 +13,11 @@ export function createRefreshRuntimeHeadersBeforeModelAttempt(
   },
 ):
   | ((attemptInput: {
+      accountAccess?: ZCodeProviderAccountAccess;
+      expectedAccountScope?: string;
+      rejectedProjectTokenFingerprint?: string;
       attempt: number;
-      reason?: "model-request";
+      reason?: RequestVerificationReason;
       abortSignal?: AbortSignal;
     }) => Promise<{
       headersApplied: boolean;
@@ -40,6 +44,9 @@ export function createRefreshRuntimeHeadersBeforeModelAttempt(
     // 路由身份：主 runtime 报自己的会话；child runtime 拿到的端口由父 runtime 派生
     // （helpers/child-client-ports.ts），把 sessionId 改写成客户端认识的根会话。
     const refreshResult = await runtimeHeadersPort.refreshBeforeModelRequest({
+      accountAccess: attemptInput.accountAccess,
+      expectedAccountScope: attemptInput.expectedAccountScope,
+      rejectedProjectTokenFingerprint: attemptInput.rejectedProjectTokenFingerprint,
       abortSignal: attemptInput.abortSignal ?? input.abortSignal,
       modelId: String(input.model.modelId),
       providerId: String(input.model.providerId),

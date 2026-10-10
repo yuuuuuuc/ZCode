@@ -91,7 +91,8 @@ const requiredRuntimeModules = [
   // Bugfix: telemetry 的 OTLP exporter 在启动阶段依赖 sdk-metrics；开发态 hoist 会掩盖
   // electron-builder 漏包。最终产物必须机械校验该闭包，禁止可生成但无法启动的安装包流出。
   "@opentelemetry/sdk-metrics",
-  // 与注入闭包同口径：校验 OTLP proto 导出链（exporter → otlp-transformer → protobufjs）完整进包。
+  // 与 afterPack 注入名单同口径：校验 OTLP proto 导出链（exporter → otlp-transformer → protobufjs）完整进包，
+  // 缺包产物在打包阶段直接失败，而不是等安装后启动崩溃。
   "@opentelemetry/exporter-trace-otlp-proto",
   "@opentelemetry/exporter-metrics-otlp-proto",
   // services 里的代理探测会在运行时 require("undici")。
@@ -156,9 +157,13 @@ export function createElectronRuntimeMirrorEnv(mirror) {
 }
 
 function resolveDefaultElectronBuilderBinariesMirror(env = process.env) {
-  return env.ZCODE_DEPS_BASE_URL?.trim() || env.INTRANET_MACHINE_HOST?.trim()
-    ? `${resolveIntranetDepsBaseUrl(env)}/electron-builder-binaries/`
-    : NPMMIRROR_ELECTRON_BUILDER_BINARIES_MIRROR;
+  // 修复：未配置内网依赖源时（例如开源构建）内网地址解析会抛错，打包直接失败；
+  // 此时回退到 electron-builder 官方 release 下载地址。内部构建行为不变。
+  try {
+    return `${resolveIntranetDepsBaseUrl(env)}/electron-builder-binaries/`;
+  } catch {
+    return OFFICIAL_ELECTRON_BUILDER_BINARIES_MIRROR;
+  }
 }
 
 export function resolveElectronBuilderBinariesMirror(env = process.env) {

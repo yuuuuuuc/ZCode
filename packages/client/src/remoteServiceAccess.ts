@@ -1,3 +1,4 @@
+import { IGenUiService } from "@zcode/services";
 import { ProxyChannel, type IChannelClient } from "@zcode/rpc";
 import {
   IFileService,
@@ -26,6 +27,9 @@ import {
   ISkillsService,
   ISkillSyncService,
   IMcpSyncService,
+  IPluginUiAppToolsService,
+  IPluginUiSamplingService,
+  IPluginUiBridgeService,
   IPluginSyncService,
   IPluginsService,
   IPluginManagementService,
@@ -33,6 +37,7 @@ import {
   ICommandsService,
   IHooksService,
   IMemoryService,
+  IOutputStyleService,
   ISettingsSyncService,
   IFeedbackService,
   IPromptAttachmentTransferService,
@@ -76,6 +81,10 @@ export class RemoteServiceAccess implements IServiceAccessor {
   readonly skillsService: ISkillsService;
   readonly skillSyncService: ISkillSyncService;
   readonly mcpSyncService: IMcpSyncService;
+  readonly genUiService: IGenUiService;
+  readonly pluginUiBridgeService: IPluginUiBridgeService;
+  readonly pluginUiSamplingService: IPluginUiSamplingService;
+  readonly pluginUiAppToolsService: IPluginUiAppToolsService;
   readonly pluginSyncService: IPluginSyncService;
   readonly pluginsService: IPluginsService;
   readonly pluginManagementService: IPluginManagementService;
@@ -83,6 +92,7 @@ export class RemoteServiceAccess implements IServiceAccessor {
   readonly commandsService: ICommandsService;
   readonly hooksService: IHooksService;
   readonly memoryService: IMemoryService;
+  readonly outputStyleService: IOutputStyleService;
   readonly settingsSyncService: ISettingsSyncService;
   readonly feedbackService: IFeedbackService;
   readonly promptAttachmentTransferService: IPromptAttachmentTransferService;
@@ -174,6 +184,18 @@ export class RemoteServiceAccess implements IServiceAccessor {
     this.mcpSyncService = ProxyChannel.toService<IMcpSyncService>(
       channelClient.getChannel(IMcpSyncService.channelName),
     );
+    this.genUiService = ProxyChannel.toService<IGenUiService>(
+      channelClient.getChannel(IGenUiService.channelName),
+    );
+    this.pluginUiBridgeService = ProxyChannel.toService<IPluginUiBridgeService>(
+      channelClient.getChannel(IPluginUiBridgeService.channelName),
+    );
+    this.pluginUiSamplingService = ProxyChannel.toService<IPluginUiSamplingService>(
+      channelClient.getChannel(IPluginUiSamplingService.channelName),
+    );
+    this.pluginUiAppToolsService = ProxyChannel.toService<IPluginUiAppToolsService>(
+      channelClient.getChannel(IPluginUiAppToolsService.channelName),
+    );
     this.pluginSyncService = ProxyChannel.toService<IPluginSyncService>(
       channelClient.getChannel(IPluginSyncService.channelName),
     );
@@ -194,6 +216,9 @@ export class RemoteServiceAccess implements IServiceAccessor {
     );
     this.memoryService = ProxyChannel.toService<IMemoryService>(
       channelClient.getChannel(IMemoryService.channelName),
+    );
+    this.outputStyleService = ProxyChannel.toService<IOutputStyleService>(
+      channelClient.getChannel(IOutputStyleService.channelName),
     );
     this.settingsSyncService = ProxyChannel.toService<ISettingsSyncService>(
       channelClient.getChannel(ISettingsSyncService.channelName),

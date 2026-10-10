@@ -45,3 +45,10 @@ function readCredentialErrorMessage(error: unknown): string {
 
   return "";
 }
+
+
+/** Desktop OAuth deep-link state registration (MCP / generic; not Zhipu account login). */
+export interface OAuthStateRegistration {
+  state: string;
+  provider?: string;
+}
