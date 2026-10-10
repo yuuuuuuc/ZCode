@@ -107,28 +107,6 @@ function createManager(
   windowHostProcessMap: Map<number, MockUtilityProcess>,
   options?: {
     rendererAttachmentReadyTimeoutMs?: number;
-    reportRemoteConnectionStateChanged?: (params: {
-      rendererId: number;
-      remoteKind: RemoteTarget["kind"];
-      transition:
-        | "connected"
-        | "connection-closed"
-        | "disposed"
-        | "window-closed"
-        | "host-exit"
-        | "app-shutdown";
-    }) => void;
-    reportRemoteDisconnect?: (params: {
-      rendererId: number;
-      remoteKind: RemoteTarget["kind"];
-      disconnectReason:
-        | "connection-closed"
-        | "disposed"
-        | "window-closed"
-        | "host-exit"
-        | "app-shutdown";
-      durationMs: number;
-    }) => void;
     monotonicNowMs?: () => number;
     resolveWslTarget?: (
       target: Extract<RemoteTarget, { kind: "wsl" }>,
@@ -146,9 +124,8 @@ function createManager(
     resolveRemoteAssetDirs: () => ({}),
     resolveWslTarget: options?.resolveWslTarget,
     rendererAttachmentReadyTimeoutMs: options?.rendererAttachmentReadyTimeoutMs,
-    reportRemoteConnectionStateChanged: options?.reportRemoteConnectionStateChanged,
-    reportRemoteDisconnect: options?.reportRemoteDisconnect,
     monotonicNowMs: options?.monotonicNowMs,
+    // Ycode: official web remote control stripped; keep null ref fail-closed.
     webRemoteControlManagerRef: { current: null },
   });
 }
@@ -331,10 +308,7 @@ describe("desktopRemoteSessions R1 window Host forwarding", () => {
       }),
     );
     expect(logger.warn.mock.calls.at(-1)?.[1]).not.toHaveProperty("errorSummary");
-    expect(manager.getRemoteConnectionStats()).toEqual({
-      activeSessionCount: 1,
-      activeTargetCount: 1,
-    });
+    // Ycode: getRemoteConnectionStats / ARMS remote-usage gauges were stripped with official telemetry.
   });
 
   it.each([undefined, "source-read-failed"])(
@@ -384,7 +358,7 @@ describe("desktopRemoteSessions R1 window Host forwarding", () => {
     },
   );
 
-  it("只在 eligible 连接完成 renderer ACK 后计入并发并上报 connected gauge", async () => {
+  it.skip("只在 eligible 连接完成 renderer ACK 后计入并发并上报 connected gauge" /* Ycode: remote usage ARMS gauges stripped */, async () => {
     const child = new MockUtilityProcess(1001);
     const win = createWindow(1, 101);
     const reportRemoteConnectionStateChanged = vi.fn();
@@ -446,7 +420,7 @@ describe("desktopRemoteSessions R1 window Host forwarding", () => {
     expect(reportRemoteDisconnect).not.toHaveBeenCalled();
   });
 
-  it("连接异常关闭后上报一次 after-state gauge 与时长，随后 dispose 不重复", async () => {
+  it.skip("连接异常关闭后上报一次 after-state gauge 与时长，随后 dispose 不重复" /* Ycode: remote usage ARMS gauges stripped */, async () => {
     const child = new MockUtilityProcess(1001);
     const win = createWindow(1, 101);
     let now = 100;
@@ -498,11 +472,11 @@ describe("desktopRemoteSessions R1 window Host forwarding", () => {
     expect(reportRemoteDisconnect).toHaveBeenCalledOnce();
   });
 
-  it.each([
+  it.skip.each([
     ["window-closed", "window"],
     ["host-exit", "host"],
     ["app-shutdown", "app"],
-  ] as const)("%s 退出 eligible route 时上报对应终态", async (reason, owner) => {
+  ] as const)("%s 退出 eligible route 时上报对应终态" /* Ycode: remote usage ARMS gauges stripped */, async (reason, owner) => {
     const child = new MockUtilityProcess(1001);
     const win = createWindow(1, 101);
     let now = 10;
@@ -546,7 +520,7 @@ describe("desktopRemoteSessions R1 window Host forwarding", () => {
     });
   });
 
-  it("按脱敏 target identity 去重诊断计数，但保留每个逻辑 session", async () => {
+  it.skip("按脱敏 target identity 去重诊断计数，但保留每个逻辑 session" /* Ycode: getRemoteConnectionStats stripped */, async () => {
     const child = new MockUtilityProcess(1001);
     const win = createWindow(1, 101);
     const manager = createManager(new Map([[101, child]]));
@@ -580,7 +554,7 @@ describe("desktopRemoteSessions R1 window Host forwarding", () => {
     });
   });
 
-  it("telemetry callback 抛错不改变连接成功或 dispose 结果", async () => {
+  it.skip("telemetry callback 抛错不改变连接成功或 dispose 结果" /* Ycode: remote usage ARMS gauges stripped */, async () => {
     const child = new MockUtilityProcess(1001);
     const win = createWindow(1, 101);
     const reportRemoteConnectionStateChanged = vi.fn(() => {
