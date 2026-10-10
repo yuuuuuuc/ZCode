@@ -38,8 +38,10 @@ pnpm lint
 
 - **`major.minor` 对齐上游发布线**（当前 `3.15`）。上游升到 `3.16` 时才换前两段。
 - **`patch` 是 Ycode 自己的递增**（例如上游 3.15.1 之后本分支发 3.15.2）。
-- 必须是**标准 semver 三段式**。四段式会让 `githubReleaseUpdates.ts` 的 `semver.coerce` 截断后误判「已是最新」。
+- 正式版必须是**标准 semver 三段式**（`X.Y.Z`）。预发布可用 `X.Y.Z-rc.N`（见发版流程文档）。**不要用四段式**，否则 `githubReleaseUpdates.ts` 的 `semver.coerce` 会截断后误判「已是最新」。
 - 产物名：`Ycode-<version>-<平台>-<架构>.<ext>`。
+
+发版与预发布（rc）流程、晋升前冒烟清单见 [`docs/RELEASE-PRERELEASE-FLOW.md`](docs/RELEASE-PRERELEASE-FLOW.md)。
 
 ## 偏离清单（要点）
 

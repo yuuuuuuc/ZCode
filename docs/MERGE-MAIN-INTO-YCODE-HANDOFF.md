@@ -95,3 +95,4 @@ pnpm audit:upstream   # optional
 
 策略真相源：`packages/shared/src/ycode-features.ts`（默认关闭厂商服务；自有 GitHub Release 更新检测）。
 版本规则：`major.minor` 跟上游线，`patch` 由 Ycode 自增（本船为 **3.15.2**）。
+发版与预发布（rc）流程见 [`RELEASE-PRERELEASE-FLOW.md`](./RELEASE-PRERELEASE-FLOW.md)。
