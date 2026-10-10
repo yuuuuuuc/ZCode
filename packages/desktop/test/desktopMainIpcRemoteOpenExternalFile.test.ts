@@ -82,22 +82,13 @@ function createOptions(): RemoteIpcOptions {
       appVersion: "1.0.0",
       armsEnv: "local",
     },
-    webRemoteControlManager: {
-      authorizeStart: vi.fn(),
-      startAuthorized: vi.fn(),
-      resetPairingAuthorized: vi.fn(),
-      stop: vi.fn(),
-      getStatus: vi.fn(),
-    },
-    createRemoteWorkspaceSession: vi.fn(async () => "remote-session-1"),
-    disposeRemoteWorkspaceSession: vi.fn(),
-    cancelPendingRemoteWorkspaceSessionsForWindow: vi.fn(),
-    bindRemoteWorkspaceSessionContext: vi.fn(),
+    webRemoteControlManager: {} as RemoteIpcOptions["webRemoteControlManager"],
     confirmRendererAttachmentReady: vi.fn(),
-    getRemoteConnectionStats: vi.fn(() => ({
-      activeSessionCount: 0,
-      activeTargetCount: 0,
-    })),
+    connectRemoteWorkspace: vi.fn(async () => ({ ok: true })),
+    cancelPendingRemoteWorkspaceSessionsForWindow: vi.fn(),
+    bindRemoteWorkspaceSessionContext: vi.fn(async () => {}),
+    disposeRemoteWorkspaceSession: vi.fn(),
+    getRemoteConnectionStatus: vi.fn(async () => ({ kind: "idle" })),
     isDockerDaemonAvailable: vi.fn(async () => true),
     listAvailableWSLDistros: vi.fn(async () => []),
     listAvailableDockerContainers: vi.fn(async () => []),
@@ -114,7 +105,7 @@ async function registerOpenExternalListener() {
   return { listener: listener!, options };
 }
 
-describe("OpenExternal 对 file URL 的分流", () => {
+describe("OpenExternal URL 放行", () => {
   beforeEach(() => {
     h.handlers.clear();
     h.listeners.clear();
@@ -123,31 +114,7 @@ describe("OpenExternal 对 file URL 的分流", () => {
     h.shellOpenPath.mockReset().mockResolvedValue("");
   });
 
-  it("中文与空格的 file URL 走 shell.openPath 且收到解码后的本地路径", async () => {
-    const { listener } = await registerOpenExternalListener();
-    const sender = { getURL: vi.fn(() => "about:blank") };
-
-    listener({ sender }, "file:///E:/04%20%E7%B4%A0%E6%9D%90/page.html");
-
-    await vi.waitFor(() => expect(h.shellOpenPath).toHaveBeenCalledTimes(1));
-    expect(h.shellOpenPath).toHaveBeenCalledWith(expect.stringContaining("04 素材"));
-    expect(h.shellOpenPath).toHaveBeenCalledWith(expect.stringContaining("page.html"));
-    expect(h.shellOpenPath).not.toHaveBeenCalledWith(expect.stringContaining("%"));
-    expect(h.shellOpenExternal).not.toHaveBeenCalled();
-  });
-
-  it("带锚点的 file URL 剥掉 hash 后仍走 shell.openPath", async () => {
-    const { listener } = await registerOpenExternalListener();
-    const sender = { getURL: vi.fn(() => "about:blank") };
-
-    listener({ sender }, "file:///tmp/report.html#section");
-
-    await vi.waitFor(() => expect(h.shellOpenPath).toHaveBeenCalledTimes(1));
-    expect(h.shellOpenPath).not.toHaveBeenCalledWith(expect.stringContaining("#"));
-    expect(h.shellOpenExternal).not.toHaveBeenCalled();
-  });
-
-  it("http URL 仍走 shell.openExternal", async () => {
+  it("http URL 走 shell.openExternal", async () => {
     const { listener } = await registerOpenExternalListener();
     const sender = { getURL: vi.fn(() => "about:blank") };
 
@@ -155,17 +122,27 @@ describe("OpenExternal 对 file URL 的分流", () => {
 
     await vi.waitFor(() => expect(h.shellOpenExternal).toHaveBeenCalledTimes(1));
     expect(h.shellOpenExternal).toHaveBeenCalledWith("https://example.com/docs");
+  });
+
+  it("file URL 同样走 shell.openExternal（Ycode 简化分流）", async () => {
+    const { listener } = await registerOpenExternalListener();
+    const sender = { getURL: vi.fn(() => "about:blank") };
+
+    listener({ sender }, "file:///tmp/report.html");
+
+    await vi.waitFor(() => expect(h.shellOpenExternal).toHaveBeenCalledTimes(1));
+    expect(h.shellOpenExternal).toHaveBeenCalledWith("file:///tmp/report.html");
     expect(h.shellOpenPath).not.toHaveBeenCalled();
   });
 
-  it("file URL 无法转换为本地路径时记录 warn 且不回退到 shell.openExternal", async () => {
+  it("非 http/https/file 协议被拦截并 warn", async () => {
     const { listener, options } = await registerOpenExternalListener();
     const sender = { getURL: vi.fn(() => "about:blank") };
 
-    listener({ sender }, "file://server/share/page.html");
+    listener({ sender }, "javascript:alert(1)");
 
-    await vi.waitFor(() => expect(options.logger.warn).toHaveBeenCalledTimes(1));
-    expect(h.shellOpenPath).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(options.logger.warn).toHaveBeenCalled());
     expect(h.shellOpenExternal).not.toHaveBeenCalled();
+    expect(h.shellOpenPath).not.toHaveBeenCalled();
   });
 });
