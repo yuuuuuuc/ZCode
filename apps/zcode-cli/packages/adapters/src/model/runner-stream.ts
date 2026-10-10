@@ -707,6 +707,23 @@ export async function* runStreamText(input: {
           diagnostics.lastErrorChunk || diagnostics.lastFinishChunk,
         ),
       });
+      const retryWithAuth = authRetry.claim(
+        error,
+        options === undefined ||
+          emittedRetryBoundaryEvent ||
+          streamOutputCommitted ||
+          (input.request.preserveProviderStreamBoundaries === true &&
+            failureDecision.context?.streamFailurePhase === "response_body"),
+      );
+      if (retryWithAuth) {
+        failureDecision.canRetry = true;
+        statusContext = {
+          ...statusContext,
+          maxAttempts: statusMaxAttempts(
+            Number(signatureRepairAttempted) + authRetry.extraAttempts,
+          ),
+        };
+      }
       if (retryWithRepairedHistory) {
         failureDecision.canRetry = true;
       }

@@ -118,6 +118,9 @@ export function createDesktopTray(options: {
   return desktopTray;
 }
 
+/** Ycode alias kept for historical Windows-only call sites. */
+export const createWindowsDesktopTray = createDesktopTray;
+
 export function updateWindowsDesktopTrayMenu() {
   rebuildDesktopTrayContextMenu?.();
 }

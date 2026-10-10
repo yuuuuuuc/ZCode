@@ -1,4 +1,4 @@
-import type { RequestVerificationReason } from "@zcode/shared";
+import type { RequestVerificationReason, ZCodeProviderAccountAccess } from "@zcode/shared";
 import { generateText as aiGenerateText, streamText as aiStreamText } from "ai";
 import type {
   ModelProperties,
@@ -14,6 +14,7 @@ export type AiSdkStreamTextOptions = Parameters<typeof aiStreamText>[0];
 export type AiSdkStreamTextResult = ReturnType<typeof aiStreamText>;
 export type ResolvedAiSdkModel = AiSdkResolvedModel & {
   properties: ModelProperties;
+  accountAccess?: ZCodeProviderAccountAccess;
 };
 
 export interface AiSdkModelRuntime {

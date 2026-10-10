@@ -12,8 +12,6 @@ import type {
   CoordinatorResponsePort,
   DynamicWorkflowRunPort,
   DynamicWorkflowSnippetPort,
-  EmbeddedSearchBackend,
-  ExecutionPort,
   ExecutionShellSelection,
   FileSystemPort,
   HttpClientPort,
@@ -143,6 +141,8 @@ export interface ToolExecutionContext {
   telemetry?: ToolExecutionSpanWriter;
   /** 当前工具调用是否属于 automation 派发轮；写工具 handler 用它做最终权限校验。 */
   automationTurn?: boolean;
+  /** Ycode keeps the field for compile compatibility; off-peak product is removed. */
+  offPeakTurn?: boolean;
   traceContext?: TraceContext;
   traceId: TraceId;
   spanId?: string;
@@ -171,6 +171,8 @@ export interface ToolExecutionContext {
   workflowEscalatePort?: WorkflowEscalatePort;
   artifactStore?: ToolArtifactStorePort;
   automationPort?: AutomationPort;
+  offPeakPort?: OffPeakPort;
+  topicResourcePort?: TopicResourcePort;
   sessionStore?: SessionStorePort;
   sessionModePort?: SessionModePort;
   workflowPort?: WorkflowPort;

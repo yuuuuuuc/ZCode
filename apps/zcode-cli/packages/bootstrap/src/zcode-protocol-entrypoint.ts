@@ -33,7 +33,16 @@ import { scheduleStartupLogRetentionCleanup } from "./log-retention.js";
 import { resolveProcessProviderEndpointRoutingPort } from "./provider-endpoint-routing.js";
 import { StartupTimer, startupNow } from "./startup-logging.js";
 import { installZCodeProtocolAiSdkWarningLogger } from "./zcode-protocol/ai-sdk-warning-logger.js";
-import { ZCODE_WORKSPACE_IDENTITY_ENV } from "@zcode/shared";
+import {
+  createOfficialMcpAuthHeadersPort,
+  type OfficialMcpAuthRequestContext,
+} from "./zcode-protocol/official-mcp-auth-port.js";
+import {
+  createOfficialMcpTrustedOriginRegistry,
+  OFFICIAL_MCP_DEV_TRUSTED_ORIGINS_ENV,
+  ZCODE_WORKSPACE_IDENTITY_ENV,
+  resolveRuntimeZCodeEndpointOrigin,
+} from "@zcode/shared";
 import { ZCodeProtocolAgentServer } from "./zcode-protocol/server.js";
 import { ZCodeProtocolNdjsonConnection } from "./zcode-protocol/transport.js";
 import { cleanupProtocolRuntime } from "./zcode-protocol/runtime-cleanup.js";

@@ -24,12 +24,16 @@ import type {
   McpConnectOptions,
   McpConnectionSnapshot,
   McpContentBlock,
+  McpElicitationPort,
+  McpNotificationPort,
   McpOAuthConfig,
   McpPort,
   McpServerConfig,
   McpServerStatus,
   McpToolCallResult,
   McpToolDescriptor,
+  OfficialMcpAuthHeadersPort,
+  OfficialMcpTrustedOriginRegistry,
   TraceContext,
 } from "@zcode/contracts";
 import { normalizeMcpToolDescriptor } from "./descriptor.js";
@@ -101,8 +105,19 @@ export interface CreateMcpAdapterOptions {
   /**
    * 官方 Server MCP 鉴权依赖。trustedOrigins 缺失时仍 fail closed；authHeadersPort
    * 可缺省，此时各请求匿名降级并交给服务端做权威判定。
+   * Ycode：端口可传入但本适配器裁剪实现不消费身份头（官方 MCP 鉴权 fail closed）。
    */
+  officialMcpAuth?: {
+    authHeadersPort?: OfficialMcpAuthHeadersPort;
+    trustedOrigins: OfficialMcpTrustedOriginRegistry;
+    resolveZCodeApiOrigin?: () => string;
+    workspaceIdentity?: string;
+  };
   workingDirectory?: string;
+  /** 有此端口才向 server 宣告 elicitation 能力；缺省时 server 的 elicitation/create 收到 method not found。 */
+  elicitation?: McpElicitationPort;
+  /** server → client 通知出口；缺省只记 debug。 */
+  notifications?: McpNotificationPort;
 }
 
 type McpClient = Client;
@@ -173,6 +188,9 @@ class NodeMcpAdapter implements McpPort {
   private credentialStore?: SharedZCodeCredentialStore;
   private readonly records = new Map<string, McpServerRecord>();
   private readonly workingDirectory?: string;
+  private readonly officialMcpAuth?: CreateMcpAdapterOptions["officialMcpAuth"];
+  private readonly elicitation?: McpElicitationPort;
+  private readonly notifications?: McpNotificationPort;
 
   constructor(options: CreateMcpAdapterOptions) {
     this.clientName = options.clientName ?? "zcode";
@@ -187,6 +205,9 @@ class NodeMcpAdapter implements McpPort {
     this.network = options.network;
     this.telemetry = options.telemetry;
     this.workingDirectory = options.workingDirectory;
+    this.officialMcpAuth = options.officialMcpAuth;
+    this.elicitation = options.elicitation;
+    this.notifications = options.notifications;
   }
 
   async connectConfiguredServers(

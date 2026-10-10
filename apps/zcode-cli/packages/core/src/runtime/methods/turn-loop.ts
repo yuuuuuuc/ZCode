@@ -26,6 +26,7 @@ import type { AgentRuntimeInternal } from "../internal.js";
 import { runModelBackedTurnStep } from "./turn-model-step.js";
 import {
   evaluateRapidRefill,
+  AUTOMATION_MUTATION_TOOL_NAMES,
   isAutomationMutationRestrictedTurn,
   MAX_CONSECUTIVE_RAPID_REFILLS,
   RAPID_REFILL_TOOL_TURN_THRESHOLD,

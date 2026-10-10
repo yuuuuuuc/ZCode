@@ -172,3 +172,11 @@ export function recordCompactHistoryRound(state: RegularTurnLoopState): void {
   // compact summary 是独立的 provider 可见持久历史，但不是普通模型步骤，单独累计一次。
   state.historyRoundCount += 1;
 }
+
+
+/** Ycode: off-peak mutation tools removed. */
+export const OFF_PEAK_MUTATION_TOOL_NAMES = [] as const;
+
+export function isOffPeakCreateRestrictedTurn(_state: RegularTurnLoopState): boolean {
+  return false;
+}

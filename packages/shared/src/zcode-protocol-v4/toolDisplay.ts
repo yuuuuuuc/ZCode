@@ -17,7 +17,7 @@ import {
 } from "./workflow-observation-display.js";
 
 /** Ycode: official MCP error codes removed. */
-const OFFICIAL_MCP_TOOL_ERROR_CODES: readonly string[] = [];
+export const OFFICIAL_MCP_TOOL_ERROR_CODES = ["official_mcp_unavailable"] as const;
 
 // toolCall 终态 output 的结构化展示模型（port 自 feat；CUA 工具靠 kind:"cua" 分支把
 // errorCode/suggestedAction/media(screenshot) 等结构化内容带到 renderer）。consume-main 之前

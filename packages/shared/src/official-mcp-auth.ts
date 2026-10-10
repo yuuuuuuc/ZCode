@@ -270,3 +270,13 @@ export function createOfficialMcpTrustedOriginRegistry(
     },
   };
 }
+
+/** Ycode: official MCP tool errors removed. */
+export type OfficialMcpToolErrorCode = (typeof OFFICIAL_MCP_TOOL_ERROR_CODES_STUB)[number];
+const OFFICIAL_MCP_TOOL_ERROR_CODES_STUB = ["official_mcp_unavailable"] as const;
+
+export function parseOfficialMcpToolError(_input?: unknown): {
+  code: OfficialMcpToolErrorCode;
+} | null {
+  return null;
+}

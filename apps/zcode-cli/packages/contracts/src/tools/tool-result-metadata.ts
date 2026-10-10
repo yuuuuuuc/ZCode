@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { OFFICIAL_MCP_TOOL_ERROR_CODES } from "@zcode/shared";
+import { OFFICIAL_MCP_TOOL_ERROR_CODES } from "@zcode/shared/zcode-protocol-v4";
 import {
   MCP_APPS_RESOURCE_URI_MAX_CHARS,
   MCP_APPS_CONTENT_MAX_BYTES,

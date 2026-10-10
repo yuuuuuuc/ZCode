@@ -11,6 +11,7 @@ export function normalizeMcpToolDescriptor(
   serverName: string,
   tool: unknown,
   timeoutMs?: number,
+  official?: boolean,
 ): McpToolDescriptor {
   const record = isRecord(tool) ? tool : {};
   const toolName = typeof record.name === "string" ? record.name : "unknown";

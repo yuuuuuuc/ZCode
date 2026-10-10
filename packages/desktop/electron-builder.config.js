@@ -854,6 +854,8 @@ export default {
   win: {
     target: ["nsis"],
     artifactName: buildDesktopArtifactName("win"),
+    // Linux packagers without wine32 cannot run rcedit-ia32; skip metadata edit when requested.
+    ...(process.env.ZCODE_SKIP_WIN_RCEDIT === "1" ? { signAndEditExecutable: false } : {}),
     signExts: [".node", ".dll"],
     // Bugfix: Windows CI 之前完全依赖 electron-builder 内置 signtool.exe，
     // 一旦 runner 的证书链路要求改走 vsigntool，打包阶段就会在内置签名环节卡死。
