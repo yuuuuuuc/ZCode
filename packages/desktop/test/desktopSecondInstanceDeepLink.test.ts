@@ -86,8 +86,6 @@ describe("desktop second-instance workspace deep link routing", () => {
         buildWorkspaceOpenUrl(workspacePath),
       ]),
       argv: ["ZCode"],
-      focusForceUpdateGateWindow: vi.fn(),
-      forceUpdateBlocked: false,
       handleDeepLink: (url, options) =>
         handleDeepLink(url, { info: vi.fn(), warn: logger.warn }, options),
       handleOpenWorkspacePath: (path) =>
@@ -98,7 +96,6 @@ describe("desktop second-instance workspace deep link routing", () => {
             allowWithoutReadyWindow: true,
           },
         ),
-      logger,
       workspaceConfirmationCopy: resolveExternalWorkspaceOpenDialogCopy("zh-CN"),
     });
 
@@ -129,11 +126,8 @@ describe("desktop second-instance workspace deep link routing", () => {
         workspacePath,
       ]),
       argv: ["ZCode"],
-      focusForceUpdateGateWindow: vi.fn(),
-      forceUpdateBlocked: false,
       handleDeepLink: vi.fn(() => false),
       handleOpenWorkspacePath,
-      logger: { warn: vi.fn() },
       resolveApplicationWindow,
     });
 
@@ -164,8 +158,6 @@ describe("desktop second-instance workspace deep link routing", () => {
         buildWorkspaceOpenUrl(workspacePath),
       ]),
       argv: ["ZCode"],
-      focusForceUpdateGateWindow: vi.fn(),
-      forceUpdateBlocked: false,
       handleDeepLink: (url, options) =>
         handleDeepLink(url, { info: vi.fn(), warn: logger.warn }, options),
       handleOpenWorkspacePath: (path) =>
@@ -176,7 +168,6 @@ describe("desktop second-instance workspace deep link routing", () => {
             allowWithoutReadyWindow: true,
           },
         ),
-      logger,
     });
 
     expect(handled).toBe(true);
@@ -205,8 +196,6 @@ describe("desktop second-instance workspace deep link routing", () => {
         buildWorkspaceOpenUrl("\\\\attacker\\share"),
       ]),
       argv: ["ZCode"],
-      focusForceUpdateGateWindow: vi.fn(),
-      forceUpdateBlocked: false,
       handleDeepLink: (url, options) =>
         handleDeepLink(url, { info: vi.fn(), warn: logger.warn }, options),
       handleOpenWorkspacePath: (path) =>
@@ -217,7 +206,6 @@ describe("desktop second-instance workspace deep link routing", () => {
             allowWithoutReadyWindow: true,
           },
         ),
-      logger,
     });
 
     expect(handled).toBe(false);

@@ -267,7 +267,7 @@ workflow path selection
 | --- | --- | --- |
 | `packages/desktop/scripts/desktop-product-identity.mjs` | `ZCODE_ENV` | `resolveDesktopProductFlavor(env)`；`artifactSuffix` 移出身份记录，改为 `resolveDesktopArtifactSuffix(env)` |
 | `desktopRuntimeEnv.ts` `isPreviewPackagedRuntime` | `ZCODE_ENV === "test"` | `ZCODE_PRODUCT_FLAVOR === "preview"` |
-| `index.ts` AUMID / `initAutoUpdater.enabled` / force-update gate | `ZCODE_ENV` | `ZCODE_PRODUCT_FLAVOR`（`resolveWindowsAppUserModelIdForFlavor`） |
+| `index.ts` AUMID / `initAutoUpdater.enabled` | `ZCODE_ENV` | `ZCODE_PRODUCT_FLAVOR`（`resolveWindowsAppUserModelIdForFlavor`）。启动强更 gate 已从 zcode2 摘掉 |
 | `desktopApplicationMenu.ts` 检查更新菜单项 | `ZCODE_ENV === "production"` | `ZCODE_PRODUCT_FLAVOR === "production"`；endpoint 切换子菜单仍看 `ZCODE_ENV` |
 | `packages/ui/.../WindowsCaptionMenuButton.tsx` `shouldShowDesktopUpdateEntry` | `ZCodeEnv` | `ZCodeProductFlavor` |
 | `scripts/notarize-macos.sh` `is_preview_package` / `is_strict_release` | `ZCODE_ENV=test` | 加上 `ZCODE_PREVIEW_IDENTITY`；Preview 永不进入 strict release |

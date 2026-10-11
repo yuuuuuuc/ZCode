@@ -1,5 +1,7 @@
 # Force Update Client Config
 
+> zcode2 已摘掉启动前强制升级闸门（`forceUpdateGuard` / `forceUpdatePrompt`）。打包版不再因 `forceUpdate.minimalVersion` 拒绝创建主窗口。普通检查更新仍走 `autoUpdater.ts`。下面是官方闸门的历史约定，不要按它把闸门接回去。
+
 ## 背景
 
 ZCode Desktop 需要支持远端按版本拉闸。当远端配置明确下发强制升级要求时，低于最低版本的 Desktop 客户端必须在创建主窗口前阻断使用，并引导用户更新；远端没有下发该配置时，不做本地版本比较，也不改变现有启动流程。

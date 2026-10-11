@@ -44,7 +44,7 @@
 [ ] P1-5  §6 陷阱 3：appCrashCaptureBootstrap.ts 的 remoteCrashReporterEnabled 改回 false
 [ ] P1-6  §5.4 测试清理（约 110 文件；skip 必须带原因 + 指针）
 [ ] P1-7  门禁全绿 + 真机冒烟（gen-ui 卡片 / 网络页 / API-key 对话）
-[ ] P2-1  删强更 gate 与拦截分支，保留 autoUpdater.ts
+[x] P2-1  删强更 gate 与拦截分支，保留 autoUpdater.ts
 [ ] P2-2  真机确认打包版启动不再请求 /api/v1/client/configs，「检查更新」仍可用
 [ ] P4-1  rc → 维护者 dogfood → 正式版
 ```
@@ -132,7 +132,7 @@ origin/main (官方 v3.15.1)  ──┬──> zcode2（本方案产物）
 
 > ⚠️ 删这个时**不要连带删 `autoUpdater.ts`**——帮助菜单「检查更新」是普通功能，其内部强更联动分支在无监听者时自然退化。
 
-**交付判据**：打包版启动不再请求 `/api/v1/client/configs`；「检查更新」仍可用。
+**交付判据**：启动路径不再调用 `maybeBlockStartupForForceUpdate`，打包版不会因 `forceUpdate.minimalVersion` 拒绝创建主窗口。「检查更新」仍走 `autoUpdater.ts`。同一 URL 仍被上下文灰度、renderer action trace、帮助配置读取；那些不是闸门，保留。
 
 ### P3 · 登录墙 —— **本次不做**（已拍板：接受 WelcomeScreen 可跳过）
 

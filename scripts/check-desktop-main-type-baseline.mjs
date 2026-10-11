@@ -14,7 +14,8 @@
  * 错误键 = (文件, TS 错误码, 规范化后的首行消息)。
  * 规范化会忽略行列号，并把**长于 60 字符的引号片段**替换成 `'X'`：tsc 打印的
  * union/object 类型渲染会随无关的窄化变化（实测同一处错误在加一个 if 分支前后
- * 渲染成不同文本），不归一化会让门禁在每次无关改动后误报。
+ * 渲染成不同文本），不归一化会让门禁在每次无关改动后误报。短的字符串字面量联合
+ * （`"active" | "handoff"` 这种）也会被重排，按字母序再冻一次。
  *
  * 用法：
  *   node scripts/check-desktop-main-type-baseline.mjs            # 检查
@@ -49,11 +50,15 @@ if (unknown.length > 0) {
 
 const DIAGNOSTIC_LINE = /^(?<file>.+?)\((?<line>\d+),(?<column>\d+)\): error (?<code>TS\d+): (?<message>.*)$/u;
 
-/** 归一化诊断消息：只留首行，抹掉长引号片段与多余空白。 */
+/** 字符串字面量联合：`"a" | "b"`。tsc 会随无关改动重排短联合的打印顺序。 */
+const STRING_LITERAL_UNION = /'((?:"[^"]*" \| )+"[^"]*")'/gu;
+
+/** 归一化诊断消息：只留首行，抹掉长引号片段，短字面量联合按字母序冻结。 */
 function normalizeMessage(message) {
   const firstLine = message.split("\n")[0] ?? "";
   return firstLine
     .replace(TYPE_RENDER_QUOTE, "'X'")
+    .replace(STRING_LITERAL_UNION, (_full, inner) => `'${inner.split(" | ").sort().join(" | ")}'`)
     .replace(/\s+/gu, " ")
     .trim();
 }

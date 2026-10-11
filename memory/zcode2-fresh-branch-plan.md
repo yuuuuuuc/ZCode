@@ -16,4 +16,6 @@ metadata:
 **四个必须避开的陷阱**（都会静默破坏通用能力，细节与 file:line 见方案 §6）：① `telemetryCore.ts` 不能整个删——`ensureTelemetryDeviceMid` 喂 remote workspace 的 billing `X-Device-Mid`；② `appLaunchCoordinator` 不能跟着 `appTelemetryRuntime` 删——启动门永远不推进；③ `appCrashCaptureBootstrap.ts` 的 `remoteCrashReporterEnabled` 要改回 `false`，否则本地崩溃上报消失；④ 不要删 `useRootOAuthEffects`/`isRestoringOAuthSession`——`Root.tsx` 硬编码 true，唯一写 false 的就是那个 effect，删了永久黑屏。
 
 **Why:** 在重写过的基线上补漏是无底洞；差异面越小，合并上游越安全、漏接线面越小。
+**P2 已落地（zcode2）**：启动路径不再调用 `maybeBlockStartupForForceUpdate`，第二实例 / open-url 不再因强更拒绝开窗。`autoUpdater.ts` 与 `requestForceAutoUpdate` 保留。`/api/v1/client/configs` 仍被 `desktopContextPromptRollout.refresh()`、renderer action trace、帮助配置读取；那些不是闸门。`getForceUpdateConfig` / `getForceUpdateMinimalVersionFromConfig` 按原则 ③ 留着。main 类型基线仍是 55 键 / 82 条；字面量联合的打印顺序会变，门禁按字母序归一化。
+
 **How to apply:** 新会话直接读 `docs/FRESH-BRANCH-FROM-MAIN-PLAN.md`（含执行清单、遥测删除清单、验收标准、可移植资产列表）；从 ycode 搬护栏脚本与 memory，基线用 `--update` 重新生成。相关：[[ycode-opensource-audit]]、[[ycode-wiring-guardrails]]、[[local-machine-ipv6-blocked]]
