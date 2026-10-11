@@ -15,8 +15,14 @@ function getErrorCode(error: unknown): string | undefined {
   return typeof code === "string" ? code : undefined;
 }
 
-function isFileExistsError(error: unknown): boolean {
-  return getErrorCode(error) === "EEXIST";
+// 锁目录已被占用时 mkdir 会失败，这是竞争而不是错误。Windows 上除了 EEXIST 还有 EPERM：
+// 并发 rmdir 把目录留在 delete-pending 状态期间，CreateDirectory 返回 ERROR_ACCESS_DENIED
+// （Node 映射为 EPERM）。实测四进程对同一路径做 mkdir/rmdir 压测，每个进程 10 秒内稳定
+// 复现约 580 次 EPERM（EEXIST 约 8.4 万次）。只认 EEXIST 会让两个进程同时写同一份配置时
+// 随机失败；真权限问题仍由 maxWaitMs 兜住，原错误作为 cause 保留。
+function isLockContentionError(error: unknown): boolean {
+  const code = getErrorCode(error);
+  return code === "EEXIST" || code === "EPERM";
 }
 
 interface FileLockMetadata {
@@ -228,7 +234,7 @@ export async function acquireFileLock(
         await rmdir(lockFile).catch(() => {});
       }
       const lostCreatedLock = createdLock && getErrorCode(error) === "ENOENT";
-      if (!isFileExistsError(error) && !lostCreatedLock) {
+      if (!isLockContentionError(error) && !lostCreatedLock) {
         throw error;
       }
 

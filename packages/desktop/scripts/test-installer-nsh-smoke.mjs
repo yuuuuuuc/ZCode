@@ -222,6 +222,17 @@ async function main() {
             throw new Error(`${scenario}: shortcut arguments mismatch: ${shortcutArguments}`);
           }
         }
+
+        // 成功时也打一行探针摘要：该用例只在 Windows 上跑，而失败与否依赖「冷启动
+        // PowerShell 读 .lnk 要多久」这类只能在 CI 观察的量。没有这行，绿态下拿不到数字。
+        if (scenario === "preserved") {
+          process.stdout.write(
+            `[installer-nsh-smoke] preserved probe: ${readShortcutDebug(installDir)
+              .trim()
+              .split("\r\n")
+              .join(" | ")}\n`,
+          );
+        }
       } else if (existsSync(startMenuLink) || existsSync(desktopLink)) {
         throw new Error(`${scenario}: a user-deleted shortcut was recreated`);
       }

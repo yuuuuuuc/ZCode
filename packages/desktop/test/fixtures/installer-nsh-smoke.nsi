@@ -36,6 +36,11 @@ Var launchLink
 Var newStartMenuLink
 Var newDesktopLink
 Var keepShortcuts
+!ifndef BUILD_UNINSTALLER
+  ; Only the diagnostic block below uses this. Declaring it unconditionally trips makensis
+  ; warning 6001 ("Variable not referenced") in the uninstaller build, where /WX makes it fatal.
+  Var probeFile
+!endif
 
 !include "${ZCODE_INSTALLER_NSH}"
 ; Keep this file ASCII, or give it a UTF-8 BOM. makensis decodes a BOM-less script with the system
@@ -76,36 +81,52 @@ Section
     !endif
 
     !ifndef BUILD_UNINSTALLER
+      ; Diagnostic only, and deliberately run BEFORE the macro call below so that this replica of
+      ; the macro's nsExec call is the cold PowerShell launch (the macro is then the warm one). It
+      ; uses the macro's own /TIMEOUT=5000 and records the exit code, the raw output and the
+      ; elapsed milliseconds, so the CI log can tell a cold-start timeout apart from a genuine
+      ; logic difference in the macro.
+      ;
+      ; Written in ONE FileOpen/FileWrite/FileClose pass: NSIS "a" mode does NOT append -- it
+      ; writes from offset 0 without truncating. Verified with a minimal fixture: appending
+      ; "AAAA\r\n" over "1111\r\n2222\r\n3333\r\n" yields "AAAA\r\n2222\r\n3333\r\n". A second
+      ; pass would therefore silently overwrite the first. Keep this file ASCII.
+      System::Call 'Kernel32::SetEnvironmentVariableW(w "ZCODE_SHORTCUT_PATH", w "$newStartMenuLink") i.R4'
+      System::Call 'kernel32::GetTickCount() i.R0'
+      nsExec::ExecToStack /TIMEOUT=5000 `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "[Console]::Out.Write(([Activator]::CreateInstance([type]::GetTypeFromProgID('WScript.Shell'))).CreateShortcut([Environment]::GetEnvironmentVariable('ZCODE_SHORTCUT_PATH')).TargetPath)"`
+      Pop $R1
+      Pop $R2
+      System::Call 'kernel32::GetTickCount() i.R3'
+      IntOp $R3 $R3 - $R0
+      System::Call 'Kernel32::SetEnvironmentVariableW(w "ZCODE_SHORTCUT_PATH", p 0) i.R4'
+
       Push "$newStartMenuLink"
       Call ZCodeReadShortcutTarget
       Pop $R8
-      FileOpen $0 "$INSTDIR\read-shortcut-target.txt" w
-      FileWrite $0 "$R8"
-      FileClose $0
 
-      ; Diagnostic only. When the read above yields nothing, an empty result is
-      ; indistinguishable from "the shortcut was never created", and this fixture only runs
-      ; on Windows. Dump the preconditions -- does the .lnk exist, and what did PowerShell
-      ; actually return -- so the smoke test can put the root cause in its own error message.
-      ; Keep this file ASCII (see the encoding note above).
-      FileOpen $0 "$INSTDIR\read-shortcut-target.debug.txt" w
-      ${If} ${FileExists} "$newStartMenuLink"
-        FileWrite $0 "lnk=present$\r$\n"
-      ${Else}
-        FileWrite $0 "lnk=missing$\r$\n"
-      ${EndIf}
+      ; $probeFile is a named var on purpose: a register here could be clobbered between the
+      ; handle being opened and the last write.
+      FileOpen $probeFile "$INSTDIR\read-shortcut-target.debug.txt" w
+      IfFileExists "$newStartMenuLink" zcodeProbeLnkPresent zcodeProbeLnkMissing
+      zcodeProbeLnkPresent:
+        FileWrite $probeFile "lnk=present$\r$\n"
+        Goto zcodeProbeLnkDone
+      zcodeProbeLnkMissing:
+        FileWrite $probeFile "lnk=missing$\r$\n"
+      zcodeProbeLnkDone:
+      FileWrite $probeFile "sysdir=$SYSDIR$\r$\n"
+      FileWrite $probeFile "instdir=$INSTDIR$\r$\n"
+      FileWrite $probeFile "probe5.exit=$R1$\r$\n"
+      FileWrite $probeFile "probe5.out=$R2$\r$\n"
+      FileWrite $probeFile "probe5.ms=$R3$\r$\n"
       StrLen $R1 "$R8"
-      FileWrite $0 "macro.result.len=$R1$\r$\n"
-      System::Call 'Kernel32::SetEnvironmentVariableW(w "ZCODE_SHORTCUT_PATH", w "$newStartMenuLink") i.R1'
-      nsExec::ExecToStack /TIMEOUT=10000 `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "[Console]::Out.Write(([Activator]::CreateInstance([type]::GetTypeFromProgID('WScript.Shell'))).CreateShortcut([Environment]::GetEnvironmentVariable('ZCODE_SHORTCUT_PATH')).TargetPath)"`
-      Pop $R1
-      Pop $R2
-      FileWrite $0 "ps.exit=$R1$\r$\n"
-      FileWrite $0 "ps.out=$R2$\r$\n"
-      System::Call 'Kernel32::SetEnvironmentVariableW(w "ZCODE_SHORTCUT_PATH", p 0) i.R1'
-      FileWrite $0 "sysdir=$SYSDIR$\r$\n"
-      FileWrite $0 "instdir=$INSTDIR$\r$\n"
-      FileClose $0
+      FileWrite $probeFile "macro.result.len=$R1$\r$\n"
+      FileWrite $probeFile "macro.result=$R8$\r$\n"
+      FileClose $probeFile
+
+      FileOpen $probeFile "$INSTDIR\read-shortcut-target.txt" w
+      FileWrite $probeFile "$R8"
+      FileClose $probeFile
     !endif
   !endif
 
