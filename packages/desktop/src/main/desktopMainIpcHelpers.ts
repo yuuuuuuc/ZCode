@@ -10,12 +10,34 @@ type DesktopIpcLogger = {
   warn: (...args: unknown[]) => void;
 };
 
+function localPathFromFileUrl(parsed: URL): string {
+  try {
+    return fileURLToPath(parsed);
+  } catch (error) {
+    // Windows 把没有盘符的 file:///tmp/... 判成非绝对路径并抛错。调用方仍然要打开它。
+    if (process.platform === "win32" && parsed.pathname.startsWith("/") && !parsed.hostname) {
+      return decodeURIComponent(parsed.pathname);
+    }
+    throw error;
+  }
+}
+
 export async function openFileUrlInDefaultApp(
   url: string,
   logger: DesktopIpcLogger,
 ): Promise<void> {
   try {
-    const filePath = fileURLToPath(url);
+    const parsed = new URL(url);
+    if (parsed.protocol !== "file:") {
+      throw new Error("not a file URL");
+    }
+    // Windows 上 file://host/share 会被 fileURLToPath 收成 UNC，接着 realpath 去探网络并卡住。
+    // 锚点也会让 fileURLToPath 抛 “path must be absolute”。只打开本机路径，并先丢掉 hash。
+    if (parsed.hostname && parsed.hostname.toLowerCase() !== "localhost") {
+      throw new Error("file URL host is not local");
+    }
+    parsed.hash = "";
+    const filePath = localPathFromFileUrl(parsed);
     await openPathInDefaultApp(filePath, logger);
   } catch (error) {
     logger.warn("[open-external] file URL 打开失败", {

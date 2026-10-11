@@ -4726,7 +4726,7 @@ export const config: WebdriverIO.Config = {
         REPO_ROOT,
         "packages/desktop/test/e2e/helpers/subagent-config-proxy.mjs",
       );
-      const preload = `--import=${JSON.stringify(proxy)}`;
+      const preload = `--import=${pathToFileURL(proxy).href}`;
       await writeFile(
         entry,
         `process.env.NODE_OPTIONS = ${JSON.stringify(preload)};\nawait import(${JSON.stringify(pathToFileURL(E2E_APP_ENTRY_POINT).href)});\n`,

@@ -3,7 +3,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, expect, it } from "vitest";
 
 const roots: string[] = [];
@@ -39,7 +39,8 @@ it.each([false, true])(
     const child = spawn(process.execPath, [entry, "app-server", "--stdio"], {
       env: {
         ...process.env,
-        NODE_OPTIONS: `--import=${JSON.stringify(proxy)}`,
+        // Windows 绝对路径不能直接交给 --import，ESM 会把盘符当成协议（d:）。
+        NODE_OPTIONS: `--import=${pathToFileURL(proxy).href}`,
         ZCODE_E2E_ARTIFACT_DIR: root,
       },
       stdio: ["pipe", "pipe", "pipe"],

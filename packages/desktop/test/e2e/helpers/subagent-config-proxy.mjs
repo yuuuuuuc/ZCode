@@ -2,19 +2,30 @@ import { spawn } from "node:child_process";
 import { appendFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+function stripProxyPreload(options) {
+  const proxyPath = fileURLToPath(import.meta.url);
+  const tokens = [
+    `--import=${JSON.stringify(proxyPath)}`,
+    `--import=${pathToFileURL(proxyPath).href}`,
+  ];
+  let next = options ?? "";
+  for (const token of tokens) next = next.split(token).join("");
+  return next.replace(/\s+/g, " ").trim();
+}
 
 // 非 CLI 进程（Electron/Host、存储准备 Worker）只加载模块，不拦截原始入口。
 if (process.argv.includes("app-server") && process.argv.includes("--stdio")) {
   // 仅由本组 WDIO 预加载的透明 stdio 代理。真实 Host/CLI 完成保存、解析和执行；
   // 故障位于传输边界，不修改业务对象，也不记录其他 RPC 的鉴权或模型凭据。
-  const preload = `--import=${JSON.stringify(fileURLToPath(import.meta.url))}`;
   const child = spawn(process.execPath, process.argv.slice(1), {
     stdio: ["pipe", "pipe", "inherit"],
     // 只移除当前代理预加载，保留覆盖采集等其他 Node 参数，防止递归启动代理。
+    // Windows 上 --import 必须是 file URL；旧调用仍可能传入带引号的盘符路径，两种都摘掉。
     env: {
       ...process.env,
-      NODE_OPTIONS: (process.env.NODE_OPTIONS ?? "").replace(preload, "").trim(),
+      NODE_OPTIONS: stripProxyPreload(process.env.NODE_OPTIONS),
     },
   });
   const root = process.env.ZCODE_E2E_ARTIFACT_DIR;

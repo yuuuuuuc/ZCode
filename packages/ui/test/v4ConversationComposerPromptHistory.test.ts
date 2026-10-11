@@ -32,19 +32,10 @@ const { attachmentState, chatPromptEditorProps, dialogOpenStates, inputClear } =
 }));
 
 function expectedTelemetrySendOptions() {
+  // 官方 send 事件字段已从 seed 上拿掉。测试里没有安装本地 TTFT observer，时钟就是空的。
   return expect.objectContaining({
     telemetrySeed: {
-      sendTime: expect.any(Number),
-      extraDetail: {
-        ask_mode: "",
-        model_name: "",
-        model_provider: "glm",
-        agent: "glm",
-        plan_status: "unknown",
-        plan_product_id: "",
-        message_source: "chat",
-        task_trigger: "",
-      },
+      localTtft: undefined,
     },
   });
 }
@@ -410,7 +401,7 @@ describe("ConversationComposer prompt history", () => {
     await act(async () => root.unmount());
   });
 
-  it("prewarm snapshot 未到时仍用冻结草稿 config 建立 send telemetry seed", async () => {
+  it("prewarm snapshot 未到时仍能发送，seed 只保留本地 TTFT", async () => {
     const onSendText = vi.fn(async () => {});
     const { root } = renderComposer(onSendText, {
       mode: "build",
@@ -424,18 +415,7 @@ describe("ConversationComposer prompt history", () => {
       await flushAsyncWork();
     });
 
-    expect(onSendText).toHaveBeenCalledWith(
-      "立即发送草稿",
-      expect.objectContaining({
-        telemetrySeed: expect.objectContaining({
-          extraDetail: expect.objectContaining({
-            ask_mode: "build",
-            model_name: "custom:e2e-deepseek:deepseek-v4-flash",
-            model_provider: "e2e-deepseek",
-          }),
-        }),
-      }),
-    );
+    expect(onSendText).toHaveBeenCalledWith("立即发送草稿", expectedTelemetrySendOptions());
 
     await act(async () => root.unmount());
   });

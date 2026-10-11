@@ -25,7 +25,14 @@ export function createEncodedPowerShellArgs(script, values = []) {
         `$zcodeArg${index}=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodeUtf8Value(value)}'));`,
     )
     .join("");
-  const encodedCommand = Buffer.from(`${valueBindings}${script}`, "utf16le").toString("base64");
+  // PowerShell 5.1 把管道里的 [Console]::Out 写成 UTF-16，Node 用 utf8 读会拆碎中文。
+  // 脚本一开头把输出改成不带 BOM 的 UTF-8，调用方才能按 utf8 还原动态值。
+  const outputUtf8 =
+    "[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false);$OutputEncoding=[Console]::OutputEncoding;";
+  const encodedCommand = Buffer.from(
+    `${outputUtf8}${valueBindings}${script}`,
+    "utf16le",
+  ).toString("base64");
   return [...POWERSHELL_COMMON_ARGS, "-EncodedCommand", encodedCommand];
 }
 
