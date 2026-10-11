@@ -1,6 +1,6 @@
 - [ycode 已合入 v3.14.3](memory/ycode-main-v3143-merge.md) — origin/ycode 是 6cc93f2；未登录侧栏显示 Yuuc，不要写无值的恢复登录属性
 - [开源化改造审查与修复](memory/ycode-opensource-audit.md) — 模型链无损失，强更锁已删；2026-10-10 修 runtime headers 阻断 api-key；2026-10-11 修 WRC/gen-ui 漏接线、恢复网络抓包接线、删零引用模块；根 typecheck 不覆盖 desktop main；测试预存红名单；远程凭据/分享页 401 未处理
-- [漏接线的两道自动化护栏](memory/ycode-wiring-guardrails.md) — main 类型棘轮 + host/main 孤儿扫描，基线文件与归一化技巧（tsc union 渲染会随无关窄化变化）；抓不到「文件内分支被删」
+- [漏接线的两道自动化护栏](memory/ycode-wiring-guardrails.md) — zcode2 在 aac47556 重生成：main 类型 58 键/85 条，孤儿是 mcpUserDirectory 的 claude/opencode/toml；抓不到「文件内分支被删」
 - [本机出网 IPv6 被驱动阻断](memory/local-machine-ipv6-blocked.md) — WSAEACCES 全拒 IPv6；dev:desktop 卡在等 Vite，用 NODE_OPTIONS=--dns-result-order=ipv4first 绕开
 - [从 main 重开 zcode2 分支](memory/zcode2-fresh-branch-plan.md) — 放弃 ycode 修补，只做减法（去遥测 + 去强更锁）；决策已拍板，方案见 docs/FRESH-BRANCH-FROM-MAIN-PLAN.md
 - [visualize vendor 资源被 CRLF 破坏哈希](memory/visualize-vendor-crlf-hashes.md) — Windows autocrlf 换掉换行导致 vendor.py 报 hash mismatch；已在 .gitattributes 强制 LF

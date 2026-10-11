@@ -1,0 +1,354 @@
+{
+  "version": 1,
+  "note": "packages/desktop/tsconfig.main.json 的存量类型错误基线；门禁只拒绝新增。",
+  "errors": [
+    {
+      "file": "packages/desktop/src/main/appARMSBootstrap.ts",
+      "code": "TS6059",
+      "message": "File 'X' is not under 'rootDir' 'D:/2_WorkProject/k-code/ZCode/packages/desktop/src/main'. 'rootDir' is expected to contain all source files.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/appARMSBootstrap.ts",
+      "code": "TS6307",
+      "message": "File 'X' is not listed within the file list of project 'X'. Projects must list all files or use an 'include' pattern.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/applicationIcons.ts",
+      "code": "TS2345",
+      "message": "Argument of type 'string | undefined' is not assignable to parameter of type 'string'.",
+      "count": 2
+    },
+    {
+      "file": "packages/desktop/src/main/autoUpdater.ts",
+      "code": "TS2339",
+      "message": "Property 'channel' does not exist on type 'X'.",
+      "count": 2
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserGuestManager.ts",
+      "code": "TS18048",
+      "message": "'running' is possibly 'undefined'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserGuestManager.ts",
+      "code": "TS18048",
+      "message": "'tab.guest' is possibly 'undefined'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserGuestManager.ts",
+      "code": "TS2322",
+      "message": "Type 'X' is not assignable to type 'X'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserGuestManager.ts",
+      "code": "TS2339",
+      "message": "Property 'button' does not exist on type 'X'.",
+      "count": 2
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserGuestManager.ts",
+      "code": "TS2339",
+      "message": "Property 'doubleClick' does not exist on type 'X'.",
+      "count": 2
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserGuestManager.ts",
+      "code": "TS2339",
+      "message": "Property 'x' does not exist on type 'X'.",
+      "count": 3
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserGuestManager.ts",
+      "code": "TS2339",
+      "message": "Property 'y' does not exist on type 'X'.",
+      "count": 3
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserGuestManager.ts",
+      "code": "TS2367",
+      "message": "This comparison appears to be unintentional because the types '\"active\" | \"deliverable\" | \"handoff\"' and '\"closed\"' have no overlap.",
+      "count": 2
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserPlaywrightExecutor.ts",
+      "code": "TS2304",
+      "message": "Cannot find name 'Element'.",
+      "count": 3
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserPlaywrightExecutor.ts",
+      "code": "TS2304",
+      "message": "Cannot find name 'HTMLElement'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserPlaywrightExecutor.ts",
+      "code": "TS2304",
+      "message": "Cannot find name 'HTMLInputElement'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserPlaywrightExecutor.ts",
+      "code": "TS2584",
+      "message": "Cannot find name 'document'X'lib' compiler option to include 'dom'.",
+      "count": 7
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserPlaywrightExecutor.ts",
+      "code": "TS7006",
+      "message": "Parameter 'element' implicitly has an 'any' type.",
+      "count": 2
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserPlaywrightExecutor.ts",
+      "code": "TS7017",
+      "message": "Element implicitly has an 'any' type because type 'typeof globalThis' has no index signature.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserPlaywrightLocatorExecutor.ts",
+      "code": "TS2322",
+      "message": "Type 'ScrollAlignment | undefined' is not assignable to type 'ScrollAlignment'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/browserScreenshotSurfaceContracts.ts",
+      "code": "TS2305",
+      "message": "Module '\"@zcode/shared\"' has no exported member 'BrowserViewSurfaceScaleMode'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/browserView/electronBrowserWebmRecorder.ts",
+      "code": "TS2769",
+      "message": "No overload matches this call.",
+      "count": 2
+    },
+    {
+      "file": "packages/desktop/src/main/chromeLocalStorageManager.ts",
+      "code": "TS2345",
+      "message": "Argument of type 'ChildProcessByStdio<null, Readable, Readable>' is not assignable to parameter of type 'ChildProcessWithoutNullStreams'.",
+      "count": 2
+    },
+    {
+      "file": "packages/desktop/src/main/cuaAccessibilitySettings.ts",
+      "code": "TS7006",
+      "message": "Parameter '_traceId' implicitly has an 'any' type.",
+      "count": 4
+    },
+    {
+      "file": "packages/desktop/src/main/cuaAccessibilitySettings.ts",
+      "code": "TS7019",
+      "message": "Rest parameter 'args' implicitly has an 'any[]' type.",
+      "count": 4
+    },
+    {
+      "file": "packages/desktop/src/main/desktopCrashCapture.ts",
+      "code": "TS18048",
+      "message": "'dump' is possibly 'undefined'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopCrashCapture.ts",
+      "code": "TS2345",
+      "message": "Argument of type 'X' is not assignable to parameter of type 'X'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopCronScheduler.ts",
+      "code": "TS6059",
+      "message": "File 'X' is not under 'rootDir' 'D:/2_WorkProject/k-code/ZCode/packages/desktop/src/main'. 'rootDir' is expected to contain all source files.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopCronScheduler.ts",
+      "code": "TS6307",
+      "message": "File 'X' is not listed within the file list of project 'X'. Projects must list all files or use an 'include' pattern.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopHelpConfig.ts",
+      "code": "TS2345",
+      "message": "Argument of type 'string | URL | Request' is not assignable to parameter of type 'string | Request'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopMainIpcPlatform.ts",
+      "code": "TS2305",
+      "message": "Module '\"@zcode/shared\"' has no exported member 'WindowControlsOverlayReadyPayload'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopPrintToPdf.ts",
+      "code": "TS2322",
+      "message": "Type 'ArrayBuffer | SharedArrayBuffer' is not assignable to type 'ArrayBuffer | undefined'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopSaveFile.ts",
+      "code": "TS18048",
+      "message": "'payload.data' is possibly 'undefined'.",
+      "count": 2
+    },
+    {
+      "file": "packages/desktop/src/main/desktopSaveFile.ts",
+      "code": "TS2339",
+      "message": "Property 'length' does not exist on type 'LookupAddress'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopSaveFile.ts",
+      "code": "TS2339",
+      "message": "Property 'some' does not exist on type 'LookupAddress'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopSaveFile.ts",
+      "code": "TS2345",
+      "message": "Argument of type 'LookupAddress' is not assignable to parameter of type 'string | LookupAddress[]'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopSaveFile.ts",
+      "code": "TS2739",
+      "message": "Type 'LookupAddress[]' is missing the following properties from type 'LookupAddress': address, family",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopSaveFile.ts",
+      "code": "TS2769",
+      "message": "No overload matches this call.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopSaveFile.ts",
+      "code": "TS7031",
+      "message": "Binding element 'address' implicitly has an 'any' type.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopSaveFile.ts",
+      "code": "TS7031",
+      "message": "Binding element 'family' implicitly has an 'any' type.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopSaveFile.ts",
+      "code": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '0' can't be used to index type 'LookupAddress'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/desktopWindowLifecycle.ts",
+      "code": "TS2345",
+      "message": "Argument of type 'X' is not assignable to parameter of type 'HostInitMessage'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/index.ts",
+      "code": "TS2322",
+      "message": "Type '(patch: Partial<AppSettings>) => void' is not assignable to type '(patch: unknown) => void'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/index.ts",
+      "code": "TS2322",
+      "message": "Type 'X' is not assignable to type 'X'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/index.ts",
+      "code": "TS2345",
+      "message": "Argument of type 'Net' is not assignable to parameter of type 'DesktopTelemetryFetchSource'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/index.ts",
+      "code": "TS2345",
+      "message": "Argument of type 'string | null' is not assignable to parameter of type 'string'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/index.ts",
+      "code": "TS7016",
+      "message": "Could not find a declaration file for module '../../scripts/desktop-product-identity.mjs'. 'X' implicitly has an 'any' type.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/manifestUpdateProvider.ts",
+      "code": "TS2352",
+      "message": "Conversion of type 'Record<string, unknown>' to type 'UpdateInfo'X'unknown' first.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/pluginSandbox/genUiProtocol.test.ts",
+      "code": "TS2322",
+      "message": "Type '\"gen-ui\" | \"mcp-app\"' is not assignable to type '\"gen-ui\" | undefined'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/resourceManagerStorage.ts",
+      "code": "TS2305",
+      "message": "Module '\"@zcode/services/node\"' has no exported member 'IStorageService'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/resourceManagerStorage.ts",
+      "code": "TS7006",
+      "message": "Parameter 'snapshot' implicitly has an 'any' type.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/storageScanWorker.ts",
+      "code": "TS2305",
+      "message": "Module '\"@zcode/services\"' has no exported member 'StorageRootSpec'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/storageScanWorkerProtocol.ts",
+      "code": "TS2305",
+      "message": "Module '\"@zcode/services\"' has no exported member 'StorageRootSpec'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/taskRealtimeBus.ts",
+      "code": "TS2339",
+      "message": "Property 'event' does not exist on type 'TaskStreamMirrorPublishOp'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/taskRealtimeBus.ts",
+      "code": "TS2345",
+      "message": "Argument of type 'X' is not assignable to parameter of type 'TaskRealtimeEvent'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/taskRealtimeBus.ts",
+      "code": "TS2345",
+      "message": "Argument of type 'X' is not assignable to parameter of type 'TaskStreamMirrorPublishOp'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/webRemoteControlManager.ts",
+      "code": "TS18048",
+      "message": "'result.tasks' is possibly 'undefined'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/windowsChromeAppBoundKey.ts",
+      "code": "TS2339",
+      "message": "Property 'expectedAppVersion' does not exist on type 'ReadAppBoundKeyOptions'.",
+      "count": 1
+    },
+    {
+      "file": "packages/desktop/src/main/windowsChromeAppBoundKey.ts",
+      "code": "TS2339",
+      "message": "Property 'expectedBuildCommit' does not exist on type 'ReadAppBoundKeyOptions'.",
+      "count": 1
+    }
+  ]
+}

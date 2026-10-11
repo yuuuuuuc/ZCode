@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "orphans": [
+    {
+      "path": "packages/desktop/src/main/mcpUserDirectory/claude.ts",
+      "reason": "官方 main 的 mcpUserDirectory/index.ts 只读 zcode/agents 的 JSON 目录约定，Claude CLI 专用读写没有调用方。这是上游存量死代码，本分支不接线也不删。"
+    },
+    {
+      "path": "packages/desktop/src/main/mcpUserDirectory/opencode.ts",
+      "reason": "官方 main 没有引用 OpenCode 格式转换。这是上游存量死代码，本分支不接线也不删。"
+    },
+    {
+      "path": "packages/desktop/src/main/mcpUserDirectory/toml.ts",
+      "reason": "官方 main 的目录描述符 format 只有 json，TOML 解析没有调用方。这是上游存量死代码，本分支不接线也不删。"
+    }
+  ]
+}
