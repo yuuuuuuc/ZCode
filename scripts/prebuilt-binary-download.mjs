@@ -23,7 +23,16 @@ import {
 export { extractPrebuiltArchive, findPrebuiltBinary, verifyPrebuiltArchiveSha256 };
 
 const DOWNLOAD_TIMEOUT_MS = 60_000;
+const DOWNLOAD_RESET_RETRY_LIMIT = 2;
 const PROXY_DOWNLOAD_HOSTS = new Set(["github.com", "githubusercontent.com"]);
+// agent:false 会在每次请求后拆掉一次性 Agent。Windows 上本机短连接会因此收到 read ECONNRESET。
+const directHttpAgent = new http.Agent({ keepAlive: false });
+const directHttpsAgent = new https.Agent({ keepAlive: false });
+
+function isRetryableDownloadReset(error) {
+  const code = error && typeof error === "object" ? error.code : undefined;
+  return code === "ECONNRESET" || code === "EPIPE";
+}
 
 export function shouldUsePrebuiltDownloadProxy(rawUrl) {
   const hostname = new URL(rawUrl).hostname.toLowerCase();
@@ -31,6 +40,18 @@ export function shouldUsePrebuiltDownloadProxy(rawUrl) {
 }
 
 export async function downloadPrebuiltArchive(url, destinationPath) {
+  for (let attempt = 0; attempt <= DOWNLOAD_RESET_RETRY_LIMIT; attempt += 1) {
+    try {
+      await downloadPrebuiltArchiveOnce(url, destinationPath);
+      return;
+    } catch (error) {
+      // 只重试连接被对端重置。主动掐断的半截归档仍按原错误失败，避免把中断测试重试成超时。
+      if (attempt === DOWNLOAD_RESET_RETRY_LIMIT || !isRetryableDownloadReset(error)) throw error;
+    }
+  }
+}
+
+function downloadPrebuiltArchiveOnce(url, destinationPath) {
   return new Promise((resolvePromise, rejectPromise) => {
     const client = url.startsWith("https:") ? https : http;
     const file = createWriteStream(destinationPath);
@@ -49,7 +70,7 @@ export async function downloadPrebuiltArchive(url, destinationPath) {
     // GitHub release 主机及其重定向主机读取代理环境，其他下载显式直连。
     const requestOptions = shouldUsePrebuiltDownloadProxy(url)
       ? { agent: new client.Agent({ proxyEnv: process.env }) }
-      : { agent: false };
+      : { agent: client === https ? directHttpsAgent : directHttpAgent };
     const request = client
       .get(url, requestOptions, (response) => {
         // Bugfix：响应头成功后连接仍可能在归档写完前中断；此时 request 不再报错，文件也不会

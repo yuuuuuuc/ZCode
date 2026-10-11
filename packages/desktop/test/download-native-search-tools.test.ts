@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import {
-  createReadStream,
   chmodSync,
   existsSync,
   mkdirSync,
@@ -103,14 +102,22 @@ describe("downloadNativeSearchTools", () => {
     const archives = new Map<string, string>();
     let requestCount = 0;
     const server = createServer((request, response) => {
+      request.on("error", () => undefined);
+      response.on("error", () => undefined);
       requestCount += 1;
       const archivePath = archives.get(request.url ?? "");
       if (!archivePath) {
         response.writeHead(404).end();
         return;
       }
-      response.writeHead(200, { "content-type": "application/gzip" });
-      createReadStream(archivePath).pipe(response);
+      // Windows 上 createReadStream().pipe(response) 在同一端口连续换文件时，
+      // 客户端会收到 read ECONNRESET，下载还没完成校验就被掐断。整包读完再按长度写回。
+      const body = readFileSync(archivePath);
+      response.writeHead(200, {
+        "content-type": "application/gzip",
+        "content-length": body.length,
+      });
+      response.end(body);
     });
     await new Promise<void>((resolvePromise) => server.listen(0, "127.0.0.1", resolvePromise));
 
@@ -158,7 +165,10 @@ describe("downloadNativeSearchTools", () => {
       expect(readFileSync(plan.bfsPath)).toEqual(fixtures.get("bfs"));
       expect(readFileSync(plan.rgPath)).toEqual(fixtures.get("ripgrep"));
       expect(readFileSync(plan.ugrepPath)).toEqual(fixtures.get("ugrep"));
-      expect(requestCount).toBe(2);
+      // 直连偶发 ECONNRESET 时下载器最多再试 2 次。跳过路径必须停在安装后的请求数上。
+      expect(requestCount).toBeGreaterThanOrEqual(2);
+      expect(requestCount).toBeLessThanOrEqual(4);
+      const requestsAfterInstall = requestCount;
       expect(
         JSON.parse(readFileSync(resolveNativeSearchBundleMetaPath(plan.rgPath), "utf8")),
       ).toMatchObject({ source: "official" });
@@ -166,14 +176,14 @@ describe("downloadNativeSearchTools", () => {
       await downloadNativeSearchTools({
         prebuiltPlan: plan,
       });
-      expect(requestCount).toBe(2);
+      expect(requestCount).toBe(requestsAfterInstall);
 
       if (process.platform !== "win32") {
         chmodSync(plan.bfsPath, 0o644);
         await downloadNativeSearchTools({
           prebuiltPlan: plan,
         });
-        expect(requestCount).toBe(2);
+        expect(requestCount).toBe(requestsAfterInstall);
         expect(statSync(plan.bfsPath).mode & 0o111).not.toBe(0);
       }
 
@@ -182,10 +192,12 @@ describe("downloadNativeSearchTools", () => {
       writeFileSync(ugrepArtifact.binaryPath, createMachOFixture("x64", "wrong-arch-cache"));
       writeNativeSearchBundleMeta(ugrepArtifact, plan.platformKey);
 
+      const requestsBeforeRepair = requestCount;
       await downloadNativeSearchTools({
         prebuiltPlan: plan,
       });
-      expect(requestCount).toBe(3);
+      expect(requestCount).toBeGreaterThan(requestsBeforeRepair);
+      expect(requestCount).toBeLessThanOrEqual(requestsBeforeRepair + 3);
       expect(readFileSync(plan.ugrepPath)).toEqual(fixtures.get("ugrep"));
 
       const invalidArchivePath = join(root, "invalid-ugrep.tar.gz");

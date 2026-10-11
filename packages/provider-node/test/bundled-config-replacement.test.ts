@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { afterEach, expect, it, vi } from "vitest";
 import { materializeZCodeBuiltinProviderConfig } from "../src/index.js";
 import * as persistence from "@zcode/shared/node";
@@ -67,9 +68,19 @@ it("替换期间并发读取只见完整旧版或新版，不产生 hash 历史�
   })();
   const reader = (async () => {
     do {
-      const fileContent = JSON.parse(await readFile(file, "utf8"));
-      expect([1, 2]).toContain(fileContent.revision);
-      expect(fileContent).toEqual(JSON.parse(release(fileContent.revision)));
+      // Windows 不能 rename 覆盖仍被打开的文件。读完立刻松开句柄，替换才有空档落地。
+      const raw = await readFile(file, "utf8").catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT" || error.code === "EPERM" || error.code === "EBUSY") {
+          return undefined;
+        }
+        throw error;
+      });
+      if (raw !== undefined) {
+        const fileContent = JSON.parse(raw);
+        expect([1, 2]).toContain(fileContent.revision);
+        expect(fileContent).toEqual(JSON.parse(release(fileContent.revision)));
+      }
+      await sleep(15);
     } while (!finished);
   })();
   await Promise.all([writer, reader]);

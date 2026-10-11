@@ -78,6 +78,17 @@ async function loadDocuments(
       next.set(path, parsed);
     }),
   );
+  // Windows 大小写不敏感：Researcher.MD → researcher.md 往往同时留下两条 read，
+  // 并行更新时按精确路径删不掉旧键。读完后按折叠路径只留后写入的那一份。
+  if (process.platform === "win32") {
+    const winner = new Map<string, string>();
+    for (const key of next.keys()) {
+      const folded = key.toLowerCase();
+      const previous = winner.get(folded);
+      if (previous !== undefined) next.delete(previous);
+      winner.set(folded, key);
+    }
+  }
   return next;
 }
 const profiles = (documents: Profiles) =>
