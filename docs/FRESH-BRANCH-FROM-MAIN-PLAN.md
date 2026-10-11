@@ -31,23 +31,54 @@
 ### 执行清单
 
 ```
-[ ] P0-1  git checkout -b zcode2 origin/main
-[ ] P0-2  未改动状态下跑通 pnpm install --frozen-lockfile / typecheck / lint / architecture:check
-[ ] P0-3  确认 typecheck 脚本仍含 packages/desktop/tsconfig.e2e.json（不要删）
-[ ] P0-4  从 ycode 移植两道护栏脚本 + 通道覆盖测试，基线用 --update 重新生成
-[ ] P0-5  挂进 verify:pre-push；移植 RELEASE-PRERELEASE-FLOW.md（含 gen-ui / 网络页两条冒烟）
-[ ] P0-6  移植 memory/ 与 docs/ycode-wiring-gaps-followup.md
-[ ] P1-1  §5.1 纯删除叶子文件
-[ ] P1-2  §5.2 共享文件手术（逐簇摘除，不重写）
-[ ] P1-3  §6 陷阱 1：telemetryCore.ts 拆分，保留 ensureTelemetryDeviceMid
-[ ] P1-4  §6 陷阱 2：appLaunchCoordinator 直连回 RendererReady / OAuthCallbackHandled
-[ ] P1-5  §6 陷阱 3：appCrashCaptureBootstrap.ts 的 remoteCrashReporterEnabled 改回 false
-[ ] P1-6  §5.4 测试清理（约 110 文件；skip 必须带原因 + 指针）
-[ ] P1-7  门禁全绿 + 真机冒烟（gen-ui 卡片 / 网络页 / API-key 对话）
+[x] P0-1  git checkout -b zcode2 origin/main
+[x] P0-2  未改动状态下跑通 pnpm install --frozen-lockfile / typecheck / lint / architecture:check
+[x] P0-3  确认 typecheck 脚本仍含 packages/desktop/tsconfig.e2e.json（不要删）
+[x] P0-4  从 ycode 移植两道护栏脚本 + 通道覆盖测试，基线用 --update 重新生成
+[x] P0-5  挂进 verify:pre-push；移植 RELEASE-PRERELEASE-FLOW.md（含 gen-ui / 网络页两条冒烟）
+[x] P0-6  移植 memory/ 与 docs/ycode-wiring-gaps-followup.md
+[x] P1-1  §5.1 纯删除叶子文件
+[x] P1-2  §5.2 共享文件手术（逐簇摘除，不重写）
+[x] P1-3  §6 陷阱 1：telemetryCore.ts 拆分，保留 ensureTelemetryDeviceMid
+[x] P1-4  §6 陷阱 2：appLaunchCoordinator 直连回 RendererReady / OAuthCallbackHandled
+[x] P1-5  §6 陷阱 3：appCrashCaptureBootstrap.ts 的 remoteCrashReporterEnabled 改回 false
+[x] P1-6  §5.4 测试清理（实际删 60 个文件、skip 4 个，都带原因 + 指针）
+[x] P1-7  门禁全绿 + 真机冒烟（gen-ui 卡片 / 网络页 / API-key 对话）
 [x] P2-1  删强更 gate 与拦截分支，保留 autoUpdater.ts
-[ ] P2-2  真机确认打包版启动不再请求 /api/v1/client/configs，「检查更新」仍可用
+[x] P2-2  真机确认打包版启动不再因强更拒绝开窗，「检查更新」仍可用
 [ ] P4-1  rc → 维护者 dogfood → 正式版
 ```
+
+**P1-6 与计划的差异**：计划估「约 110 个测试文件」，实际删 60 个、skip 4 个。差额是计划把 e2e
+fixtures / helpers 与只改 mock 的文件也算进了删除数；实际处理方式按「能删就删、删不掉才 skip」执行。
+
+**P2-2 的措辞修正**：`/api/v1/client/configs` **仍然会被请求**——`desktopContextPromptRollout.refresh()`、
+renderer action trace、帮助配置读取都在用它，那些不是闸门。P2 拿掉的是「低于 `forceUpdate.minimalVersion`
+就拒绝创建主窗口」这条判定，不是这个端点。
+
+### 2026-10-11 复核补记
+
+复核（typecheck / lint / architecture:check --changed / 两条护栏 / 通道覆盖测试 / 全量单测）发现并修掉三处：
+
+> **全量单测的读法**：三轮分别 17287 / 17280 / 17279 passed，每轮失败的 1–2 个用例**集合都不同**
+> （`remoteMediaPreviewProxy`、`stdioDesktopPresentationSurface`、`processTreeTerminator`、
+> `remoteDeploy`、`zcodeAgentProcessManager`），且涉及的测试与实现**全部与 `origin/main` 逐字节相同**，
+> 单独复跑一律通过。结论：本机负载/网络下的时序抖动（与 [[local-machine-ipv6-blocked]] 同一台机器），
+> 不是本分支引入的回归。计数差异来自删掉 `longTaskAttributionSummary.test.ts`。
+
+1. **孤儿护栏漏检**：护栏收集引用时没排除测试文件，导致「只剩自己的测试还在引用」的模块不算孤儿。
+   已改为只数生产引用，并排除 `*.example.ts`（契约示例，全仓 10 个同约定）。
+   修好后新暴露 2 个本分支造成的死模块：`processResourceSampleSourceRegistry.ts`（记入基线）、
+   `longTaskAttributionSummary.ts`（已删，纯 ARMS RUM 解析器，唯一消费方 `appARMSBootstrap.ts` 已删）。
+2. **`RELEASE-PRERELEASE-FLOW.md` 仍是 ycode 的分支名/产品名**，已订正为 `zcode2` / `ZCode`，
+   并补了版本号从 3.15.1 起算的说明。它引用的 `UPSTREAM.md` 在 `zcode2` 上不存在（只在 `ycode` 上，
+   且内容是 ycode 品牌偏离），已按 `zcode2` 的实际情况新写。
+3. **NSIS 编码**：夹具把中文注释换成英文时给的理由（"UTF-8 中文注释会让 makensis 失败"）不准确。
+   实测根因是 **makensis 对无 BOM 脚本按系统 ANSI 代码页解码**，UTF-8 中文字节一旦在该代码页里
+   不构成合法序列就 `Bad text encoding` 中止——取决于具体字节，不是「中文一律失败」；加 UTF-8 BOM
+   后同样的中文完全正常。夹具注释已订正。**`packages/desktop/build/installer.nsh` 有同样的隐患**
+   （UTF-8 无 BOM + 7 行中文字符串字面量），当前能编译只是那些字节恰好合法，未改动。
+
 
 ---
 

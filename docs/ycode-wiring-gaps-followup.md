@@ -5,15 +5,22 @@
 
 ## 执行状态（2026-10-11）
 
+> ⚠️ **本节记录的是 `ycode` 时期的状态，不是 `zcode2` 的当前状态。**
+> `ycode` 已在 `df6b4647` 重写过的基线上反复补漏，最终被放弃并归档；`zcode2` 从官方 v3.15.1 重开，
+> 只做减法。下表里的数字（类型基线 117 条 / 85 键、存量红 194 文件 / 791 例、`ycode` 的裁剪清单）
+> **在 `zcode2` 上都不成立**——`zcode2` 的类型基线是 **82 条 / 55 键**，`verify:pre-push` 全绿。
+> `zcode2` 的实际情况见 [`FRESH-BRANCH-FROM-MAIN-PLAN.md`](./FRESH-BRANCH-FROM-MAIN-PLAN.md) 的执行清单。
+> 下表保留作为事故史与护栏设计依据。
+
 | 任务 | 状态 | 说明 |
 | --- | --- | --- |
 | P0-1 真机验收 gen-ui | ⚠️ **真机未通过 → 已修，待复验** | 真机验收抓到了第 5 处漏接线：`desktopWindowChrome.ts` 的 will/did-attach 沙箱分支被剪，`zcode-sandbox://` webview 掉进内置浏览器白名单被拦（`[browser-pane] blocked unsupported webview url`）。已修 + 补回归用例（见提交 `97a0e420`），需重新真机确认卡片渲染 |
 | P0-2 冒烟清单 | ✅ 完成 | `docs/RELEASE-PRERELEASE-FLOW.md` §3 加了两条：gen-ui 卡片（第 7 条）与资源管理器网络页（第 8 条） |
 | P1 网络抓包接线 | ✅ 完成 | host/main 两侧按上游 `aac47556` 补齐；`desktopHostProcess.test.ts` 补了回归用例 |
-| P2-1 main 类型棘轮 | ✅ 完成 | `scripts/check-desktop-main-type-baseline.mjs` + `.desktop-main-type-baseline.json`（117 条 / 85 键），已挂 `verify:pre-push` |
+| P2-1 main 类型棘轮 | ✅ 完成 | `scripts/check-desktop-main-type-baseline.mjs` + `.desktop-main-type-baseline.json`（`ycode` 上 117 条 / 85 键），已挂 `verify:pre-push` |
 | P2-2 channel 覆盖测试 | ✅ 完成 | `packages/services/test/localServiceChannelCoverage.test.ts`（含与客户端源码的漂移守卫） |
 | P2-3 孤儿扫描进 CI | ✅ 完成 | `scripts/check-desktop-orphan-modules.mjs` + `.desktop-orphan-modules-baseline.json`，已挂 `verify:pre-push` |
-| P3 红名单 | ❌ 未做（本会话范围外） | **推送仍会被存量红挡住**，见下 |
+| P3 红名单 | ❌ 未做（`ycode` 上遗留） | `ycode` 的推送被存量红挡住；`zcode2` 从干净基线重开，不存在这份红名单 |
 | P4-1 plugin-ui-bridge 决策记录 | ✅ 完成 | 记入 `docs/MERGE-MAIN-INTO-YCODE-HANDOFF.md` |
 | P4-2 UI capability 探测 | ❌ 未做（本会话范围外） | |
 | P5 文档与小账 | ✅ 完成 | 交接文档订正；`schedulerProtocol.*` 移出版本控制并 gitignore；删除 `mcpUserDirectory/{claude,opencode,toml}.ts`、`zcodeDataSize{Scanner,Worker,WorkerClient}.ts`、`output-style/` |

@@ -15,10 +15,12 @@ metadata:
 
 **P2-3 孤儿扫描**：`scripts/check-desktop-orphan-modules.mjs`（`pnpm check:desktop-orphans`），基线 `.desktop-orphan-modules-baseline.json`。
 - 判定：`packages/desktop/src/{host,main}` 下 git 跟踪的 `.ts`（排除 `.test.ts`），在 `packages/**`/`apps/**` 里找不到 `/<basename>.js"` 形式的相对 import = 孤儿。
-- 排除声明式清单（任何名为 `module.ts` 的文件）；基线每条**必须带 reason**，缺 reason 直接判失败。
+- **只数生产引用**（2026-10-11 复核后修正）：`git grep` 用 `:(exclude)**/test/**` 等 pathspec 排掉测试目录与 `*.test.*` / `*.spec.*`。原先测试 import 也算接线，导致「只剩自己的测试还在引用」的模块永远显示为已接线——`longTaskAttributionSummary.ts`（唯一消费方 `appARMSBootstrap.ts` 已删）和 `processResourceSampleSourceRegistry.ts` 就是这样漏掉的。
+- 排除两类约定文件：声明式清单（任何名为 `module.ts`）与契约示例（`*.example.ts`，全仓 10 个，都只被同目录 `contract.test.ts` 引用）。基线每条**必须带 reason**，缺 reason 直接判失败。
 - 实现要点：**一次** `git grep -h -o -E "['\"][^'\"]*\.js['\"]"` 收集全部被 import 的 basename，再集合比对。逐文件起 `git grep` 会慢到 180s+（226 个文件 × 一次 git 进程）；批量后 2.5s。
 - 用 `git ls-files` 读索引，所以**未暂存的删除会假报孤儿**，已用 `existsSync` 过滤；新文件必须 `git add` 后才会被扫到（pre-push 时已暂存，符合预期）。
-- zcode2 P1 基线 5 条。上游存量 3 条不接线也不删：`mcpUserDirectory/claude.ts`、`opencode.ts`、`toml.ts`。P1 又豁免了两份只给已删上报投影供数、样本摄入仍在的文件：`processResourceSystemWindowEvent.ts`、`zcodeDataSizeWorkerClient.ts`。ycode 上那条 `webRemoteControlRendererReconnect.ts` 在官方 main 有引用，不要再豁免。
+- **按 basename 匹配**，所以同名文件（`index.ts` 之类）会互相遮蔽——这是已知漏报，没修。
+- zcode2 基线 7 条（修掉测试引用盲区后从 5 条升上来）。上游存量 3 条不接线也不删：`mcpUserDirectory/claude.ts`、`opencode.ts`、`toml.ts`；另有上游就零生产引用的 `host/remoteConnectionServiceCollection.ts`。P1 造成 3 条：只给已删上报投影供数、样本摄入仍在的 `processResourceSystemWindowEvent.ts`、`processResourceSampleSourceRegistry.ts`、`zcodeDataSizeWorkerClient.ts`（`longTaskAttributionSummary.ts` 直接删了）。ycode 上那条 `webRemoteControlRendererReconnect.ts` 在官方 main 有引用，不要再豁免。
 
 **这两道护栏抓不到的第三类（2026-10-11 真机发现）**：**文件内某个分支被删**——模块还在、还在被 import、类型也对，只是某段调用被剪掉。gen-ui 的 `desktopWindowChrome.ts` will/did-attach 沙箱分支就是这么漏的，孤儿扫描（按文件）和类型棘轮（按错误）都看不见。这类只能靠真机冒烟或 E2E 覆盖，所以 `docs/RELEASE-PRERELEASE-FLOW.md` §3 的清单条目（gen-ui 卡片、网络页）是必要补充，不能靠这两条命令替代。
 

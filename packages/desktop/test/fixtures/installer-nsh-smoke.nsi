@@ -38,7 +38,9 @@ Var newDesktopLink
 Var keepShortcuts
 
 !include "${ZCODE_INSTALLER_NSH}"
-; NSIS Unicode true requires this file to stay ASCII/UTF-16. UTF-8 Chinese comments fail makensis.
+; Keep this file ASCII, or give it a UTF-8 BOM. makensis decodes a BOM-less script with the system
+; ANSI code page, so UTF-8 Chinese whose bytes are not a valid sequence there aborts the compile with
+; "Bad text encoding" -- it is byte-sequence dependent, not a blanket "Chinese fails".
 ; Regression: electron-builder may register the plugin dir after this include.
 ; Use the real UAC check so a constant-false stand-in cannot hide a missing plugin.
 !addplugindir /x86-unicode "${NSIS_PLUGIN_DIR}"

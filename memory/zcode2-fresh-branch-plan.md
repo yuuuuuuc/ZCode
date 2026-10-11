@@ -18,4 +18,6 @@ metadata:
 **Why:** 在重写过的基线上补漏是无底洞；差异面越小，合并上游越安全、漏接线面越小。
 **P2 已落地（zcode2）**：启动路径不再调用 `maybeBlockStartupForForceUpdate`，第二实例 / open-url 不再因强更拒绝开窗。`autoUpdater.ts` 与 `requestForceAutoUpdate` 保留。`/api/v1/client/configs` 仍被 `desktopContextPromptRollout.refresh()`、renderer action trace、帮助配置读取；那些不是闸门。`getForceUpdateConfig` / `getForceUpdateMinimalVersionFromConfig` 按原则 ③ 留着。main 类型基线仍是 55 键 / 82 条；字面量联合的打印顺序会变，门禁按字母序归一化。
 
-**How to apply:** 新会话直接读 `docs/FRESH-BRANCH-FROM-MAIN-PLAN.md`（含执行清单、遥测删除清单、验收标准、可移植资产列表）；从 ycode 搬护栏脚本与 memory，基线用 `--update` 重新生成。相关：[[ycode-opensource-audit]]、[[ycode-wiring-guardrails]]、[[local-machine-ipv6-blocked]]
+**已落地（2026-10-11）**：P0/P1/P2 全部完成并真机验证，只剩 P4-1（rc → dogfood → 正式版）。`zcode2` = `origin/main` + 6 提交，差异面 205 文件 / +2.2k / −39k（ycode 是 908 文件 / −147k）。四条陷阱全部守住，`verify:pre-push` 全绿，全量单测 17287 passed。差异见 `UPSTREAM.md`（zcode2 自己的偏离清单，不是 ycode 那份）。复核时又修了三处，见方案文档「2026-10-11 复核补记」。
+
+**How to apply:** 新会话直接读 `docs/FRESH-BRANCH-FROM-MAIN-PLAN.md`（含执行清单、遥测删除清单、验收标准、可移植资产列表）与 `UPSTREAM.md`；从 ycode 搬护栏脚本与 memory，基线用 `--update` 重新生成。相关：[[ycode-opensource-audit]]、[[ycode-wiring-guardrails]]、[[local-machine-ipv6-blocked]]、[[nsis-makensis-encoding]]

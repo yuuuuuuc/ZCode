@@ -2,6 +2,10 @@
   "version": 1,
   "orphans": [
     {
+      "path": "packages/desktop/src/host/remoteConnectionServiceCollection.ts",
+      "reason": "上游存量：官方 main 上也只有 hostRemoteWorkspaceServices.test.ts 引用它，生产代码没有调用方（host 侧装配走 host/index.ts 自己的服务列表）。本分支不接线也不删。"
+    },
+    {
       "path": "packages/desktop/src/main/mcpUserDirectory/claude.ts",
       "reason": "官方 main 的 mcpUserDirectory/index.ts 只读 zcode/agents 的 JSON 目录约定，Claude CLI 专用读写没有调用方。这是上游存量死代码，本分支不接线也不删。"
     },
@@ -12,6 +16,10 @@
     {
       "path": "packages/desktop/src/main/mcpUserDirectory/toml.ts",
       "reason": "官方 main 的目录描述符 format 只有 json，TOML 解析没有调用方。这是上游存量死代码，本分支不接线也不删。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceSampleSourceRegistry.ts",
+      "reason": "原先只被已删除的 desktopResourceTelemetry 用来聚合采样源。各采样源模块本身仍被 desktopHostProcess / index.ts / desktopCronScheduler 直接引用（是活代码），只有这个聚合器没有调用方；4 个 processResource*Source 用例仍通过它断言成员，暂留避免改动覆盖活代码的测试。"
     },
     {
       "path": "packages/desktop/src/main/processResourceSystemWindowEvent.ts",

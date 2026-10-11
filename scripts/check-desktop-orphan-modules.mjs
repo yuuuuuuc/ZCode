@@ -10,8 +10,14 @@
  * 在 packages/** 与 apps/** 里找 `/<basename>.js"` 或 `/<basename>.js'` 形式的相对 import。
  * 一处都没有 = 孤儿。
  *
- * 已知误报：声明式清单（任何名为 module.ts 的文件，由架构治理按路径发现，
- * 故意不被 import）——直接按路径排除，不进基线。
+ * **只数生产引用**：测试目录与 *.test.* / *.spec.* 文件的 import 不算接线。测试会一直
+ * import 被测模块，把它算进来会让「只剩自己的测试还在引用」的模块永远显示为已接线——
+ * 这正是本脚本要抓的「接线被删、模块还在」（`longTaskAttributionSummary` 就是这样漏掉的）。
+ *
+ * 已知误报：声明式清单（任何名为 module.ts 的文件，由架构治理按路径发现，故意不被
+ * import）与模块契约示例（`*.example.ts`，只被同目录 contract.test.ts 引用）——按路径排除。
+ *
+ * 已知漏报：按 basename 匹配，同名文件（`index.ts` 之类）会互相遮蔽。
  *
  * 基线：`.desktop-orphan-modules-baseline.json` 记录「已确认、暂时接受」的孤儿，
  * 只拒绝**新增**孤儿。基线每条必须带 reason —— 没有原因的豁免会让这份清单退化成
@@ -33,8 +39,23 @@ const execFile = promisify(execFileCallback);
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASELINE_PATH = join(repoRoot, ".desktop-orphan-modules-baseline.json");
 const SCAN_ROOTS = ["packages/desktop/src/host", "packages/desktop/src/main"];
-/** 声明式清单：按路径被架构治理发现，故意不被 import。 */
+/**
+ * 按路径排除、不进基线的两类文件：
+ * - `module.ts`：声明式清单，由架构治理按路径发现，故意不被 import。
+ * - `*.example.ts`：模块契约示例，只被同目录 `contract.test.ts` 引用（全仓 10 个同约定）。
+ */
 const DECLARATIVE_MANIFEST = /(^|\/)module\.ts$/u;
+const CONTRACT_EXAMPLE = /\.example\.ts$/u;
+/** 测试路径：这些 import 不算「接线」，否则被测模块永远显示为已接线。 */
+const TEST_PATHSPEC_EXCLUDES = [
+  "**/test/**",
+  "**/tests/**",
+  "**/__tests__/**",
+  "**/*.test.ts",
+  "**/*.test.tsx",
+  "**/*.spec.ts",
+  "**/*.spec.tsx",
+];
 
 const args = process.argv.slice(2);
 const update = args.includes("--update");
@@ -66,19 +87,31 @@ async function listScannedFiles() {
     .map((path) => path.replaceAll("\\", "/"))
     .filter((path) => path.endsWith(".ts") && !path.endsWith(".test.ts"))
     .filter((path) => !DECLARATIVE_MANIFEST.test(path))
+    .filter((path) => !CONTRACT_EXAMPLE.test(path))
     // 索引里可能还有「工作树已删除但尚未提交」的路径（未暂存的删除）；那些不是模块。
     .filter((path) => existsSync(join(repoRoot, path)))
     .sort();
 }
 
 /**
- * 全仓被 import 的 `.js` 说明符的 basename 集合。
+ * 全仓被**生产代码** import 的 `.js` 说明符的 basename 集合。
  * 只看路径形式的 import（`./x.js` / `../x.js` / `@zcode/pkg/x.js`）：跨包公开入口
  * 不在此列，也不会出现「模块在、接线没了」。一次 git grep 收完，避免逐文件起进程。
+ * 测试文件被排除——见文件头「只数生产引用」。
  */
 async function collectImportedBasenames() {
   const stdout = await git(
-    ["grep", "-h", "-o", "-E", "['\"][^'\"]*\\.js['\"]", "--", "packages", "apps"],
+    [
+      "grep",
+      "-h",
+      "-o",
+      "-E",
+      "['\"][^'\"]*\\.js['\"]",
+      "--",
+      "packages",
+      "apps",
+      ...TEST_PATHSPEC_EXCLUDES.map((spec) => `:(exclude)${spec}`),
+    ],
     { allowFailure: true },
   );
   const names = new Set();

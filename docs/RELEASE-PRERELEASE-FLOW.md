@@ -1,6 +1,6 @@
-# Ycode 预发布（rc）发版流程
+# ZCode 预发布（rc）发版流程
 
-本文约定 Ycode（分支 `ycode`，仓库 [yuuuuuuc/ZCode](https://github.com/yuuuuuuc/ZCode)）如何用 **pre-release（rc）** 做维护者试吃，再晋升正式版，避免再次出现「装完即崩、当晚连发多个 hotfix」的情况。
+本文约定 ZCode（分支 `zcode2`，仓库 [yuuuuuuc/ZCode](https://github.com/yuuuuuuc/ZCode)）如何用 **pre-release（rc）** 做维护者试吃，再晋升正式版，避免再次出现「装完即崩、当晚连发多个 hotfix」的情况。
 
 ## 背景（2026-10-10）
 
@@ -22,11 +22,13 @@
 ## 1. 版本与标签规则
 
 - **`major.minor`**：跟踪上游发布线（当前 `3.15`）。上游升到 `3.16` 时才换前两段。详见 [UPSTREAM.md § 版本号](../UPSTREAM.md)。
-- **`patch`**：Ycode 自己的递增，不跟上游 patch 一一对应。
+- **`patch`**：ZCode 自己的递增，不跟上游 patch 一一对应。
 - **正式版**：标签 `vX.Y.Z`（例 `v3.15.6`），`package.json` / 产物版本为 `X.Y.Z`。
 - **预发布（rc）**：标签与版本使用 **semver prerelease**：`vX.Y.Z-rc.N`（例 `v3.15.6-rc.1`）。同一正式号可连续出 `rc.1`、`rc.2`…
 - **安装包命名**：与正式版同一模板，版本段带 prerelease 标识，例如  
-  `Ycode-3.15.6-rc.1-win-x64.exe`（具体后缀以 electron-builder 产物为准）。
+  `ZCode-3.15.6-rc.1-win-x64.exe`（具体后缀以 electron-builder 产物为准）。
+
+> `zcode2` 从官方 v3.15.1 基线重开，版本号从 **3.15.1** 起算，**不延续** `ycode` 的 3.15.5 线。上面几处的 `3.15.6` 只是示例号。
 
 > 注意：应用内更新比较依赖 `semver.coerce`（见下文「自有更新与 prerelease」）。正式 `package.json` 版本仍须是可解析的 semver；**不要用四段式**（如 `3.15.6.1`）。
 
@@ -34,9 +36,9 @@
 
 ## 2. 发版流程（merge → rc → dogfood → 正式）
 
-### 2.1 合入 `ycode`
+### 2.1 合入 `zcode2`
 
-功能与修复先合入分支 `ycode`（PR 或直推均可，以仓库习惯为准）。非崩溃类改动优先积攒，见 §5。
+功能与修复先合入分支 `zcode2`（PR 或直推均可，以仓库习惯为准）。非崩溃类改动优先积攒，见 §5。
 
 ### 2.2 质量门禁（发 rc 前必跑）
 
@@ -76,9 +78,9 @@ ZCODE_ENV=production pnpm bundle:desktop -- --os win --arch x64
 gh release create vX.Y.Z-rc.N \
   --prerelease \
   --repo yuuuuuuc/ZCode \
-  --title "Ycode vX.Y.Z-rc.N" \
+  --title "ZCode vX.Y.Z-rc.N" \
   --notes "预发布：维护者试吃。变更摘要：…" \
-  path/to/Ycode-X.Y.Z-rc.N-*.exe   # 按实际产物追加
+  path/to/ZCode-X.Y.Z-rc.N-*.exe   # 按实际产物追加
 ```
 
 在 GitHub UI 中确认该 Release 已勾选 **Set as a pre-release**。
@@ -120,7 +122,7 @@ Dogfood 通过且 §3 清单全绿后，在**同一提交**上：
 | 7 | 让模型产出一张内联可视化卡片（如让 `visualize` 插件画个图） | 卡片渲染出来且可交互；日志无 `Channel name 'gen-ui' timed out after 1000ms` |
 | 8 | 打开资源管理器 →「网络」页，同时跑一个会产生网络请求的会话 | 能看到 `host` / `cli` 进程的记录，而不是只有 `main` |
 
-任一项失败：**不要晋升**；修在 `ycode` 上后重新出 `rc.(N+1)`。
+任一项失败：**不要晋升**；修在 `zcode2` 上后重新出 `rc.(N+1)`。
 
 ---
 
@@ -171,7 +173,7 @@ return semver.gt(next, current);
 
 ## 5. 节奏与热修
 
-- **非崩溃修复**：继续积攒在 `ycode`；大约 **每 1～2 周**发一版，或在合并较大上游同步后发一版。
+- **非崩溃修复**：继续积攒在 `zcode2`；大约 **每 1～2 周**发一版，或在合并较大上游同步后发一版。
 - **崩溃 / 装完即坏的热修**：仍然**先出 rc**，再晋升；dogfood 可缩短为**同日**完成 §3 清单 + 数小时真实使用，但不要跳过 pre-release。
 - 上游大合并：合并后先跑门禁与 `pnpm check:defaults`，再按本流程出 rc（参见 [`UPSTREAM.md`](../UPSTREAM.md) 与 [`MERGE-MAIN-INTO-YCODE-HANDOFF.md`](./MERGE-MAIN-INTO-YCODE-HANDOFF.md)）。
 
@@ -197,9 +199,9 @@ ZCODE_ENV=production pnpm bundle:desktop -- --os win --arch x64
 
 # 预发布（务必 --repo）
 gh release create vX.Y.Z-rc.N --prerelease --repo yuuuuuuc/ZCode \
-  --title "Ycode vX.Y.Z-rc.N" --notes "…" ./path/to/installer
+  --title "ZCode vX.Y.Z-rc.N" --notes "…" ./path/to/installer
 
 # 正式发布（同 commit，非 prerelease）
 gh release create vX.Y.Z --repo yuuuuuuc/ZCode \
-  --title "Ycode vX.Y.Z" --notes "…" ./path/to/installer
+  --title "ZCode vX.Y.Z" --notes "…" ./path/to/installer
 ```
