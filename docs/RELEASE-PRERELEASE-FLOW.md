@@ -116,7 +116,7 @@ Dogfood 通过且 §3 清单全绿后，在**同一提交**上：
 2. 打正式标签并发布（二选一）：
    - **推荐**：`gh release create vX.Y.Z --repo yuuuuuuc/ZCode …`（正式 Release，**不要**加 `--prerelease`），附件为正式版安装包；或
    - 将已有 rc Release **编辑为非 prerelease** 并改 tag/标题为 `vX.Y.Z`（仅当附件与版本号已一并改对时使用，易混，慎用）。
-3. rc 标签/Release：**可删可留**。留下便于对照；删除可减少「latest 以外列表」噪音。正式用户不会通过 `/releases/latest` 看到 prerelease（见 §4）。
+3. rc 标签/Release：**可删可留**。留下便于对照；删除可减少「latest 以外列表」噪音。勾了 pre-release 的 Release 不会出现在 GitHub 的 `/releases/latest` 上，也不会出现在仓库首页的 Releases 区块——但这只影响人工浏览，与应用内更新无关（见 §4）。
 
 ### 2.7 不要做的事
 
@@ -147,36 +147,35 @@ Dogfood 通过且 §3 清单全绿后，在**同一提交**上：
 
 ## 4. 自有更新与 prerelease 行为
 
-实现：`packages/desktop/src/main/githubReleaseUpdates.ts`。
+实现：`packages/desktop/src/main/autoUpdater.ts`（`electron-updater`）。
 
-### 4.1 查询接口
+### 4.1 更新源
 
-应用内「检查更新」请求：
+应用内「检查更新」走的是**服务端 manifest provider**，不是 GitHub Releases：
 
-```text
-GET https://api.github.com/repos/yuuuuuuc/ZCode/releases/latest
-```
+- `autoUpdater.ts` 的 `applyManifestUpdateProvider()` 用 `provider: "custom"` +
+  `ManifestUpdateProvider`（`manifestUpdateProvider.ts`）`setFeedURL`，指向 ZCode endpoint。
+- `electron-builder.config.js` 里的 `publish` 只是 `provider: "generic"` 占位
+  （`url: http://localhost:8081`），注释写明「新客户端运行时使用服务端 manifest provider」。
 
-GitHub 约定：**`/releases/latest` 不返回标记为 pre-release 的 Release**。因此：
-
-- **rc 构建不会通过应用内更新推给普通用户**（只要创建时带了 `--prerelease` / UI 勾选 pre-release）。
-- 普通用户只会看到最新的**正式** Release。
+**因此：本仓的 GitHub Release 只是手动下载渠道，`--prerelease` 与否不影响应用内更新——不存在那条链路。**
+（`ycode` 分支曾有一个读 `api.github.com/.../releases/latest` 的 `githubReleaseUpdates.ts`，
+`zcode2` 从官方基线重开，没有这个模块；本文件此前的内容是从那份文档抄来的，已订正。）
 
 ### 4.2 版本比较
 
 ```ts
-// isReleaseNewerThan：两侧都先 semver.coerce 再 semver.gt
-const next = semver.valid(semver.coerce(candidate));
-const current = semver.valid(semver.coerce(baseline));
-return semver.gt(next, current);
+// autoUpdater.ts 的 isVersionGreaterThan：两侧都先 semver.coerce 再 semver.gt
+function normalizeVersionForCompare(version) { return semver.valid(semver.coerce(version.trim())); }
+return semver.gt(normalizeVersionForCompare(candidate), normalizeVersionForCompare(baseline));
 ```
 
 `semver.coerce` 会**丢掉 prerelease 段**（`3.15.6-rc.1` → `3.15.6`）。
 
-| 当前安装 | `/releases/latest` 返回 | 实际行为 |
+| 当前安装 | 服务端 manifest 下发 | 实际行为 |
 | --- | --- | --- |
 | 正式 `3.15.5` | 正式 `3.15.6` | 提示有更新（正确） |
-| 正式 `3.15.5` | 仅有 `3.15.6-rc.1`（prerelease） | latest 仍指向旧正式版 → **不会**把 rc 推给用户（符合预期） |
+| 正式 `3.15.5` | `3.15.6-rc.1` | coerce 后是 `3.15.6` > `3.15.5` → **会**提示（rc 能否下发取决于服务端怎么选 channel） |
 | rc `3.15.6-rc.1` | 正式 `3.15.6` | coerce 后两侧都是 `3.15.6`，`gt` 为 false → **不会**提示升级到正式版 |
 | rc `3.15.6-rc.1` | 正式 `3.15.7` | 会提示（patch 已前进） |
 

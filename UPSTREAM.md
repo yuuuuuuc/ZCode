@@ -43,7 +43,7 @@ pnpm architecture:check
 
 - **`major.minor` 对齐上游发布线**（当前 `3.15`）。上游升到 `3.16` 时才换前两段。
 - **`patch` 是本分支自己的递增**。`zcode2` 从官方 **v3.15.1** 基线重开，不延续 `ycode` 的 3.15.5 线。
-- 正式版必须是**标准 semver 三段式**（`X.Y.Z`）。预发布可用 `X.Y.Z-rc.N`（见发版流程文档）。**不要用四段式**，否则 `githubReleaseUpdates.ts` 的 `semver.coerce` 会截断后误判「已是最新」。
+- 正式版必须是**标准 semver 三段式**（`X.Y.Z`）。预发布可用 `X.Y.Z-rc.N`（见发版流程文档）。**不要用四段式**：应用内更新的版本比较（`autoUpdater.ts` 的 `isVersionGreaterThan`）先做 `semver.coerce` 再 `semver.gt`，四段式会被截断后误判「已是最新」。
 - 产物名沿用官方模板：`ZCode-<version>-<平台>-<架构>.<ext>`。
 
 发版与预发布（rc）流程、晋升前冒烟清单见 [`docs/RELEASE-PRERELEASE-FLOW.md`](docs/RELEASE-PRERELEASE-FLOW.md)。
