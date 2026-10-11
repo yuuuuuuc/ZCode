@@ -35,54 +35,6 @@ async function guestValue(script: string) {
   return result.value;
 }
 
-async function assertAppReportHeaders(authenticated: boolean) {
-  const marker = authenticated ? "E2E_REPORT_HEADERS_LOGIN" : "E2E_REPORT_HEADERS_ANONYMOUS";
-  await browser.execute(async (elementName) => {
-    const api = (
-      window as typeof window & {
-        zcode: {
-          reportTelemetryEvent: (payload: {
-            context: { clientLanguage: string; clientTimezone: string; screenResolution: string };
-            elementName: string;
-            eventType: string;
-            eventRegion: string;
-            eventExtraDetail: Record<string, string>;
-          }) => Promise<void>;
-        };
-      }
-    ).zcode;
-    await api.reportTelemetryEvent({
-      context: {
-        clientLanguage: "zh-CN",
-        clientTimezone: "Asia/Shanghai",
-        screenResolution: "1280x800",
-      },
-      elementName,
-      eventType: "view",
-      eventRegion: "app",
-      eventExtraDetail: {},
-    });
-  }, marker);
-  const origin = process.env.ZCODE_CODING_PLAN_UPGRADE_MOCK_BASE_URL;
-  const reports = (await (await fetch(`${origin}/__e2e/marketing/telemetry`)).json()) as Array<
-    Record<string, unknown>
-  >;
-  expect(reports.find((report) => report.element === marker)).toMatchObject({
-    authenticated,
-    bearer: authenticated,
-    languageMatches: true,
-    timezoneMatches: true,
-    deviceMatches: true,
-    versionMatches: true,
-    osMatches: true,
-    userAgentMatches: true,
-    title: "Z Code@electron",
-    platform: true,
-    channel: true,
-    refererMatches: true,
-  });
-}
-
 describe("Rewards website embedded integration", () => {
   it("REF-11: Banner 和独立弹窗 navigate rewards 打开邀请页并各上报一次", async () => {
     const origin = process.env.ZCODE_CODING_PLAN_UPGRADE_MOCK_BASE_URL;
@@ -161,8 +113,6 @@ describe("Rewards website embedded integration", () => {
     });
     await browser.reloadSession();
     await waitForDefaultWorkspaceReady();
-    // 只记录头是否正确，不把令牌写入 WebDriver 结果或日志；观测真实网络发送阶段。
-    await assertAppReportHeaders(true);
     // WDIO 序列化会删除首个形参，必须引用全局 electron，不能解构 session。
     await browser.electron.execute((electron) => {
       const target = globalThis as typeof globalThis & { rewardsHeaderProbe?: unknown[] };
@@ -386,7 +336,6 @@ describe("Rewards website embedded integration", () => {
       await byId(TID_LOGIN_API_KEY_SKIP_BUTTON).click();
     }
     await waitForDefaultWorkspaceReady();
-    await assertAppReportHeaders(false);
     const assets = (await (await fetch(`${origin}/__e2e/marketing/assets`)).json()) as Record<
       string,
       { src: string; sha256: string }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CodingPlanFunnelContext } from "@/lib/codingPlanFunnelTelemetry.js";
 
@@ -162,7 +162,8 @@ describe("CodingPlanUpgradeDialogProvider", () => {
     );
     expect(h.reportTelemetryEvent).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Upgrade" }));
-    expect(h.reportTelemetryEvent).toHaveBeenCalledTimes(1);
+    // 官方升级点击上报已改成空操作，见 docs/FRESH-BRANCH-FROM-MAIN-PLAN.md §5。
+    expect(h.reportTelemetryEvent).not.toHaveBeenCalled();
   });
 
   it("opens the dialog even when the telemetry request fails", async () => {
@@ -179,7 +180,7 @@ describe("CodingPlanUpgradeDialogProvider", () => {
       ...funnelContext,
       entryPlanList: h.entryPlanList,
     });
-    await waitFor(() => expect(h.reportTelemetryEvent).toHaveBeenCalledTimes(1));
+    expect(h.reportTelemetryEvent).not.toHaveBeenCalled();
   });
 
   it("freezes the owned list until the next explicit click", () => {
@@ -201,7 +202,6 @@ describe("CodingPlanUpgradeDialogProvider", () => {
       ),
     );
     expect(h.renderedTargets.at(-1)?.funnelContext?.entryPlanList).toBe(initialList);
-    expect(h.reportTelemetryEvent).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Upgrade" }));
     expect(h.renderedTargets.at(-1)?.funnelContext?.entryPlanList).toBe(h.entryPlanList);
     expect(funnelContext.entryPlanList).toBe("");
@@ -222,23 +222,6 @@ describe("CodingPlanUpgradeDialogProvider", () => {
       ...funnelContext,
       entryPlanList: h.entryPlanList,
     });
-    expect(h.reportTelemetryEvent).toHaveBeenCalledExactlyOnceWith({
-      context: expect.any(Object),
-      elementName: "coding_plan_upgrade_ck",
-      eventType: "ck",
-      eventRegion: "app.session",
-      eventText: "Upgrade",
-      eventExtraDetail: {
-        purchase_funnel_id: "idle-funnel-login",
-        upgrade_source: "session_idle_time",
-        entry_plan_status: "no_plan",
-        entry_plan_level: "",
-        entry_plan_list: h.entryPlanList,
-        purchase_audience: "personal",
-        provider_family: "zai",
-        channel: "Z_AI",
-      },
-    });
 
     // OAuth callback 会刷新用户与购买凭据并触发 Root 重渲染，但不应重建 provider。
     view.rerender(
@@ -256,8 +239,7 @@ describe("CodingPlanUpgradeDialogProvider", () => {
     });
     expect(h.renderedTargets.at(-1)?.funnelContext?.purchaseFunnelId).toBe("idle-funnel-login");
     expect(h.renderedTargets.at(-1)?.funnelContext?.upgradeSource).toBe("session_idle_time");
-    expect(h.reportTelemetryEvent).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Upgrade" }));
-    expect(h.reportTelemetryEvent).toHaveBeenCalledTimes(2);
+    expect(h.renderedTargets.at(-1)?.funnelContext?.purchaseFunnelId).toBe("idle-funnel-login");
   });
 });

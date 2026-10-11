@@ -12,6 +12,14 @@
     {
       "path": "packages/desktop/src/main/mcpUserDirectory/toml.ts",
       "reason": "官方 main 的目录描述符 format 只有 json，TOML 解析没有调用方。这是上游存量死代码，本分支不接线也不删。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceSystemWindowEvent.ts",
+      "reason": "perf_system_window 属性投影原先只被 desktopResourceTelemetry 收集后上报。上报模块已删除，资源样本仍由 host 直接 ingest。投影暂留，避免误删采样契约。"
+    },
+    {
+      "path": "packages/desktop/src/main/zcodeDataSizeWorkerClient.ts",
+      "reason": "数据目录体积扫描 worker 原先只服务已删除的数据体积上报。扫描实现暂留，没有新的调用方。"
     }
   ]
 }

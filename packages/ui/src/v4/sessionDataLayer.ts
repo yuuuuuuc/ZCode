@@ -6,10 +6,23 @@
 import { ConversationProjectionStore } from "@/v4/conversationProjectionStore.js";
 import { ConversationRowPool } from "@/v4/conversationRowSharing.js";
 import { shouldExposeE2EStoreBridge } from "@/lib/e2eStoreBridge.js";
-import type { SessionOpenKind } from "@/lib/sessionOpenArmsTelemetry.js";
 import { conversationTopic, type ConversationTransport } from "@/v4/transport.js";
 import { logger } from "@/logger.js";
 import type { CommandsQueryParams, CommandsQueryResult } from "@zcode/shared/zcode-protocol-v4";
+
+/** 会话数据层自己的打开状态，不依赖已删除的官方上报模块。 */
+export type SessionOpenKind = "cold" | "warm" | "keep_warm";
+
+/** pane 打开入口。调用方仍传入，避免改工作台接线。 */
+export type SessionOpenTrigger =
+  | "sidebar"
+  | "search"
+  | "deeplink"
+  | "reload"
+  | "subagent"
+  | "selection"
+  | "split"
+  | "pane";
 
 /** pane 持有的租约；release 幂等。 */
 export interface SessionLease {

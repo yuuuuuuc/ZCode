@@ -1,5 +1,3 @@
-import { ingestToolExecResource } from "./desktopResourceTelemetry.js";
-import { ingestMcpResourceSamples } from "./processResourceMcpTelemetrySource.js";
 /* eslint-disable max-lines -- host process 统一处理 main↔host 生命周期、日志、ZCode Agent，拆分前先保持跨进程消息收口。 */
 import {
   type HostAgentProcessErrorResponse,
@@ -40,7 +38,6 @@ import { join } from "node:path";
 import { BroadcastHub } from "./broadcastHub.js";
 import { bindDatabaseStartupRelay } from "./databaseStartupRelay.js";
 import { getMainLaunchPartialMarks } from "./desktopLaunchMarks.js";
-import { ingestHostNetworkObservations } from "./desktopNetworkTelemetry.js";
 import {
   buildHostProcessEnv,
   hostModulePath,
@@ -329,7 +326,7 @@ export function spawnHostProcess(
     }
 
     if (result.data.type === HostResponseTypes.NetworkTelemetryBatch) {
-      ingestHostNetworkObservations(result.data.observations);
+      // 官方网络遥测已移除。分支保留，避免 host 消息落到未处理路径。
       return;
     }
     if (result.data.type === HostResponseTypes.NetworkCaptureBatch) {
@@ -358,16 +355,12 @@ export function spawnHostProcess(
     }
 
     if (result.data.type === HostResponseTypes.ToolExecResource) {
-      ingestToolExecResource(result.data.sample, result.data.runtimeSurface);
+      // 官方资源遥测已移除。分支保留。
       return;
     }
 
     if (result.data.type === HostResponseTypes.McpResourceSamples) {
-      ingestMcpResourceSamples(
-        result.data.samples,
-        result.data.runtimeSurface,
-        result.data.environmentKey,
-      );
+      // 官方 MCP 资源遥测已移除。分支保留。
       return;
     }
 

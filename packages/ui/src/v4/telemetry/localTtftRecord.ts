@@ -8,6 +8,12 @@ import {
   type LocalTtftOutputKind,
 } from "@zcode/shared";
 import type { ConversationRow } from "@zcode/shared/zcode-protocol-v4";
+
+/** 发送路径上只保留本地 TTFT 时钟。官方事件字段已从这条 seed 上拿掉。 */
+export interface ComposerSendTimingSeed {
+  localTtft?: LocalTtftContext;
+}
+
 export interface LocalTtftPending {
   context: LocalTtftContext;
   workspace: string;

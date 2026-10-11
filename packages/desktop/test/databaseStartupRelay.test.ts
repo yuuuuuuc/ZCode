@@ -2,11 +2,7 @@ import { EventEmitter } from "node:events";
 import { expect, it, vi } from "vitest";
 import { InternalChannels, type DatabaseStartupState } from "@zcode/shared";
 const ipc = vi.hoisted(() => ({ on: vi.fn(), removeListener: vi.fn() }));
-const telemetry = vi.hoisted(() => vi.fn());
 vi.mock("electron", () => ({ ipcMain: ipc }));
-vi.mock("../src/main/databaseStartupTelemetry.js", () => ({
-  reportDatabaseStartupState: telemetry,
-}));
 import {
   bindDatabaseStartupRelay,
   onLocalDatabaseStartupReady,
@@ -48,11 +44,6 @@ it("serves refresh snapshots, scopes retry to its window, and preserves disk obs
   expect(win.webContents.send).toHaveBeenCalledTimes(2);
   expect(child.postMessage.mock.calls[0]?.[0].control.action).toBe("snapshot");
   child.emit("exit", 1);
-  expect(telemetry.mock.calls.at(-1)?.[0]).toMatchObject({
-    phase: "failed",
-    errorCode: "transport_closed",
-    disk: state.disk,
-  });
   const count = child.postMessage.mock.calls.length;
   control({ sender: win.webContents }, { action: "retry", attemptId: state.attemptId });
   expect(child.postMessage).toHaveBeenCalledTimes(count);

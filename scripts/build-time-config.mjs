@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 /**
- * 桌面构建期可选能力的唯一解析入口：ARMS RUM 上报、事件上报、自动更新。
+ * 桌面构建期可选能力的唯一解析入口：自动更新。
  * 优先级：构建进程环境变量 > config/private/build-defaults.json（仅内部仓库存在）> 关闭。
  * 规则见 docs/desktop/build-time-optional-capabilities.md。
  */
@@ -39,8 +39,6 @@ export async function resolveBuildTimeConfig(
 ) {
   const defaults = await readPrivateDefaults(defaultsPath);
   return {
-    armsRumEndpoint: pickValue(env, defaults, "ZCODE_ARMS_RUM_ENDPOINT"),
-    telemetryReportEndpoint: pickValue(env, defaults, "ZCODE_TELEMETRY_REPORT_ENDPOINT"),
     autoUpdateEnabled: ENABLED_VALUES.has(
       pickValue(env, defaults, "ZCODE_AUTO_UPDATE").toLowerCase(),
     ),
@@ -49,8 +47,6 @@ export async function resolveBuildTimeConfig(
 
 export function createBuildTimeConfigDefines(config) {
   return {
-    __ZCODE_ARMS_RUM_ENDPOINT__: JSON.stringify(config.armsRumEndpoint),
-    __ZCODE_TELEMETRY_REPORT_ENDPOINT__: JSON.stringify(config.telemetryReportEndpoint),
     __ZCODE_AUTO_UPDATE_ENABLED__: JSON.stringify(config.autoUpdateEnabled),
   };
 }

@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { setDataBaseDir } from "../src/paths.js";
 import { buildZCodeSourceHeaders } from "../src/providers/sourceHeaders.js";
-import { createTelemetryCore, ensureTelemetryDeviceMid } from "../src/telemetry/telemetryCore.js";
+import { ensureTelemetryDeviceMid } from "../src/telemetry/telemetryCore.js";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -57,29 +57,15 @@ describe("ensureTelemetryDeviceMid", () => {
     expect(readFileSync(stateFile, "utf-8")).toBe(existing);
   });
 
-  it("并发确保与 telemetry 上报共享同一个 deviceMid，不会生成第二个身份", async () => {
+  it("并发确保共享同一个 deviceMid，不会生成第二个身份", async () => {
     const { dataBaseDir, stateFile } = createIsolatedDataBaseDir();
-    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
-    const core = createTelemetryCore({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      homeDir: dataBaseDir,
-    });
 
     const [first, second] = await Promise.all([
       ensureTelemetryDeviceMid({ homeDir: dataBaseDir }),
       ensureTelemetryDeviceMid({ homeDir: dataBaseDir }),
     ]);
-    await core.reportAppLaunch({
-      clientLanguage: "zh-CN",
-      clientTimezone: "Asia/Shanghai",
-      screenResolution: "1x1",
-    });
 
     expect(first).toBe(second);
     expect(JSON.parse(readFileSync(stateFile, "utf-8")).deviceMid).toBe(first);
-    const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as {
-      device_mid?: string;
-    };
-    expect(body.device_mid).toBe(first);
   });
 });

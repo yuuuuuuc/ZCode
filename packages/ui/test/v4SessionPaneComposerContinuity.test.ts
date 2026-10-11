@@ -32,9 +32,6 @@ vi.mock("@/v4/PendingCommandRecoveryBanner.js", () => ({
 }));
 
 const sessionCreateCapture = vi.hoisted(() => ({ report: vi.fn(async () => {}) }));
-vi.mock("@/lib/sessionCreateTelemetry.js", () => ({
-  reportSessionCreate: sessionCreateCapture.report,
-}));
 
 const projectionState = vi.hoisted(() => ({
   current: null as ProjectionState | null,
@@ -567,7 +564,8 @@ afterEach(() => {
 });
 
 describe("SessionPane composer continuity", () => {
-  it.each(["group", "project", "session"] as const)(
+  // 官方 session_create 上报已移除，见 docs/FRESH-BRANCH-FROM-MAIN-PLAN.md §5。
+  it.skip.each(["group", "project", "session"] as const)(
     "%s 首发只在 accepted 后报告，打开和后续发送不报告",
     async (source) => {
       const store = useZCodeSessionStore.getState();
@@ -606,7 +604,8 @@ describe("SessionPane composer continuity", () => {
     },
   );
 
-  it.each(["accepted", "rejected"] as const)("Goal 首发 %s 时只按 ACK 统计", async (status) => {
+  // 官方 session_create 上报已移除，见 docs/FRESH-BRANCH-FROM-MAIN-PLAN.md §5。
+  it.skip.each(["accepted", "rejected"] as const)("Goal 首发 %s 时只按 ACK 统计", async (status) => {
     const root = createRoot(installMinimalDom());
     mountedRoots.push(root);
     renderPane(root, null);
@@ -632,7 +631,8 @@ describe("SessionPane composer continuity", () => {
       );
   });
 
-  it.each(["hello", "/goal explain"])("预热首发 %s 携带实际输入 commandId", async (text) => {
+  // 官方 session_create 上报已移除，见 docs/FRESH-BRANCH-FROM-MAIN-PLAN.md §5。
+  it.skip.each(["hello", "/goal explain"])("预热首发 %s 携带实际输入 commandId", async (text) => {
     prewarmHookInputs.binding = {
       sessionId: "prewarmed",
       beginPromotion: () => true,
@@ -651,7 +651,8 @@ describe("SessionPane composer continuity", () => {
     );
   });
 
-  it("先空创建再首发使用 sendText ID，不用空创建 ID", async () => {
+  // 官方 session_create 上报已移除，见 docs/FRESH-BRANCH-FROM-MAIN-PLAN.md §5。
+  it.skip("先空创建再首发使用 sendText ID，不用空创建 ID", async () => {
     const root = createRoot(installMinimalDom());
     mountedRoots.push(root);
     renderPane(root, null);
@@ -704,10 +705,6 @@ describe("SessionPane composer continuity", () => {
       });
       const newId = conversationMock.sendCommand.mock.calls[0]![0].commandId;
       expect(newId).not.toBe("old-command");
-      expect(sessionCreateCapture.report).toHaveBeenCalledWith(
-        null,
-        expect.objectContaining({ sessionId: "recovered", messageId: newId }),
-      );
     } finally {
       replay.mockRestore();
     }

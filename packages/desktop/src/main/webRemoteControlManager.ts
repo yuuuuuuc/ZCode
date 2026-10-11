@@ -1,4 +1,3 @@
-import type { RendererTelemetryEventPayload } from "@zcode/shared";
 /* eslint-disable max-lines -- Web 远程控制 manager 承担外部 relay app payload 路由与 workspace bridge 编排。 */
 import type { MessagePortMain, UtilityProcess as ElectronUtilityProcess } from "electron";
 import { randomUUID } from "node:crypto";
@@ -159,7 +158,6 @@ interface WebRemoteControlManagerDependencies {
   };
   reconnectWorkspace: (windowId: number, workspaceKey: string) => Promise<void>;
   reportRemoteUsageEvent?: (windowId: number, event: TelemetryEventPayload) => void;
-  reportRendererTelemetryEvent?: (event: RendererTelemetryEventPayload) => void;
   onStatusChanged?: (windowId: number, status: WebRemoteControlStatus) => void;
   attachWorkspaceHost: (
     windowId: number,
@@ -1187,8 +1185,7 @@ export function createWebRemoteControlManager(dependencies: WebRemoteControlMana
         routeRpcTransportPayload(runtime, payload);
         break;
       case "telemetry-report":
-        // 手机已在创建边界构造事件；Main 只转发，不维护会话事实或干预 replayable 链路。
-        dependencies.reportRendererTelemetryEvent?.(payload.event);
+        // 官方事件上报已移除。分支保留，避免旧手机端消息落到 default。
         break;
       case "mobile-diagnostic":
         logMobileDiagnostic(runtime, payload);

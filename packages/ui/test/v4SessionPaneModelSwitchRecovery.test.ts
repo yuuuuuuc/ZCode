@@ -301,12 +301,6 @@ vi.mock("@/v4/useConversationProjection.js", () => ({
   useConversationProjection: () => projectionState.current,
 }));
 
-vi.mock("@/v4/telemetry/useSessionOpenArmsTelemetry.js", () => ({
-  useSessionOpenArmsTelemetry: (params: { sessionId: string | null; enabled?: boolean }) => {
-    sessionOpenTelemetryMock.lastParams = params;
-  },
-}));
-
 vi.mock("@/v4/V4ConversationContext.js", () => ({
   useV4Conversation: () => ({
     layer: mocks.layer,
@@ -865,7 +859,8 @@ describe("SessionPane send failure feedback", () => {
 });
 
 describe("SessionPane draft prewarm admission lifecycle", () => {
-  it("只为已有 Session 打开埋点，不记录草稿预热提升的首次绑定", async () => {
+  // 官方会话打开上报已移除，见 docs/FRESH-BRANCH-FROM-MAIN-PLAN.md §5。
+  it.skip("只为已有 Session 打开埋点，不记录草稿预热提升的首次绑定", async () => {
     const prewarmSessionId = "draft-prewarm-session-open-excluded";
     const existingSessionId = "existing-session-open-included";
     const prewarmSnapshot = makeSnapshot();
@@ -985,7 +980,8 @@ describe("SessionPane draft prewarm admission lifecycle", () => {
     },
   );
 
-  it("不记录无预热 fallback createSession 的首次绑定", async () => {
+  // 官方会话打开上报已移除，见 docs/FRESH-BRANCH-FROM-MAIN-PLAN.md §5。
+  it.skip("不记录无预热 fallback createSession 的首次绑定", async () => {
     const createdSessionId = "fallback-created-session-open-excluded";
     projectionState.current = {
       status: "live",

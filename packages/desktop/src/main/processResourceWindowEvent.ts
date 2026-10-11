@@ -1,6 +1,5 @@
 /** `perf_process_window` 的属性投影（纯函数，属性 key 与白名单一一对应）。 */
 
-import type { ArmsRumEnv } from "@zcode/shared";
 import { PROCESS_RESOURCE_EVENT_NAMES } from "@zcode/shared";
 import type {
   ProcessResourceHardware,
@@ -12,7 +11,7 @@ export const PERF_PROCESS_WINDOW_EVENT_NAME = PROCESS_RESOURCE_EVENT_NAMES.proce
 export interface ProcessResourceReportContext {
   deviceMid: string;
   appVersion: string;
-  armsEnv: ArmsRumEnv;
+  armsEnv: "local" | "prod";
   /** 桌面机硬件；样本自带 hardware 时（远端 CLI / MCP）覆盖这里的默认值。 */
   desktopHardware: ProcessResourceHardware;
 }

@@ -13,8 +13,6 @@ const h = vi.hoisted(() => ({
   registerWebRemoteControlIpcHandlers: vi.fn(),
   shellOpenExternal: vi.fn(),
   shellOpenPath: vi.fn(),
-  configureRemoteUsageArmsTelemetry: vi.fn(),
-  reportRemoteConnectResultToArms: vi.fn(),
 }));
 
 vi.mock("electron", () => ({
@@ -45,18 +43,8 @@ vi.mock("../src/main/desktopOAuthDeepLink.js", () => ({
   registerOAuthState: vi.fn(),
 }));
 
-vi.mock("../src/main/desktopArmsCustomEvent.js", () => ({
-  createFinalArmsCustomEventE2EController: vi.fn(),
-  dispatchFinalArmsCustomEvent: vi.fn(),
-}));
-
 vi.mock("../src/main/desktopWebRemoteControlIpc.js", () => ({
   registerWebRemoteControlIpcHandlers: h.registerWebRemoteControlIpcHandlers,
-}));
-
-vi.mock("../src/main/desktopRemoteUsageArmsTelemetry.js", () => ({
-  configureRemoteUsageArmsTelemetry: h.configureRemoteUsageArmsTelemetry,
-  reportRemoteConnectResultToArms: h.reportRemoteConnectResultToArms,
 }));
 
 function createOptions(): RemoteIpcOptions {
@@ -66,20 +54,9 @@ function createOptions(): RemoteIpcOptions {
       warn: vi.fn(),
       error: vi.fn(),
     },
-    appTelemetryRuntime: {
-      onRendererReady: vi.fn(),
-      syncRendererContext: vi.fn(),
-      onOAuthCallbackHandled: vi.fn(),
-    },
-    appTelemetryCore: {
-      reportEvent: vi.fn(async () => {}),
-    },
-    reportRemoteUsageEvent: vi.fn(),
-    armsCustomContext: {
-      deviceMid: "device-mid",
-      platform: "darwin",
-      appVersion: "1.0.0",
-      armsEnv: "local",
+    appLaunchCoordinator: {
+      onRendererReady: vi.fn(() => true),
+      onOAuthCallbackHandled: vi.fn(() => true),
     },
     webRemoteControlManager: {
       authorizeStart: vi.fn(),
@@ -93,10 +70,6 @@ function createOptions(): RemoteIpcOptions {
     cancelPendingRemoteWorkspaceSessionsForWindow: vi.fn(),
     bindRemoteWorkspaceSessionContext: vi.fn(),
     confirmRendererAttachmentReady: vi.fn(),
-    getRemoteConnectionStats: vi.fn(() => ({
-      activeSessionCount: 0,
-      activeTargetCount: 0,
-    })),
     isDockerDaemonAvailable: vi.fn(async () => true),
     listAvailableWSLDistros: vi.fn(async () => []),
     listAvailableDockerContainers: vi.fn(async () => []),

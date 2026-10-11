@@ -32,7 +32,7 @@ export interface WebRemoteControlIpcManager {
 }
 
 interface WebRemoteControlIpcDependencies {
-  reportRemoteUsageEvent: (rendererId: number, event: TelemetryEventPayload) => void;
+  reportRemoteUsageEvent?: (rendererId: number, event: TelemetryEventPayload) => void;
   webRemoteControlManager: WebRemoteControlIpcManager;
 }
 
@@ -41,6 +41,7 @@ function reportRemoteUsageEventSafely(
   rendererId: number,
   event: TelemetryEventPayload,
 ): void {
+  if (!reportRemoteUsageEvent) return;
   try {
     reportRemoteUsageEvent(rendererId, event);
   } catch {

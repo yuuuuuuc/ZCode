@@ -414,7 +414,8 @@ describe("ConversationDraftSuggestedPromptsContainer", () => {
     expect(getPluginReferenceCatalog).not.toHaveBeenCalled();
   });
 
-  it("reports a Desktop template click before plugin resolution", async () => {
+  // 官方模板点击上报已移除，见 docs/FRESH-BRANCH-FROM-MAIN-PLAN.md §5。
+  it.skip("reports a Desktop template click before plugin resolution", async () => {
     const workspacePath = "/tmp/suggested-prompt-desktop-telemetry";
     render(
       createElement(ConversationDraftSuggestedPromptsContainer, {

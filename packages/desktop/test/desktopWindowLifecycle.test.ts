@@ -24,10 +24,6 @@ vi.mock("../src/main/desktopWindowChrome.js", () => ({
   createBrowserWindow: vi.fn(),
 }));
 
-vi.mock("../src/main/armsBrowserPerfLoadNudge.js", () => ({
-  scheduleArmsBrowserPerfLoadNudge: vi.fn(),
-}));
-
 import { handleDarwinWindowCloseRequest } from "../src/main/desktopDarwinCloseBehavior.js";
 import { createBrowserWindow } from "../src/main/desktopWindowChrome.js";
 import {

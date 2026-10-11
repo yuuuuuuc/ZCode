@@ -1,4 +1,3 @@
-import { mcpProcessResourceSampleSource } from "./processResourceMcpTelemetrySource.js";
 /**
  * 资源样本来源注册表。
  *
@@ -20,5 +19,4 @@ export const PROCESS_RESOURCE_SAMPLE_SOURCES: readonly ProcessResourceSampleSour
   selfHeapProcessResourceSampleSource,
   rendererHeapProcessResourceSampleSource,
   cliProcessResourceSampleSource,
-  mcpProcessResourceSampleSource,
 ];

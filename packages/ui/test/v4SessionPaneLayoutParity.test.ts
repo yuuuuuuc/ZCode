@@ -54,12 +54,6 @@ vi.mock("@/v4/ConversationDraftSuggestedPromptsContainer.js", () => ({
   ConversationDraftSuggestedPromptsContainer: () => null,
 }));
 
-vi.mock("@/v4/telemetry/ConversationTelemetryAttachment.js", () => ({
-  useScopedConversationTelemetrySupervisor: () => conversationTelemetryState.current,
-  useScopedConversationTelemetryForegroundEnabled: () =>
-    conversationTelemetryState.current !== null,
-}));
-
 vi.mock("@/v4/useConversationProjection.js", () => ({
   useConversationProjection: () => projectionState.current,
 }));

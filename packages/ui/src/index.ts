@@ -94,7 +94,6 @@ export {
   loadUiFontSizePx,
   subscribeToUiFontSizeStorageChanges,
 } from "./lib/uiFontSize.js";
-export { reportUiLaunchToInput } from "./lib/uiPerfArmsTelemetry.js";
 export {
   RendererUserActionTelemetry,
   runUserAction,
@@ -107,8 +106,6 @@ export {
   SETTINGS_USER_ACTION_FEATURES,
   USER_ACTION_CATALOG,
 } from "./lib/userActionTraceCatalog.js";
-export { setReactErrorArmsReporter } from "./lib/reactErrorArmsTelemetry.js";
-export { recordArmsCustomEventForE2E } from "./lib/armsCustomEventObservability.js";
 export { generateMobileDeviceFingerprint, setStreamClientId } from "./lib/streamClientId.js";
 export { GlobalDatabaseStartupLoading } from "./root/GlobalDatabaseStartupLoading.js";
 

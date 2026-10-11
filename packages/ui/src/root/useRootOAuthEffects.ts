@@ -31,7 +31,7 @@ export { refreshRestoredOAuthProviderFamilyAfterStartup } from "@/root/oauthProv
 
 export async function handleOAuthCallbackSuccess(params: {
   result: OAuthSessionCallbackResult;
-  platform: Pick<IPlatformService, "reportTelemetryEvent">;
+  platform: IPlatformService;
   refreshLatestModelProviderFamilySelection?: (
     provider: OAuthProviderId,
   ) => Promise<ModelProviderFamilyConnectionSelection | null>;

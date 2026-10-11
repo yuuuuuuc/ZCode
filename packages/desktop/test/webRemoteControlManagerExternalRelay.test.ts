@@ -1579,7 +1579,7 @@ describe("createWebRemoteControlManager external relay", () => {
     });
   });
 
-  it("手机 session_create 保留来源和手机 context，宿主只转发一次", async () => {
+  it("手机 telemetry-report 不再转发给宿主上报", async () => {
     const { deliverPayload, manager, reportRendererTelemetryEvent } = createManagerHarness();
     await manager.start(1, { workspacePath: "/workspace/demo" });
     const event = {
@@ -1601,7 +1601,8 @@ describe("createWebRemoteControlManager external relay", () => {
       },
     } as const;
     deliverPayload({ zcode_type: "telemetry-report", event });
-    expect(reportRendererTelemetryEvent).toHaveBeenCalledExactlyOnceWith(event);
+    // 协议分支保留，处理函数不再上报。见 docs/FRESH-BRANCH-FROM-MAIN-PLAN.md §5。
+    expect(reportRendererTelemetryEvent).not.toHaveBeenCalled();
   });
 
   it("logs mobile diagnostics as desktop log summaries", async () => {

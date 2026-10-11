@@ -93,28 +93,13 @@ describe("ensureDesktopDeviceMidSync", () => {
       "utf-8",
     );
 
-    const { createTelemetryCore } = await import("@zcode/services/node");
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
-    const service = createTelemetryCore({
+    const { ensureTelemetryDeviceMid } = await import("@zcode/services/node");
+    const deviceMid = await ensureTelemetryDeviceMid({
       homeDir: home,
-      fetchImpl: fetchMock,
       randomUUID: () => "unrelated-event-id",
-    }) as {
-      reportAppLaunch(input: {
-        clientTimezone: string;
-        clientLanguage: string;
-        screenResolution: string;
-      }): Promise<void>;
-    };
-
-    await service.reportAppLaunch({
-      clientTimezone: "Asia/Shanghai",
-      clientLanguage: "zh-CN",
-      screenResolution: "3024x1964",
     });
 
-    const body = JSON.parse(String(fetchMock.mock.calls[0]![1]!.body));
-    expect(body.device_mid).toBe("shared-device-uuid");
+    expect(deviceMid).toBe("shared-device-uuid");
   });
 
   it("JSON 损坏时视作缺失，生成新 UUID 不抛", () => {

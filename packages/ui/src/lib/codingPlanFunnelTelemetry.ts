@@ -43,7 +43,7 @@ export interface CodingPlanEntryPlanState {
   entryPlanLevel: string;
 }
 
-type TelemetryPlatform = Pick<IPlatformService, "reportTelemetryEvent">;
+type TelemetryPlatform = IPlatformService;
 
 export function createPurchaseFunnelId(): string {
   return globalThis.crypto?.randomUUID?.() ?? createFallbackFunnelId();

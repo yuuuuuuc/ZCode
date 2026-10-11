@@ -1,4 +1,3 @@
-import { sessionCreateTelemetrySchema, type RendererTelemetryEventPayload } from "@zcode/shared";
 /* eslint-disable max-lines -- Web 远程控制启动、错误页和 web 平台桥接暂时集中在入口编排。 */
 import { createRoot } from "react-dom/client";
 import {
@@ -243,7 +242,6 @@ interface WebRemoteControlProxyOptions {
 }
 
 interface WebRemoteControlPlatformProxy {
-  reportTelemetryEvent?: (event: RendererTelemetryEventPayload) => void;
   requestPlatformMethod<K extends WebRemoteControlPlatformMethod>(
     method: K,
     args?: WebRemoteControlPlatformMethodArgsMap[K],
@@ -770,12 +768,6 @@ function createWebPlatform(options?: {
     onPaymentCallback: () => () => {},
     onShareImport: () => () => {},
     notifyRendererReady: () => {},
-    reportTelemetryEvent: async (event) => {
-      // 手机只开放 session_create；不能把原有 Desktop conversation 事件一并启用。
-      const parsed = sessionCreateTelemetrySchema.safeParse(event);
-      if (parsed.success) platformProxy?.reportTelemetryEvent?.(parsed.data);
-    },
-    reportArmsCustomEvent: () => Promise.resolve(),
     showTaskNotification: (payload) => {
       if (document.hasFocus()) {
         return;
@@ -2054,11 +2046,6 @@ async function bootstrapExternalRelayWebRemoteControl(params: URLSearchParams): 
             platform={createWebPlatform({
               externalWebRemoteControlProxy: {
                 requestPlatformMethod,
-                reportTelemetryEvent: (event) => {
-                  const parsed = sessionCreateTelemetrySchema.safeParse(event);
-                  if (parsed.success)
-                    transport.sendPayload({ zcode_type: "telemetry-report", event: parsed.data });
-                },
               },
             })}
             // Bug 原因：手机复用 Desktop Host 中已持久化的 Assistant row，但 Root 默认关闭
@@ -2127,11 +2114,6 @@ async function bootstrapExternalRelayWebRemoteControl(params: URLSearchParams): 
             platform={createWebPlatform({
               externalWebRemoteControlProxy: {
                 requestPlatformMethod,
-                reportTelemetryEvent: (event) => {
-                  const parsed = sessionCreateTelemetrySchema.safeParse(event);
-                  if (parsed.success)
-                    transport.sendPayload({ zcode_type: "telemetry-report", event: parsed.data });
-                },
               },
             })}
             initialWorkspaceAbsPath={workspaceKey}

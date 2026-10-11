@@ -46,11 +46,9 @@ import type {
   BotRemoteWorkspaceReconnectedEvent,
   RemoteTarget,
   SSHConfigAliasOption,
-  RendererTelemetryEventPayload,
   RendererActionTraceBatchV1,
   RendererActionTraceConfigV1,
   RendererHeapSample,
-  TelemetryRendererContext,
   TaskNotificationPayload,
   WindowScreenshotResult,
   EmbeddedBrowserDataClearResult,
@@ -283,10 +281,6 @@ declare global {
       onPaymentCallback(cb: (url: string) => void): () => void;
       /** 通知 main process renderer 已就绪 */
       notifyRendererReady(): void;
-      /** 同步当前 renderer 的 telemetry 上下文到 main process */
-      syncTelemetryContext(context: TelemetryRendererContext): void;
-      /** 通过 main process 统一上报业务 telemetry 事件 */
-      reportTelemetryEvent(payload: RendererTelemetryEventPayload): Promise<void>;
       /** 读取 Desktop Renderer 用户操作 Trace 灰度配置。 */
       getRendererActionTraceConfig?(): Promise<RendererActionTraceConfigV1>;
       /** 订阅 Renderer 用户操作 Trace 灰度配置变化。 */
