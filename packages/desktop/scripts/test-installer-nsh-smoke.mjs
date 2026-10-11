@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -21,6 +21,16 @@ const NSIS_RESOURCES_CHECKSUM =
 
 function normalizeWindowsPath(value) {
   return resolve(value).replaceAll("/", "\\").toLowerCase();
+}
+
+// 读取失败时 $R8 是空串，和「快捷方式根本不存在」长得一样，而这个 fixture 只在 Windows 上跑。
+// 把前置条件（.lnk 在不在、PowerShell 的退出码与原始输出）落盘并带进错误信息，
+// 让失败自带根因线索，不必靠猜。
+function readShortcutDebug(installDir) {
+  const debugPath = join(installDir, "read-shortcut-target.debug.txt");
+  return existsSync(debugPath)
+    ? readFileSync(debugPath, "utf-8")
+    : "(read-shortcut-target.debug.txt missing)";
 }
 
 function readInstallerLog(logPath) {
@@ -133,7 +143,11 @@ async function main() {
     getBinFromUrl("nsis-resources-3.4.1", "nsis-resources-3.4.1.7z", NSIS_RESOURCES_CHECKSUM),
   ]);
   const makensisPath = resolve(nsisDir, "makensis.exe");
-  const tempRoot = mkdtempSync(join(tmpdir(), "zcode-installer-nsh-smoke-"));
+  // Bugfix：CreateShortCut 落到 .lnk 里的目标路径会被 Shell 规范成长名，而下面用
+  // normalizeWindowsPath（path.resolve）拼出的期望值不会展开 Windows 8.3 短名。
+  // 在 %TEMP% 就是短名的环境（GitHub Actions 的 Windows runner 是 C:\Users\RUNNER~1\...）
+  // 两侧拼写不同，快捷方式断言会假失败。按规范长名建 temp root，两边天然一致。
+  const tempRoot = realpathSync.native(mkdtempSync(join(tmpdir(), "zcode-installer-nsh-smoke-")));
 
   try {
     const uninstallerFixturePath = join(tempRoot, "uninstaller-fixture.exe");
@@ -189,7 +203,8 @@ async function main() {
           normalizeWindowsPath(expectedInitialTarget)
         ) {
           throw new Error(
-            `${scenario}: installer could not read shortcut target: ${readShortcutTargetResult}`,
+            `${scenario}: installer could not read shortcut target: ${readShortcutTargetResult}\n` +
+              readShortcutDebug(installDir),
           );
         }
 

@@ -86,6 +86,11 @@ describe("release downloader", () => {
   });
 
   it("keeps an active archive stream alive past the idle timeout", async () => {
+    // 时序余量：本用例要证明「收到数据会重置 idle 计时器」，所以必须让整条流的总时长
+    // （8 × 50ms = 400ms）**大于** idle 超时（300ms）——这样一旦重置失效，下载会在 300ms
+    // 被 abort、用例失败，判据才有效。同时每个数据间隔（50ms）留出 250ms 余量，避免
+    // GitHub Actions 的 Windows runner 上 setInterval 被调度延迟打穿（原先 30ms 间隔对
+    // 50ms 超时只有 20ms 余量，runner 上偶发 AbortError）。
     const payload = Buffer.from("abcdefgh");
     const sha256 = createHash("sha256").update(payload).digest("hex");
     const server = createServer((_request, response) => {
@@ -97,7 +102,7 @@ describe("release downloader", () => {
           clearInterval(timer);
           response.end();
         }
-      }, 30);
+      }, 50);
       response.once("close", () => clearInterval(timer));
     });
     servers.push(server);
@@ -111,8 +116,8 @@ describe("release downloader", () => {
       destination: join(dir, "release.tar.gz"),
       sha256,
       expectedSizeBytes: payload.byteLength,
-      timeoutMs: 50,
-      overallTimeoutMs: 1_000,
+      timeoutMs: 300,
+      overallTimeoutMs: 5_000,
       maxAttempts: 1,
     });
   });

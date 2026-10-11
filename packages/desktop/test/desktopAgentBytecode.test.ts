@@ -17,7 +17,10 @@ afterEach(async () => {
 });
 
 async function fixture(source: string) {
-  const dir = await mkdtemp(join(tmpdir(), "zcode bytecode 中文 "));
+  // Bugfix：GitHub Actions 的 Windows runner 上 os.tmpdir() 返回 8.3 短名
+  // （C:\Users\RUNNER~1\...），而本用例的断言用 realpath(dir) 取规范长名；字节码运行时回显的
+  // __dirname 直接来自 fixture 路径，于是短名与长名对不上。按规范路径建 fixture，两侧天然一致。
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "zcode bytecode 中文 ")));
   directories.push(dir);
   const entryPath = join(dir, "zcode.cjs");
   await writeFile(entryPath, source);

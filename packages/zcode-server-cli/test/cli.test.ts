@@ -15,10 +15,15 @@ import {
 } from "../src/cli.js";
 import { createControlServer } from "../src/ipc/controlServer.js";
 import { currentServerTarget } from "../src/runtime/manifest.js";
-import { resolveServerLayout } from "../src/runtime/paths.js";
+import { resolveCanonicalServerLayout, resolveServerLayout } from "../src/runtime/paths.js";
 import { ReleaseManager } from "../src/runtime/releaseManager.js";
 import { DataRootLock } from "../src/runtime/lock.js";
 
+// Bugfix：runServerCli 对 serve/status/stop/restart/update/uninstall 会先跑
+// resolveCanonicalServerLayout 收敛 server root（符号链接别名、Windows 8.3 短名都会改变
+// 字符串形态），而 control endpoint 是 server root 的哈希。所以用例里冒充 Supervisor 的
+// control server 也必须建在**规范布局**上：否则在 os.tmpdir() 返回 8.3 短名的环境
+// （GitHub Actions 的 Windows runner 就是），两侧哈希不同，客户端连接直接 ENOENT。
 async function createTestReleaseArchive(root: string, version: string): Promise<{ archivePath: string; archiveSha256: string }> {
   const archiveRoot = join(root, `zcode-server-${currentServerTarget()}`);
   await mkdir(join(archiveRoot, "runtime"), { recursive: true });
@@ -167,7 +172,7 @@ describe("Server CLI routing", () => {
 
   it("rejects update before fetching or installing when tasks are running", async () => {
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zcode-r2-cli-update-guard-"));
-    const layout = resolveServerLayout(join(root, ".zcode", "server"));
+    const layout = await resolveCanonicalServerLayout(join(root, ".zcode", "server"));
     const commands: string[] = [];
     const control = await createControlServer(layout.controlEndpoint, async (request) => {
       commands.push(request.command);
@@ -215,7 +220,7 @@ describe("Server CLI routing", () => {
 
   it("discards a prepared release when a task starts during preparation", async () => {
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zcode-r2-cli-update-race-"));
-    const layout = resolveServerLayout(join(root, "server"));
+    const layout = await resolveCanonicalServerLayout(join(root, "server"));
     const release = await createTestReleaseArchive(root, "4.0.0");
     const commands: string[] = [];
     let prepareCalls = 0;
@@ -269,7 +274,7 @@ describe("Server CLI routing", () => {
 
   it("discards a prepared release when apply-update observes a late task", async () => {
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zcode-r2-cli-update-late-guard-"));
-    const layout = resolveServerLayout(join(root, "server"));
+    const layout = await resolveCanonicalServerLayout(join(root, "server"));
     const release = await createTestReleaseArchive(root, "4.0.1");
     const commands: string[] = [];
     const control = await createControlServer(layout.controlEndpoint, async (request) => {
@@ -320,7 +325,7 @@ describe("Server CLI routing", () => {
 
   it("returns a successful up-to-date outcome without sending apply-update", async () => {
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zcode-r2-cli-up-to-date-"));
-    const layout = resolveServerLayout(join(root, ".zcode", "server"));
+    const layout = await resolveCanonicalServerLayout(join(root, ".zcode", "server"));
     const releases = new ReleaseManager(layout);
     await releases.ensure();
     const releaseDir = join(layout.releasesDir, "current");
@@ -395,7 +400,7 @@ describe("Server CLI routing", () => {
 
   it("reports a clear source error when neither catalog nor pending release exists", async () => {
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zcode-r2-cli-no-source-"));
-    const layout = resolveServerLayout(join(root, ".zcode", "server"));
+    const layout = await resolveCanonicalServerLayout(join(root, ".zcode", "server"));
     const errors: string[] = [];
     vi.stubEnv("ZCODE_SERVER_RELEASE_MANIFEST_URL", "");
     const control = await createControlServer(layout.controlEndpoint, async (request) => {
@@ -416,7 +421,7 @@ describe("Server CLI routing", () => {
 
   it("applies an offline pending release when no catalog is configured", async () => {
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zcode-r2-offline-"));
-    const layout = resolveServerLayout(join(root, ".zcode", "server"));
+    const layout = await resolveCanonicalServerLayout(join(root, ".zcode", "server"));
     const releases = new ReleaseManager(layout);
     await releases.ensure();
     const releaseDir = join(layout.releasesDir, "offline");

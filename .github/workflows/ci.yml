@@ -98,6 +98,15 @@ jobs:
           restore-keys: |
             electron-builder-cache-${{ runner.os }}-
 
+      # 干净 checkout 里 `apps/zcode-cli/packages/*/dist` 不存在（dist/ 被 gitignore），而
+      # `packages/desktop/test/storagePreparationProtocol.test.ts` 直接 import CLI 源码
+      # （bootstrap/src/zcode-protocol/storage-startup.ts），那条链上的 `@zcode/adapters` 导出
+      # 的是 `dist/*`——不构建就以 ERR_MODULE_NOT_FOUND「Cannot find package
+      # '@zcode/adapters/storage'」整文件失败。本机看不出来，因为 dist 早就构建过。
+      # 只需 adapters 的依赖闭包（7 个项目 / 约 20 秒），不必整仓构建。
+      - name: 构建单测依赖的 CLI 包
+        run: pnpm --filter "@zcode/adapters..." build
+
       # 不用 test:unit:affected：见文件头第 2 条。
       - name: 单元测试
         run: pnpm test:unit

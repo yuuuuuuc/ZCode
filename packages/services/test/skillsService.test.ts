@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -18,7 +19,12 @@ const originalProcessLabel = process.env.ZCODE_PROCESS_LABEL;
 const tempHomes: string[] = [];
 
 function makeTempHome(): string {
-  const home = mkdtempSync(join(tmpdir(), "zcode-skills-home-"));
+  // Bugfix：GitHub Actions 的 Windows runner 上 os.tmpdir() 返回 8.3 短名
+  // （C:\Users\RUNNER~1\...），而 skillsService 回传的是 realpath 后的规范长名，
+  // 用 join(home, ...) 拼出的断言值会与它失配。这里直接把 home 收敛成规范长名。
+  // 必须用 .native：realpathSync 的 JS 实现不展开 8.3 短名，只有 native 会走
+  // GetFinalPathNameByHandle 拿到长名。
+  const home = realpathSync.native(mkdtempSync(join(tmpdir(), "zcode-skills-home-")));
   tempHomes.push(home);
   return home;
 }

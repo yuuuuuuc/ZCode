@@ -25,7 +25,7 @@ vi.mock("../src/platform/serviceManager.js", async (importOriginal) => ({
 import { runServerCli } from "../src/cli.js";
 import { createControlServer } from "../src/ipc/controlServer.js";
 import { createServiceDescriptor } from "../src/platform/serviceManager.js";
-import { resolveCanonicalServerLayout, resolveServerLayout } from "../src/runtime/paths.js";
+import { resolveCanonicalServerLayout } from "../src/runtime/paths.js";
 import { DataRootLock } from "../src/runtime/lock.js";
 
 async function writeStatusSnapshot(statusFile: string, status: unknown): Promise<void> {
@@ -78,7 +78,9 @@ describe("daemon service registration", () => {
 
   it("stops and unregisters a same-root legacy service before registering the root-scoped identity", async () => {
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zdr-"));
-    const layout = resolveServerLayout(join(root, "server"));
+    // 与 cli.test.ts 同理：runServerCli 会 canonicalize server root 后再算 control endpoint
+    // 哈希，假 Supervisor 必须建在规范布局上，否则 os.tmpdir() 为 8.3 短名的环境里连不上。
+    const layout = await resolveCanonicalServerLayout(join(root, "server"));
     const platform = process.platform === "darwin" || process.platform === "linux" ? process.platform : "win32";
     const kind = platform === "darwin" ? "launchd" : platform === "linux" ? "systemd" : "task-scheduler";
     const legacyDescriptor = createServiceDescriptor({

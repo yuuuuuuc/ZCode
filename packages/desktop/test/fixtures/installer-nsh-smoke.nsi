@@ -82,6 +82,30 @@ Section
       FileOpen $0 "$INSTDIR\read-shortcut-target.txt" w
       FileWrite $0 "$R8"
       FileClose $0
+
+      ; Diagnostic only. When the read above yields nothing, an empty result is
+      ; indistinguishable from "the shortcut was never created", and this fixture only runs
+      ; on Windows. Dump the preconditions -- does the .lnk exist, and what did PowerShell
+      ; actually return -- so the smoke test can put the root cause in its own error message.
+      ; Keep this file ASCII (see the encoding note above).
+      FileOpen $0 "$INSTDIR\read-shortcut-target.debug.txt" w
+      ${If} ${FileExists} "$newStartMenuLink"
+        FileWrite $0 "lnk=present$\r$\n"
+      ${Else}
+        FileWrite $0 "lnk=missing$\r$\n"
+      ${EndIf}
+      StrLen $R1 "$R8"
+      FileWrite $0 "macro.result.len=$R1$\r$\n"
+      System::Call 'Kernel32::SetEnvironmentVariableW(w "ZCODE_SHORTCUT_PATH", w "$newStartMenuLink") i.R1'
+      nsExec::ExecToStack /TIMEOUT=10000 `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "[Console]::Out.Write(([Activator]::CreateInstance([type]::GetTypeFromProgID('WScript.Shell'))).CreateShortcut([Environment]::GetEnvironmentVariable('ZCODE_SHORTCUT_PATH')).TargetPath)"`
+      Pop $R1
+      Pop $R2
+      FileWrite $0 "ps.exit=$R1$\r$\n"
+      FileWrite $0 "ps.out=$R2$\r$\n"
+      System::Call 'Kernel32::SetEnvironmentVariableW(w "ZCODE_SHORTCUT_PATH", p 0) i.R1'
+      FileWrite $0 "sysdir=$SYSDIR$\r$\n"
+      FileWrite $0 "instdir=$INSTDIR$\r$\n"
+      FileClose $0
     !endif
   !endif
 
