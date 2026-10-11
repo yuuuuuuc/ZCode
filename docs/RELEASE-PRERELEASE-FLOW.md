@@ -44,23 +44,42 @@
 
 环境：**Node >= 24** + **pnpm**（见根 `package.json` `engines`）。
 
+门禁分两处执行：
+
+| 位置 | 内容 |
+| --- | --- |
+| **CI**（[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)，`windows-latest`） | `lint` / `typecheck` / `architecture:check`（全量）/ 两条护栏 / **全量 `pnpm test:unit`** |
+| 本地 `pre-push` 钩子（`pnpm verify:static`） | `lint` / `typecheck` / `architecture:check --changed` / 两条护栏 |
+
+**发 rc 前以 CI 绿为准**，本地钩子只保证提交前没有明显问题。要手动复跑同一套：
+
 ```bash
-pnpm typecheck
 pnpm lint
-pnpm architecture:check
-pnpm check:defaults
+pnpm typecheck
+pnpm architecture:check          # 不要加 --changed，见下
 pnpm check:desktop-main-types
 pnpm check:desktop-orphans
+pnpm test:unit
 ```
 
 全部通过后再打 rc。门禁不能替代真机冒烟，但能挡住类型/架构/默认策略回归。
 
+三个容易踩的坑：
+
+- **`architecture:check` 不要加 `--changed`**（CI 里）。`--changed` 读的是**工作区未提交改动**，
+  干净 checkout 里恒为空 → 恒通过。它只适合本地边改边查。
+- **CI 用 `pnpm test:unit`，不要用 `test:unit:affected`**。后者按本地推送增量设计，在 CI 的
+  detached HEAD + 浅克隆下会退化，且 diff 为空时直接返回 0——绿勾可能代表一个测试都没跑。
+- **`pnpm typecheck` 曾经不在门禁链里**（`verify:static` 已补上）。它不含
+  `packages/desktop/tsconfig.main.json`，那一半由下面的护栏兜。
+
 其中两条是「漏接线」类事故的护栏（见 [`ycode-wiring-gaps-followup.md`](./ycode-wiring-gaps-followup.md)）：
 
 - `check:desktop-main-types`：`pnpm typecheck` **不含** `packages/desktop/tsconfig.main.json`，
-  该工程有 117 条存量错误。这条用冻结基线只拦**新增**错误（漏传必填回调、漏 import 等）。
+  该工程有 82 条存量错误（55 个错误键）。这条用冻结基线只拦**新增**错误（漏传必填回调、漏 import 等）。
 - `check:desktop-orphans`：扫描 `packages/desktop/src/{host,main}`，发现「零相对引用」的新孤儿模块即失败
-  （接线被删、模块还在）。已确认的豁免记录在 `.desktop-orphan-modules-baseline.json`，每条必须带原因。
+  （接线被删、模块还在）。只数**生产引用**——测试文件的 import 不算接线。已确认的豁免记录在
+  `.desktop-orphan-modules-baseline.json`，每条必须带原因。
 
 ### 2.3 打 Windows 生产包
 

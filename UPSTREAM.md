@@ -32,9 +32,9 @@ node -p "require('./package.json').version"
 
 node scripts/check-desktop-main-type-baseline.mjs   # 上游可能带进新的 main 类型错误
 node scripts/check-desktop-orphan-modules.mjs
-pnpm check:defaults
 pnpm typecheck
 pnpm lint
+pnpm architecture:check
 ```
 
 合并后如果护栏报出**新增**孤儿或类型错误，先判断是不是上游新引入的接线缺口——不要直接 `--update` 覆盖基线，那会把真实缺口洗成豁免。
@@ -78,7 +78,7 @@ pnpm lint
 
 ### 4. 漏接线护栏
 
-`verify:pre-push` 里挂了两道，专抓「模块在、接线没了」——静态类型检查看不见这类缺口：
+`verify:static`（本地 `pre-push` 钩子）与 CI（[`.github/workflows/ci.yml`](.github/workflows/ci.yml)，`windows-latest`）里都挂着，专抓「模块在、接线没了」——静态类型检查看不见这类缺口：
 
 - `scripts/check-desktop-main-type-baseline.mjs`：`pnpm typecheck` **不含** `packages/desktop/tsconfig.main.json`，所以 main 进程的类型错误会漏网；本脚本对它做棘轮。**不要**从 typecheck 工程列表里删掉 `packages/desktop/tsconfig.e2e.json`。
 - `scripts/check-desktop-orphan-modules.mjs`：扫 `packages/desktop/src/{host,main}` 的零引用模块。只数**生产引用**（测试 import 不算接线），按 basename 匹配（同名文件会互相遮蔽）。

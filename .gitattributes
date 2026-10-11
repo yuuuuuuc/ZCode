@@ -1,6 +1,9 @@
 # 保持脚本文件 LF 换行，避免 Windows CRLF 导致 shebang 解析失败
 *.mjs text eol=lf
 *.sh  text eol=lf
+# Husky 钩子没有扩展名，上面两条盖不到；被 checkout 成 CRLF 会让钩子里的命令带上 \r，
+# 表现为 pre-push 静默失效或报 `command not found`。
+.husky/* text eol=lf
 
 # E2E PDF fixture 含规范 xref 尾空格，必须按二进制处理，避免 diff --check 误报。
 packages/desktop/test/e2e/fixtures/fs/**/*.pdf binary

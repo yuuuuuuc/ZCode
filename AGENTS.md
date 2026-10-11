@@ -18,7 +18,9 @@
 | 格式检查         | `pnpm fmt:check`                          |
 | 桌面开发         | `pnpm dev:desktop`                        |
 | Web 开发         | `pnpm dev:web`                            |
-| 提交前检查       | `pnpm verify:pre-push`（Lint 与架构检查） |
+| 提交前检查       | `pnpm verify:static`（Lint / 类型 / 架构 / 漏接线护栏；pre-push 钩子自动跑） |
+| 全量门禁         | 由 CI 跑（`.github/workflows/ci.yml`），本地不跑全量单测 |
+| 手动补跑单测     | `pnpm test:unit`（全量）/ `pnpm verify:pre-push`（静态 + 受影响单测） |
 | 架构检查         | `pnpm architecture:check --changed`       |
 | 模块阅读包       | `pnpm architecture:context <module-id>`   |
 | 未使用依赖与导出 | `pnpm knip`                               |

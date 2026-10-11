@@ -1,0 +1,103 @@
+# zcode2 的质量门禁。
+#
+# 为什么门禁在 CI 而不是本地 pre-push：本地钩子原先跑 `pnpm verify:pre-push`，最后一步是
+# `test:unit:affected`。只要推送范围里有被删除的代码文件，affected 分析就会放弃反向依赖、
+# 直接退回全量单测（本机约 13.5 分钟 / 1871 个测试文件），而删除文件正是「去遥测」这类改造
+# 的常规操作。全量搬到 CI 后本地只留静态快检。
+#
+# 三条「不能照抄 verify:pre-push」的原因（改这个文件前先读）：
+#   1. `architecture:check --changed` 读的是工作区未提交改动，干净 checkout 里恒为空 →
+#      恒退出 0。这里必须跑不带 --changed 的全量。
+#   2. `test:unit:affected` 在 detached HEAD + fetch-depth:1 下会退化成「有时全量、有时全跳过」，
+#      而且 diff 为空时直接返回 0——绿勾可能代表一个测试都没跑。这里直接跑 `pnpm test:unit`。
+#   3. `pnpm typecheck` 不在 verify:pre-push 链里（AGENTS.md 却要求必跑）。这里补上，
+#      否则没有任何地方跑它。
+#
+# 为什么是 windows-latest：与发布平台一致，Windows 专属用例才真跑到（真 NSIS 安装脚本、
+# 真 powershell.exe、实时 WMI 自扫描等 8 个；Linux 上会静默 skip）。另外 `pnpm install` 在
+# Windows 上走 node-pty 预编译直接跳过，而 Linux runner 会触发 `electron-rebuild -o node-pty`，
+# 需要 C++ 工具链并下载 Electron headers，是最大的失败风险点。
+#
+# 只需要 push/PR 两种触发：本文件只存在于 zcode2（main 保持与上游 zai-org/ZCode 逐字节一致），
+# 因此 workflow_dispatch 的「Run workflow」按钮不会出现；要重跑请用 Actions 页对已有 run 的
+# "Re-run jobs"。
+name: CI
+
+on:
+  push:
+    branches: [zcode2]
+  pull_request:
+    branches: [zcode2]
+
+# 同一分支上只保留最新一次 run，避免连续推送时排队等待。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: 质量门禁
+    runs-on: windows-latest
+    # 冷缓存下 pnpm install 可能超过 10 分钟，全量单测在本机是 13.5 分钟；给足余量但不要无限。
+    timeout-minutes: 90
+    env:
+      # mise.toml 的 [env] 里有这一条，但普通 Actions runner 不会有。缺了会让
+      # electron@41 的 postinstall 直连 GitHub release 超时（见 docs/development-mise-runtime.md）。
+      ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 不再依赖 affected 分析，浅克隆足够。
+          fetch-depth: 1
+
+      # 版本取自 package.json 的 packageManager 字段（pnpm@10.33.2），不要在这里写死，
+      # 否则会和仓库声明漂移。必须排在 setup-node 之前，setup-node 的 pnpm store 缓存依赖它。
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # 仓库已有的版本守卫（pnpm ci:assert-node），低于 Node 24 直接失败。
+      - name: 校验 Node 版本
+        run: node scripts/assert-node-version.mjs
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      # 静态检查按「先快后慢」排：lint 不到 1 秒，先把低成本问题拦住，不必等 typecheck 和单测。
+      - name: Lint
+        run: pnpm lint
+
+      # 冷构建约 110 秒，热构建约 1 秒（tsc -b 增量）。
+      - name: 类型检查
+        run: pnpm typecheck
+
+      # 不带 --changed：见文件头第 1 条。
+      - name: 架构检查
+        run: pnpm architecture:check
+
+      # 两道漏接线护栏。它们只对**新增**违规失败，读的是仓库里提交的基线，干净 checkout 安全。
+      - name: 漏接线护栏
+        run: |
+          pnpm check:desktop-main-types
+          pnpm check:desktop-orphans
+
+      # 三个安装器用例（windowsInstallerCompile / windowsInstallerNshSmoke /
+      # windowsInstallerPreserveFiles）会经 app-builder-lib 的 getBinFromUrl() 现场下载 NSIS
+      # 二进制到 %LOCALAPPDATA%\electron-builder\Cache，冷缓存下是真实下载且落在测试超时窗口内。
+      - name: 缓存 NSIS 二进制
+        uses: actions/cache@v4
+        with:
+          path: ~/AppData/Local/electron-builder/Cache
+          key: electron-builder-cache-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            electron-builder-cache-${{ runner.os }}-
+
+      # 不用 test:unit:affected：见文件头第 2 条。
+      - name: 单元测试
+        run: pnpm test:unit
