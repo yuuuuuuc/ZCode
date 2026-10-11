@@ -48,7 +48,7 @@
 
 | 位置 | 内容 |
 | --- | --- |
-| **CI**（[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)，`windows-latest`） | `lint` / `typecheck` / `architecture:check`（全量）/ 两条护栏 / **全量 `pnpm test:unit`** |
+| **CI**（[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)，`windows-latest`） | `lint` / `typecheck` / `architecture:check`（全量）/ 两条护栏 / 构建单测依赖的 CLI 包 / **全量 `pnpm test:unit`** |
 | 本地 `pre-push` 钩子（`pnpm verify:static`） | `lint` / `typecheck` / `architecture:check --changed` / 两条护栏 |
 
 **发 rc 前以 CI 绿为准**，本地钩子只保证提交前没有明显问题。要手动复跑同一套：
@@ -59,12 +59,13 @@ pnpm typecheck
 pnpm architecture:check          # 不要加 --changed，见下
 pnpm check:desktop-main-types
 pnpm check:desktop-orphans
+pnpm --filter "@zcode/adapters..." build   # 干净检出才需要，见下
 pnpm test:unit
 ```
 
 全部通过后再打 rc。门禁不能替代真机冒烟，但能挡住类型/架构/默认策略回归。
 
-三个容易踩的坑：
+四个容易踩的坑：
 
 - **`architecture:check` 不要加 `--changed`**（CI 里）。`--changed` 读的是**工作区未提交改动**，
   干净 checkout 里恒为空 → 恒通过。它只适合本地边改边查。
@@ -72,6 +73,12 @@ pnpm test:unit
   detached HEAD + 浅克隆下会退化，且 diff 为空时直接返回 0——绿勾可能代表一个测试都没跑。
 - **`pnpm typecheck` 曾经不在门禁链里**（`verify:static` 已补上）。它不含
   `packages/desktop/tsconfig.main.json`，那一半由下面的护栏兜。
+- **干净检出跑 `pnpm test:unit` 前要先建 CLI 包**。`packages/desktop/test/storagePreparationProtocol.test.ts`
+  直接 import `apps/zcode-cli/packages/bootstrap/src/...`，那条链上的 `@zcode/adapters`
+  导出的是 `dist/*`，而 `dist/` 被 gitignore。不建就以
+  `ERR_MODULE_NOT_FOUND: Cannot find package '@zcode/adapters/storage'` 整文件失败；
+  本机看不出来，因为 dist 早就构建过。`pnpm --filter "@zcode/adapters..." build`
+  （7 个项目 / 约 20 秒）即可，不必整仓构建。
 
 其中两条是「漏接线」类事故的护栏（见 [`ycode-wiring-gaps-followup.md`](./ycode-wiring-gaps-followup.md)）：
 

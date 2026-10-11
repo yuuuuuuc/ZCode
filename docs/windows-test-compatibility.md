@@ -34,6 +34,7 @@ rebase 附带处理：staging 的 CUA 单包合并（broker 51 文件并入 `@zc
 | Windows 无法删除任何进程 cwd 所在目录；持打开句柄期间 rename 同一目标 EPERM | 子进程生命周期类测试的 teardown 顺序有硬约束 |
 | `node:fs` globSync 在 Windows 返回反斜杠路径 | glob 结果必须归一化后再做前缀过滤 |
 | 产品 control endpoint 在 Windows 使用 `\\\\.\\pipe\\...` named pipe | IPC 测试必须按平台构造 endpoint，禁止因 POSIX socket fixture 在 Windows 报 EACCES 而跳过产品链路 |
+| GitHub Actions 的 Windows runner 上 `os.tmpdir()` 返回 **8.3 短名**（`C:\Users\RUNNER~1\...`），而 Shell / `realpath` 回长名（`C:\Users\runneradmin\...`） | 临时目录不能直接当路径期望值；见下方「临时路径必须收敛成规范长名」 |
 
 ## 已修复的 8 类根因与规则
 
@@ -121,3 +122,24 @@ options 的测试都应避免把真实 env 塞进可 diff 对象。本地调试�
   临时文件名必须唯一，禁止 fire-and-forget 写入固定 `.test.tmp`。
 - “持有只读句柄时 rename 覆盖目标文件”的原子替换场景只在 POSIX 成立；Windows
   会按文件共享模式返回 `EPERM`，此类 POSIX 语义测试必须显式隔离，不能伪装成跨平台契约。
+
+### 临时路径必须收敛成规范长名（8.3 短名）
+
+CI 的 Windows runner 上 `os.tmpdir()` 返回 8.3 短名 `C:\Users\RUNNER~1\AppData\Local\Temp`，
+而 `realpath` / `WScript.Shell` / Shell 一律回长名 `C:\Users\runneradmin\AppData\Local\Temp`。
+本机用户名短（如 `Yuuc`）时该目录**没有** 8.3 别名，短名与长名字形相同，所以本地全绿、
+只有 CI 红。2026-10-11 首批 CI 全量单测的 7 个失败里有 4 个是这个原因。
+
+规则：凡把临时目录写进断言的用例，先把它收敛成规范长名再比。
+
+- 用 `realpathSync.native(...)`（或 `fs/promises` 的 `realpath`）。**`realpathSync` 的
+  JS 实现不展开 8.3 短名**，只有 `.native`（`GetFinalPathNameByHandle`）与 promises 版会。
+- “字符串即身份”的场景尤其致命：`resolveServerLayout().controlEndpoint` 是 server root
+  的 FNV 哈希，而 `runServerCli` 对 `serve`/`status`/`stop`/`restart`/`update`/`uninstall`
+  会先 `resolveCanonicalServerLayout` 再算哈希。用例里冒充 Supervisor 的 control server
+  必须建在**规范布局**上，否则 runner 上两侧管道名不同，客户端直接 `connect ENOENT`。
+- NSIS `CreateShortCut` 写进 `.lnk` 的目标路径会被 Shell 规范成长名，而 `path.resolve`
+  拼出的期望值不会展开 8.3——`test-installer-nsh-smoke.mjs` 的 temp root 因此也按长名创建。
+- 复现手法：把 `TEMP`/`TMP` 指向一个 8.3 短名目录（`dir /x` 或
+  `(New-Object -ComObject Scripting.FileSystemObject).GetFolder(...).ShortPath` 可取），
+  本地即可重现全部此类失败。
