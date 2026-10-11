@@ -17,6 +17,8 @@ metadata:
 
 **为什么是 windows runner**：与发布平台一致；Windows 专属用例只有 8 个（真 NSIS 安装脚本 ×2、真 `powershell.exe` ×2、实时 WMI 自扫描等），Linux 上会静默 skip，而 POSIX 专属有 58 个。另外 `pnpm install` 在 Windows 上走 node-pty 预编译直接跳过，**Linux runner 会触发 `electron-rebuild -o node-pty`**（要 C++ 工具链 + 下载 Electron headers），是最大的失败风险点。
 
+**换成全量架构检查后立刻暴露的第一个缺口**：`packages/services/src/gen-ui/` 声明为受治理模块（`module.ts` 与上游逐字节一致），治理规则要求 managed 模块具备 `module.ts` / `contract.ts` / `contract.example.ts` / **`contract.test.ts`** / `CONTRACT.md` 五件套，而这个模块缺 `contract.test.ts`——**上游 v3.15.1 原样就缺**（`packages/{shared,ui}/src/gen-ui/` 都有，唯独 services 那个没有），所以上游跑全量同样是红的。已按治理文档自己的处方补上 `contract.test.ts`（断言描述符频道名、登记请求过 host→main 的 strict schema 及其 gen-ui provenance refine、无沙箱时失败关闭），架构基线保持为空。**教训：`--changed` 只检查工作区未提交改动，存量缺口永远看不见；换全量才会露出来。**
+
 **其它已核实的事实**：干净 checkout **不需要** `bootstrap`（workspace 包导出 `src` 不是 `dist`，单测直接跑源码）；**不需要**任何 `.env` 或凭据（`vitest.setup.ts` 自带默认值）；但**必须**设 `ELECTRON_MIRROR`（只在 `mise.toml` 的 `[env]` 里，Actions runner 没有，缺了 `electron@41` postinstall 会直连 GitHub 超时）；3 个安装器用例会经 `app-builder-lib` 现场下载 NSIS 二进制到 `%LOCALAPPDATA%\electron-builder\Cache`，已加缓存。
 
 **Why:** 门禁位置变了，但「不许 `--no-verify` 绕过」没变——CI 只是把全量从本地挪走，不是取消检查。**How to apply:** 改 `.github/workflows/ci.yml` 或 `verify:*` 脚本前先读那三个坑；本地提交前 `pnpm verify:static`，发版前以 CI 绿为准。相关：[[ycode-wiring-guardrails]]、[[zcode2-fresh-branch-plan]]、[[local-machine-ipv6-blocked]]
