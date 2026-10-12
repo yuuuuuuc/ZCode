@@ -70,6 +70,7 @@ import {
   recordMainTurnCacheHitUsage,
   recordMainTurnModelUsage,
 } from "./turn-model-step-usage.js";
+import { firstModelTokenAt } from "./usage-observability.js";
 import { estimateCurrentModelInputTokens } from "./compact.js";
 import {
   resolveModelStepMaxOutputTokens,
@@ -629,8 +630,15 @@ async function runModelBackedTurnStepImpl(
     );
   }
 
+  // 平均输出速度的耗时口径：首流式 token 到当前完成时刻，与 usage 观测口径一致；
+  // 非流式/无首 token 事件时传 undefined，该请求不计入速度分母。
+  const firstTokenAt = firstModelTokenAt(state.events, networkEventStartIndex);
+  const generationDurationMs =
+    firstTokenAt !== undefined ? Date.now() - firstTokenAt : undefined;
   const cacheHit =
-    querySource === "main_turn" ? recordMainTurnCacheHitUsage(this, result.usage) : undefined;
+    querySource === "main_turn"
+      ? recordMainTurnCacheHitUsage(this, result.usage, generationDurationMs)
+      : undefined;
   // subagent 的文件 checkpoint 已经持久化，但旧 gate 只允许 main_turn 把
   // 汇总写入 ModelComplete，导致 child 详情无法从权威事件恢复摘要和撤销入口。
   const supportsTurnFileChanges = querySource === "main_turn" || querySource === "subagent";

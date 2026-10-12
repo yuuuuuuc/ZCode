@@ -223,6 +223,8 @@ export class AgentRuntime {
     totalInputTokens: 0,
     totalCacheReadTokens: 0,
     totalCacheWriteTokens: 0,
+    totalOutputTokens: 0,
+    totalGenerationDurationMs: 0,
   };
   private currentTurnFileChanges: RuntimeTurnFileChangeMap = new Map();
   private lastAssistantCompletedAtMs?: number;

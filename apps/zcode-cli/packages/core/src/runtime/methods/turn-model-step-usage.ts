@@ -93,6 +93,9 @@ export function mainTurnCacheHitAggregateFromMessages(input: {
         totalInputTokens: aggregate.totalInputTokens + inputTokens,
         totalCacheReadTokens: aggregate.totalCacheReadTokens + cacheReadTokens,
         totalCacheWriteTokens: aggregate.totalCacheWriteTokens + cacheWriteTokens,
+        // 持久化消息只有 token 数没有生成耗时；恢复路径的速度字段从 0 重新累计。
+        totalOutputTokens: aggregate.totalOutputTokens,
+        totalGenerationDurationMs: aggregate.totalGenerationDurationMs,
       };
     },
     {
@@ -100,6 +103,8 @@ export function mainTurnCacheHitAggregateFromMessages(input: {
       totalInputTokens: 0,
       totalCacheReadTokens: 0,
       totalCacheWriteTokens: 0,
+      totalOutputTokens: 0,
+      totalGenerationDurationMs: 0,
     },
   );
 }
@@ -107,6 +112,7 @@ export function mainTurnCacheHitAggregateFromMessages(input: {
 export function recordMainTurnCacheHitUsage(
   runtime: AgentRuntimeInternal,
   usage: ModelUsage | undefined,
+  generationDurationMs: number | undefined,
 ):
   | {
       cacheReadTokens: number;
@@ -115,6 +121,7 @@ export function recordMainTurnCacheHitUsage(
       hitRateRequestCount: number;
       inputTokens: number;
       latestHitRate: number | null;
+      outputTokensPerSecond: number | null;
       totalCacheReadTokens: number;
       totalCacheWriteTokens: number;
       totalInputTokens: number;
@@ -132,12 +139,21 @@ export function recordMainTurnCacheHitUsage(
     return undefined;
   }
 
+  // 生成耗时口径 = 首 token 到请求完成，与 usage 观测/debug 旁路的 timeToFirstToken 对齐；
+  // 拿不到首 token 时刻（如非流式或异常兜底）的请求分子分母都不计入，避免只加分子高估平均速度。
+  const generationMs =
+    generationDurationMs !== undefined && generationDurationMs > 0 ? generationDurationMs : 0;
+  const outputTokens = generationMs > 0 ? (nonNegativeInteger(usage.outputTokens) ?? 0) : 0;
+
   runtime.mainTurnCacheHitAggregate = {
     requestCount: runtime.mainTurnCacheHitAggregate.requestCount + 1,
     totalInputTokens: runtime.mainTurnCacheHitAggregate.totalInputTokens + inputTokens,
     totalCacheReadTokens: runtime.mainTurnCacheHitAggregate.totalCacheReadTokens + cacheReadTokens,
     totalCacheWriteTokens:
       runtime.mainTurnCacheHitAggregate.totalCacheWriteTokens + cacheWriteTokens,
+    totalOutputTokens: runtime.mainTurnCacheHitAggregate.totalOutputTokens + outputTokens,
+    totalGenerationDurationMs:
+      runtime.mainTurnCacheHitAggregate.totalGenerationDurationMs + generationMs,
   };
 
   const aggregate = runtime.mainTurnCacheHitAggregate;
@@ -151,6 +167,10 @@ export function recordMainTurnCacheHitUsage(
         ? aggregate.totalCacheReadTokens / aggregate.totalInputTokens
         : null,
     hitRateRequestCount: aggregate.requestCount,
+    outputTokensPerSecond:
+      aggregate.totalGenerationDurationMs > 0
+        ? (aggregate.totalOutputTokens * 1000) / aggregate.totalGenerationDurationMs
+        : null,
     totalInputTokens: aggregate.totalInputTokens,
     totalCacheReadTokens: aggregate.totalCacheReadTokens,
     totalCacheWriteTokens: aggregate.totalCacheWriteTokens,

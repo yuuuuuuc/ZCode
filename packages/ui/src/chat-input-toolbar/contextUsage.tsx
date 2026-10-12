@@ -138,6 +138,26 @@ export function formatContextCacheHitRateLabel(
   }).format(Math.max(0, hitRate));
 }
 
+/** 主轮累计平均输出速度（tok/s）；无耗时数据（如 resume 恢复后）或零速时不展示。 */
+export function formatContextOutputSpeedLabel(
+  outputTokensPerSecond: number | null | undefined,
+  locale: string,
+): string | null {
+  if (
+    outputTokensPerSecond === null ||
+    outputTokensPerSecond === undefined ||
+    !Number.isFinite(outputTokensPerSecond) ||
+    outputTokensPerSecond <= 0
+  ) {
+    return null;
+  }
+
+  const formatted = new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 1,
+  }).format(outputTokensPerSecond);
+  return `${formatted} tok/s`;
+}
+
 function getBreakdownToneStyle(index: number): CSSProperties {
   return {
     backgroundColor:
@@ -271,7 +291,7 @@ export function ChatContextUsage({
   taskUsage: {
     used: number;
     size: number;
-    cache?: { hitRate: number | null };
+    cache?: { hitRate: number | null; outputTokensPerSecond?: number | null };
     breakdown?: ZCodeContextUsageBreakdownItem[];
   } | null;
   selectedProvider: ZCodeProvider;
@@ -877,6 +897,12 @@ export function ChatContextUsage({
       },
     );
   }, [locale, renderableTaskUsage]);
+  const outputSpeedLabel = useMemo(() => {
+    return formatContextOutputSpeedLabel(
+      renderableTaskUsage?.cache?.outputTokensPerSecond,
+      locale,
+    );
+  }, [locale, renderableTaskUsage]);
   const breakdownSegments = useMemo(
     () => buildContextUsageBreakdownSegments(renderableTaskUsage?.breakdown),
     [renderableTaskUsage?.breakdown],
@@ -1019,7 +1045,9 @@ export function ChatContextUsage({
             </div>
           ) : null}
           {renderableTaskUsage &&
-          (breakdownSegments.length > 0 || cacheHitRateLabel) ? (
+          (breakdownSegments.length > 0 ||
+            cacheHitRateLabel ||
+            outputSpeedLabel) ? (
             <>
               {breakdownSegments.length > 0 ? (
                 <div
@@ -1053,22 +1081,38 @@ export function ChatContextUsage({
                   </div>
                 </div>
               ) : null}
-              {cacheHitRateLabel ? (
+              {cacheHitRateLabel || outputSpeedLabel ? (
                 <div
                   className={cn(
-                    "flex items-center justify-between gap-3 text-ui-sm",
+                    "space-y-1.5",
                     breakdownSegments.length > 0 &&
                       "border-t border-border pt-3",
                   )}
                 >
-                  <span className="text-foreground-subtle">
-                    {intl.formatMessage({
-                      id: "chat.contextUsage.cacheHitRate",
-                    })}
-                  </span>
-                  <span className="font-mono text-ui-sm text-foreground">
-                    {cacheHitRateLabel}
-                  </span>
+                  {cacheHitRateLabel ? (
+                    <div className="flex items-center justify-between gap-3 text-ui-sm">
+                      <span className="text-foreground-subtle">
+                        {intl.formatMessage({
+                          id: "chat.contextUsage.cacheHitRate",
+                        })}
+                      </span>
+                      <span className="font-mono text-ui-sm text-foreground">
+                        {cacheHitRateLabel}
+                      </span>
+                    </div>
+                  ) : null}
+                  {outputSpeedLabel ? (
+                    <div className="flex items-center justify-between gap-3 text-ui-sm">
+                      <span className="text-foreground-subtle">
+                        {intl.formatMessage({
+                          id: "chat.contextUsage.outputSpeed",
+                        })}
+                      </span>
+                      <span className="font-mono text-ui-sm text-foreground">
+                        {outputSpeedLabel}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </>

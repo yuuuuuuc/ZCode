@@ -822,6 +822,8 @@ export interface ModelCompletePayload {
     latestHitRate: number | null;
     hitRate: number | null;
     hitRateRequestCount: number;
+    /** 主轮累计平均输出速度（累计输出 token ÷ 累计生成耗时）；无耗时数据时为 null。 */
+    outputTokensPerSecond?: number | null;
     totalInputTokens: number;
     totalCacheReadTokens: number;
     totalCacheWriteTokens: number;

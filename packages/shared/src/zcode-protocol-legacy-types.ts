@@ -472,6 +472,7 @@ export const zcodeSessionContextCacheUsageSchema = z
     totalCacheReadTokens: z.number().int().nonnegative().optional(),
     totalCacheWriteTokens: z.number().int().nonnegative().optional(),
     hitRate: z.number().nonnegative().nullable(),
+    outputTokensPerSecond: z.number().nonnegative().nullable().optional(),
   })
   .strict();
 export const zcodeContextUsageBreakdownSourceSchema = z.enum([

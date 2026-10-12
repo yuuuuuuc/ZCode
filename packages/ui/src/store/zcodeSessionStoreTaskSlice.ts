@@ -126,7 +126,8 @@ function areTaskUsageCachesEqual(
     left.hitRateRequestCount === right.hitRateRequestCount &&
     left.totalInputTokens === right.totalInputTokens &&
     left.totalCacheReadTokens === right.totalCacheReadTokens &&
-    left.totalCacheWriteTokens === right.totalCacheWriteTokens
+    left.totalCacheWriteTokens === right.totalCacheWriteTokens &&
+    left.outputTokensPerSecond === right.outputTokensPerSecond
   );
 }
 

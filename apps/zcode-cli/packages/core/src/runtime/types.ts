@@ -279,6 +279,10 @@ export interface MainTurnCacheHitAggregate {
   totalInputTokens: number;
   totalCacheReadTokens: number;
   totalCacheWriteTokens: number;
+  /** 主轮累计输出 token 数；用于计算累计平均输出速度。 */
+  totalOutputTokens: number;
+  /** 主轮累计生成耗时（首 token 到请求完成，毫秒）；resume 恢复时无历史耗时，从 0 重新累计。 */
+  totalGenerationDurationMs: number;
 }
 
 export type BackgroundTaskNotificationSealReason = "subagent_terminal" | "subagent_cancelled";

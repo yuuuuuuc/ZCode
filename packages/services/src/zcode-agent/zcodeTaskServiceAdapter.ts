@@ -6091,6 +6091,7 @@ function contextCacheUsageFromPayload(
     const totalInputTokens = nonNegativeIntegerValue(aggregate.totalInputTokens);
     const totalCacheReadTokens = nonNegativeIntegerValue(aggregate.totalCacheReadTokens);
     const totalCacheWriteTokens = nonNegativeIntegerValue(aggregate.totalCacheWriteTokens);
+    const outputTokensPerSecond = numberValue(aggregate.outputTokensPerSecond);
     return {
       inputTokens,
       cacheReadTokens,
@@ -6100,6 +6101,9 @@ function contextCacheUsageFromPayload(
       ...(totalInputTokens !== undefined ? { totalInputTokens } : {}),
       ...(totalCacheReadTokens !== undefined ? { totalCacheReadTokens } : {}),
       ...(totalCacheWriteTokens !== undefined ? { totalCacheWriteTokens } : {}),
+      ...(outputTokensPerSecond !== undefined
+        ? { outputTokensPerSecond: Math.max(0, outputTokensPerSecond) }
+        : {}),
       hitRate: hitRate !== undefined ? Math.max(0, hitRate) : null,
     };
   }

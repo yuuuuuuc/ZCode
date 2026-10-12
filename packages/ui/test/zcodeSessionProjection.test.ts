@@ -3215,6 +3215,7 @@ describe("zcodeSessionProjection", () => {
               totalInputTokens: 500,
               totalCacheReadTokens: 150,
               totalCacheWriteTokens: 25,
+              outputTokensPerSecond: 50,
             },
             usage: {
               inputTokens: 200,
@@ -3261,6 +3262,7 @@ describe("zcodeSessionProjection", () => {
           totalInputTokens: 500,
           totalCacheReadTokens: 150,
           totalCacheWriteTokens: 25,
+          outputTokensPerSecond: 50,
         },
       },
     ]);
