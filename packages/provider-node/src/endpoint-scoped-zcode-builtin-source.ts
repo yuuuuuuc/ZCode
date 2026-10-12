@@ -63,6 +63,11 @@ export class EndpointScopedZCodeBuiltinSource implements ProviderSource<Provider
     this.#listeners.clear();
   }
 
+  /** 等待当前 Endpoint 的远端刷新（含 dispose 触发的取消收尾）落定。 */
+  waitForIdle(): Promise<void> {
+    return this.#current?.waitForIdle() ?? Promise.resolve();
+  }
+
   async #ensureCurrent(): Promise<CurrentEndpointSource> {
     this.#assertNotDisposed();
     if (this.#ensureInFlight) return this.#ensureInFlight;
@@ -144,5 +149,9 @@ class CurrentEndpointSource {
     this.sourceDispose();
     this.synchronizer.dispose();
     this.source.dispose();
+  }
+
+  waitForIdle(): Promise<void> {
+    return this.synchronizer.waitForIdle();
   }
 }

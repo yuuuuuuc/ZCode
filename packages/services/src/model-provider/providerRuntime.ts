@@ -125,6 +125,11 @@ export class ProviderRuntime {
     return startPromise;
   }
 
+  /** 等待 Built-in 远端刷新（含 dispose 触发的取消收尾）落定；清理配置目录前调用。 */
+  waitForBackgroundRefresh(): Promise<void> {
+    return this.#configRuntime.waitForBackgroundRefresh();
+  }
+
   dispose(): void {
     if (this.#disposed) return;
     this.#disposed = true;

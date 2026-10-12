@@ -78,6 +78,18 @@ export class ZCodeBuiltinRemoteSynchronizer {
     this.#abortController?.abort();
   }
 
+  /**
+   * 等待进行中的 refresh（含 dispose 触发的取消收尾）完全落定。
+   * 调用方清理配置目录前必须等待：被中断的刷新会在后台再次获取文件锁释放租约，
+   * 与目录删除并发时在 Windows 上竞态出 EPERM/ENOTEMPTY。
+   */
+  waitForIdle(): Promise<void> {
+    return this.#inFlight?.then(
+      () => undefined,
+      () => undefined,
+    ) ?? Promise.resolve();
+  }
+
   async #refresh(force: boolean, signal: AbortSignal): Promise<ZCodeBuiltinRefreshResult> {
     const endpointKey = (await this.#options.resolveEndpointKey()).trim();
     if (this.#disposed) return "disposed";

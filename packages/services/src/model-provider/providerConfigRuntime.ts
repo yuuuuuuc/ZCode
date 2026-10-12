@@ -73,6 +73,11 @@ export class ProviderConfigRuntime {
     return this.#runtime.refreshZCodeBuiltin(options);
   }
 
+  /** 等待后台刷新（含 dispose 触发的取消收尾）落定；清理配置目录前调用。 */
+  waitForBackgroundRefresh(): Promise<void> {
+    return this.#runtime.waitForBackgroundRefresh();
+  }
+
   onDidCheckZCodeBuiltin(listener: () => Promise<void>): () => void {
     return this.#runtime.onDidCheckZCodeBuiltin(listener);
   }

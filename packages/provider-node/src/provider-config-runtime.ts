@@ -138,6 +138,22 @@ export class NodeProviderConfigRuntime {
     return this.#remoteSynchronizer?.refresh(options) ?? Promise.resolve("skipped");
   }
 
+  /**
+   * 等待后台刷新（含 dispose 触发的取消收尾）完全落定。
+   * dispose 只是中止网络请求，被中断的刷新仍会再次获取文件锁释放租约并写控制文件；
+   * 调用方（如 disposeServiceResourcesAndWait）必须在清理配置目录前等待，
+   * 否则锁目录的重建/删除与目录清理在 Windows 上竞态出 EPERM/ENOTEMPTY。
+   */
+  waitForBackgroundRefresh(): Promise<void> {
+    const pending: Promise<unknown>[] = [];
+    if (this.#checkInFlight) pending.push(this.#checkInFlight);
+    if (this.#zcodeBuiltinSource instanceof EndpointScopedZCodeBuiltinSource) {
+      pending.push(this.#zcodeBuiltinSource.waitForIdle());
+    }
+    if (this.#remoteSynchronizer) pending.push(this.#remoteSynchronizer.waitForIdle());
+    return Promise.all(pending).then(() => undefined);
+  }
+
   #checkBackground(): Promise<void> {
     if (this.#disposed) return Promise.resolve();
     if (this.#checkInFlight) return this.#checkInFlight;

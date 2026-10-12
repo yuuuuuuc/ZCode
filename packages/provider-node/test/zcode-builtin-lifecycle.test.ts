@@ -60,14 +60,14 @@ async function setup(
     onZCodeBuiltinRefreshError: () => {},
   });
   disposers.push(() => runtime.dispose());
-  return runtime;
+  return { runtime, root };
 }
 
 describe("Built-in 环境生命周期检查", () => {
   it("每分钟检查，一小时 TTL 不重复下载，但 Account 恢复每次可运行", async () => {
     vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
     const fetchRelease = vi.fn(async () => null);
-    const runtime = await setup(fetchRelease);
+    const { runtime } = await setup(fetchRelease);
     const recovery = vi.fn(async () => {});
     runtime.onDidCheckZCodeBuiltin(recovery);
     await runtime.start();
@@ -92,7 +92,7 @@ describe("Built-in 环境生命周期检查", () => {
       signal = value;
       throw new Error("offline");
     });
-    const runtime = await setup(fetchRelease);
+    const { runtime } = await setup(fetchRelease);
     const recovery = vi.fn(async () => {});
     runtime.onDidCheckZCodeBuiltin(recovery);
     await runtime.start();
@@ -115,5 +115,22 @@ describe("Built-in 环境生命周期检查", () => {
     runtime.dispose();
     expect(signal?.aborted).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
+  });
+  it("dispose 后 waitForBackgroundRefresh 等到租约收尾，返回即可安全清理配置目录", async () => {
+    const fetchRelease = vi.fn(
+      (_endpoint: string, value: AbortSignal) =>
+        new Promise<ReturnType<typeof decodeZCodeBuiltinRelease> | null>((resolve) =>
+          value.addEventListener("abort", () => resolve(null), { once: true }),
+        ),
+    );
+    const { runtime, root } = await setup(fetchRelease);
+    await runtime.start();
+    // 等刷新真正进入网络阶段（租约已落盘、fetch 挂起），再模拟关闭进程。
+    await vi.waitFor(() => expect(fetchRelease).toHaveBeenCalled());
+    runtime.dispose();
+    await runtime.waitForBackgroundRefresh();
+    // 等待返回即代表取消收尾已完成：锁目录已删除、租约已清零，
+    // 调用方随后删除配置目录不会再与后台锁操作竞态（CI Windows EPERM 回归防线）。
+    await expectLeaseReleased(root);
   });
 });

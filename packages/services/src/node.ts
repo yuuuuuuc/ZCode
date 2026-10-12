@@ -2777,7 +2777,12 @@ export async function disposeServiceResourcesAndWait(services: ServiceCollection
   // 关闭共享 tasks-index sqlite 句柄（同 disposeServiceResources，异步收口路径也要释放）
   for (const repo of sharedSqliteRepos.get(services) ?? []) repo.close();
   sharedSqliteRepos.delete(services);
-  providerRuntimes.get(services)?.dispose();
+  const providerRuntime = providerRuntimes.get(services);
+  providerRuntime?.dispose();
+  // 修复原因：dispose 只是中止 Built-in 远端刷新的网络请求，被中断的刷新仍会在后台
+  // 再次获取文件锁释放租约（重建 zcode-builtin-refresh.json.lock）；不等收尾就清理
+  // 配置目录会在 Windows 上与锁目录竞态出 EPERM。「AndWait」必须覆盖这条链。
+  await providerRuntime?.waitForBackgroundRefresh();
   for (const dispose of providerProvisioningTriggerDisposers.get(services) ?? []) dispose();
   providerProvisioningTriggerDisposers.delete(services);
   providerProvisioningSources.delete(services);
