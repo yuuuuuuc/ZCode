@@ -149,7 +149,7 @@
     {
       "file": "packages/desktop/src/main/desktopCronScheduler.ts",
       "code": "TS6059",
-      "message": "File 'X' is not under 'rootDir' 'D:/2_WorkProject/k-code/ZCode/packages/desktop/src/main'. 'rootDir' is expected to contain all source files.",
+      "message": "File 'X' is not under 'rootDir' 'D:/2_Project/k-code/ZCode/packages/desktop/src/main'. 'rootDir' is expected to contain all source files.",
       "count": 1
     },
     {
