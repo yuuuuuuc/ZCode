@@ -6,7 +6,7 @@ const MODEL_STREAMING_EVENT_WRITE_HIGH_WATER_MARK = 128;
 export interface ModelStreamingEventQueue {
   drain(): Promise<void>;
   enqueue(payload: ModelStreamingPayload): void;
-  maybeApplyBackpressure(): Promise<boolean>;
+  maybeApplyBackpressure(): Promise<void>;
 }
 
 export function createModelStreamingEventQueue(params: {
@@ -58,13 +58,12 @@ export function createModelStreamingEventQueue(params: {
         });
     },
 
-    async maybeApplyBackpressure(): Promise<boolean> {
+    async maybeApplyBackpressure(): Promise<void> {
       assertNoWriteFailure();
       if (pendingWrites < highWaterMark) {
-        return false;
+        return;
       }
       await drain();
-      return true;
     },
   };
 }

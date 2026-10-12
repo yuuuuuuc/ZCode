@@ -91,6 +91,7 @@ export default defineConfig({
             // `turbo run test` 也不在 CI 里（整包还有 35 个文件的 Windows 路径/换行存量失败）。
             // 这里只把「上下文面板平均输出速度」这条链路的用例挂进默认入口，让它是真的在跑。
             "apps/zcode-cli/packages/core/tests/turn-model-step-usage.test.ts",
+            "apps/zcode-cli/packages/adapters/tests/stream-reasoning-provenance.test.ts",
           ],
           exclude: ["packages/desktop/test/e2e/**", ...forkIsolatedTests],
           // Node 24/macOS 的 threads 全量运行可触发 V8 SIGSEGV；诊断时切换进程隔离，测试范围不变。

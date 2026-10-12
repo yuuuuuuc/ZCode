@@ -142,18 +142,18 @@ export function recordMainTurnCacheHitUsage(
     return undefined;
   }
 
-  // 修复原因：outputTokens 含隐藏推理，reasoning_delta 也可能只是摘要，无法证明同一生成窗口。
-  // 有推理或无效推理元数据时整条不计速，不能把所有 token 除以可见回答尾段的耗时。
-  const alignedTokenScope = usage.reasoningTokens === undefined || usage.reasoningTokens === 0;
+  // 修复原因：可测性由 bounded reader 的 result() 唯一判定，adapter 只提供推理来源。
+  // 聚合层没有流证据，不能另行判断推理口径；duration 存在即代表计时 owner 已通过
+  // 用量、来源和时间窗口校验（含 reasoningTokens <= outputTokens），这里只成对累计。
   const generationMs =
     generationDurationMs !== undefined &&
     Number.isFinite(generationDurationMs) &&
     generationDurationMs > 0
       ? generationDurationMs
       : 0;
-  const outputTokens = nonNegativeInteger(usage.outputTokens) ?? 0;
+  const outputTokens = Number.isSafeInteger(usage.outputTokens) ? (usage.outputTokens ?? 0) : 0;
   // 缺 token 或缺同口径耗时均成对跳过，避免污染后续累计平均。
-  const measurable = alignedTokenScope && generationMs > 0 && outputTokens > 0;
+  const measurable = generationMs > 0 && outputTokens > 0;
 
   runtime.mainTurnCacheHitAggregate = {
     requestCount: runtime.mainTurnCacheHitAggregate.requestCount + 1,

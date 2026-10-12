@@ -92,42 +92,32 @@ describe("recordMainTurnCacheHitUsage output speed", () => {
     expect(measurable?.outputTokensPerSecond).toBe(200);
   });
 
-  it.each([3000, -1, 0.5, NaN, Infinity])(
-    "excludes unaligned or invalid reasoning-token usage (%s) without changing cache statistics",
-    (reasoningTokens) => {
-      const runtime = createRuntime();
-      const skipped = recordMainTurnCacheHitUsage(
-        runtime,
-        { inputTokens: 100, outputTokens: 3100, reasoningTokens, cacheReadTokens: 80 },
-        1000,
-      );
-      expect(skipped).toMatchObject({ outputTokensPerSecond: null, hitRate: 0.8 });
-      expect(runtime.mainTurnCacheHitAggregate).toMatchObject({
-        requestCount: 1,
-        totalInputTokens: 100,
-        totalOutputTokens: 0,
-        totalGenerationDurationMs: 0,
-      });
+  it("counts all output tokens, including reasoning, for an aligned duration", () => {
+    const runtime = createRuntime();
+    const result = recordMainTurnCacheHitUsage(
+      runtime,
+      { inputTokens: 100, outputTokens: 3100, reasoningTokens: 3000, cacheReadTokens: 80 },
+      31_000,
+    );
+    expect(result).toMatchObject({ outputTokensPerSecond: 100, hitRate: 0.8 });
+    expect(runtime.mainTurnCacheHitAggregate.totalOutputTokens).toBe(3100);
+  });
 
-      const measurable = recordMainTurnCacheHitUsage(
-        runtime,
-        { inputTokens: 100, outputTokens: 100, reasoningTokens: 0 },
-        1000,
-      );
-      expect(measurable?.outputTokensPerSecond).toBe(100);
+  it("trusts the timing owner's duration instead of re-judging reasoning metadata", () => {
+    const runtime = createRuntime();
 
-      const nextSkipped = recordMainTurnCacheHitUsage(
-        runtime,
-        { inputTokens: 100, outputTokens: 3100, reasoningTokens },
-        1000,
-      );
-      expect(nextSkipped?.outputTokensPerSecond).toBe(100);
-      expect(runtime.mainTurnCacheHitAggregate).toMatchObject({
-        totalOutputTokens: 100,
-        totalGenerationDurationMs: 1000,
-      });
-    },
-  );
+    // 聚合层只消费 bounded reader 校验后的 duration，不再次判断推理元数据。
+    // 这里故意注入不可能通过真实计时链路的数据，验证聚合层不充当第二个 owner；
+    // 不代表 reasoningTokens > outputTokens 在生产链路可测。拒绝非法元数据见
+    // "rejects invalid reasoning-token metadata at the timing owner"。
+    const result = recordMainTurnCacheHitUsage(
+      runtime,
+      { inputTokens: 100, outputTokens: 3100, reasoningTokens: 3101, cacheReadTokens: 80 },
+      31_000,
+    );
+    expect(result).toMatchObject({ outputTokensPerSecond: 100, hitRate: 0.8 });
+    expect(runtime.mainTurnCacheHitAggregate.totalOutputTokens).toBe(3100);
+  });
 
   it.each([0, -1, NaN, Infinity, -Infinity])(
     "does not poison the speed counters with invalid duration %s",
@@ -197,6 +187,7 @@ describe("main-turn output speed stream timing", () => {
         yield {
           type: "finish",
           finishReason: "stop",
+          reasoningOutput: kind === "reasoning_delta" ? "complete" : undefined,
           usage: { inputTokens: 100, outputTokens: 100 },
         };
       };
@@ -234,7 +225,7 @@ describe("main-turn output speed stream timing", () => {
     },
   );
 
-  it("invalidates duration when the event high-water mark blocks stream consumption", async () => {
+  it("continues timing across write backpressure while the reader buffer has space", async () => {
     const { runtime, model, options, setClock } = streamFixture();
     const releaseWrite = Promise.withResolvers<void>();
     let count = 0;
@@ -257,17 +248,17 @@ describe("main-turn output speed stream timing", () => {
     };
     const request = runtime.runModelTextRequest(options);
     try {
-      await vi.waitFor(() => expect(count).toBe(127));
+      await vi.waitFor(() => expect(count).toBe(128));
       expect(options.events).toHaveLength(0);
     } finally {
       releaseWrite.resolve();
     }
-    expect((await request).outputGenerationDurationMs).toBeUndefined();
+    expect((await request).outputGenerationDurationMs).toBe(2000);
     expect(count).toBe(128);
     expect(options.events).toHaveLength(129);
   });
 
-  it("invalidates duration across a pre-finish tool commit without changing tool callbacks", async () => {
+  it("counts a pre-finish tool commit without changing tool callbacks", async () => {
     const { runtime, model, options, setClock } = streamFixture();
     const onStreamToolCall = vi.fn();
     model.streamText = async function* (): AsyncGenerator<ModelStreamEvent> {
@@ -282,9 +273,227 @@ describe("main-turn output speed stream timing", () => {
       };
     };
     const result = await runtime.runModelTextRequest({ ...options, onStreamToolCall });
-    expect(result.outputGenerationDurationMs).toBeUndefined();
+    expect(result.outputGenerationDurationMs).toBe(2000);
     expect(onStreamToolCall).toHaveBeenCalledOnce();
     expect(result.toolCalls).toEqual([{ id: "call", name: "Read", input: {} }]);
+  });
+
+  it("counts pure tool output even when tool drain waits until after provider finish", async () => {
+    const { runtime, model, options, setClock } = streamFixture();
+    const releaseWrite = Promise.withResolvers<void>();
+    const finishRead = Promise.withResolvers<void>();
+    const onStreamToolCall = vi.fn();
+    const emit = runtime.emitModelStreamingEvent.bind(runtime);
+    vi.spyOn(runtime, "emitModelStreamingEvent").mockImplementation(async (...args) => {
+      await releaseWrite.promise;
+      setClock(60_000);
+      return emit(...args);
+    });
+    model.streamText = async function* () {
+      setClock(1000);
+      yield { type: "tool_input_start", id: "call", toolName: "Read" };
+      yield { type: "tool_input_delta", id: "call", delta: "{}" };
+      setClock(2000);
+      yield { type: "tool_input_end", id: "call" };
+      yield { type: "tool_call", toolCall: { id: "call", name: "Read", input: {} } };
+      setClock(3000);
+      yield {
+        type: "finish",
+        finishReason: "tool-calls",
+        usage: { inputTokens: 100, outputTokens: 100 },
+      };
+      finishRead.resolve();
+    };
+    const request = runtime.runModelTextRequest({ ...options, onStreamToolCall });
+    try {
+      await finishRead.promise;
+      expect(onStreamToolCall).not.toHaveBeenCalled();
+    } finally {
+      releaseWrite.resolve();
+    }
+    const result = await request;
+    expect(result.outputGenerationDurationMs).toBe(2000);
+    expect(
+      recordMainTurnCacheHitUsage(runtime, result.usage, result.outputGenerationDurationMs)
+        ?.outputTokensPerSecond,
+    ).toBe(50);
+    expect(onStreamToolCall).toHaveBeenCalledOnce();
+    expect(options.events.map((event) => (event.payload as { kind: string }).kind)).toEqual([
+      "tool_input_start",
+      "tool_input_delta",
+      "tool_input_end",
+      "tool_call",
+      "finish",
+    ]);
+  });
+
+  it("marks timing unavailable only when the bounded reader itself waits for space", async () => {
+    const { runtime, model, options, setClock } = streamFixture();
+    const releaseWrite = Promise.withResolvers<void>();
+    let readCount = 0;
+    const emit = runtime.emitModelStreamingEvent.bind(runtime);
+    vi.spyOn(runtime, "emitModelStreamingEvent").mockImplementation(async (...args) => {
+      await releaseWrite.promise;
+      return emit(...args);
+    });
+    model.streamText = async function* () {
+      yield { type: "text_delta", text: "first" };
+      yield { type: "tool_call", toolCall: { id: "call", name: "Read", input: {} } };
+      for (readCount = 0; readCount < 256; readCount += 1) {
+        setClock(readCount + 1);
+        yield { type: "text_delta", text: "token" };
+      }
+      setClock(2000);
+      yield { type: "finish", finishReason: "stop", usage: { outputTokens: 100 } };
+    };
+    const request = runtime.runModelTextRequest(options);
+    try {
+      await vi.waitFor(() => expect(readCount).toBeGreaterThan(100));
+      expect(readCount).toBeLessThan(256);
+    } finally {
+      releaseWrite.resolve();
+    }
+    expect(await request).toMatchObject({
+      outputGenerationUnavailableReason: "reader_backpressure",
+    });
+    expect(readCount).toBe(256);
+    expect(options.events).toHaveLength(259);
+  });
+
+  it("delivers buffered output before propagating a producer error", async () => {
+    const { runtime, model, options } = streamFixture();
+    const onStreamTextDelta = vi.fn();
+    model.streamText = async function* () {
+      yield { type: "text_delta", text: "first" };
+      yield { type: "text_delta", text: "second" };
+      throw new Error("read failed");
+    };
+    await expect(runtime.runModelTextRequest({ ...options, onStreamTextDelta })).rejects.toThrow(
+      "read failed",
+    );
+    expect(onStreamTextDelta.mock.calls).toEqual([["first"], ["second"]]);
+    expect(options.events).toHaveLength(2);
+  });
+
+  it("does not close an iterator again after natural EOF", async () => {
+    const { runtime, model, options, setClock } = streamFixture();
+    const stream = (async function* (): AsyncGenerator<ModelStreamEvent> {
+      yield { type: "text_delta", text: "answer" };
+      setClock(1000);
+      yield { type: "finish", finishReason: "stop", usage: { outputTokens: 100 } };
+    })();
+    const close = vi.spyOn(stream, "return").mockRejectedValue(new Error("already closed"));
+    model.streamText = () => stream;
+    expect((await runtime.runModelTextRequest(options)).outputGenerationDurationMs).toBe(1000);
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it("preserves the producer error when iterator cleanup also fails", async () => {
+    const { runtime, model, options } = streamFixture();
+    const stream = (async function* (): AsyncGenerator<ModelStreamEvent> {
+      yield { type: "text_delta", text: "partial" };
+      throw new Error("provider read failed");
+    })();
+    vi.spyOn(stream, "return").mockRejectedValue(new Error("cleanup failed"));
+    model.streamText = () => stream;
+    await expect(runtime.runModelTextRequest(options)).rejects.toThrow("provider read failed");
+    expect(options.events).toHaveLength(1);
+  });
+
+  it("aborts the in-flight reader and closes its iterator on a consumer failure", async () => {
+    const { runtime, model, options } = streamFixture();
+    const readerWaiting = Promise.withResolvers<void>();
+    const closed = vi.fn();
+    let signal: AbortSignal | undefined;
+    model.streamText = async function* (request) {
+      signal = request.abortSignal;
+      try {
+        yield { type: "text_delta", text: "first" };
+        readerWaiting.resolve();
+        await new Promise<void>((_, reject) => {
+          signal!.addEventListener("abort", () => reject(new Error("reader aborted")), {
+            once: true,
+          });
+        });
+      } finally {
+        closed();
+      }
+    };
+    const request = runtime.runModelTextRequest({
+      ...options,
+      onStreamTextDelta() {
+        throw new Error("consumer failed");
+      },
+    });
+    await readerWaiting.promise;
+    await expect(request).rejects.toThrow("consumer failed");
+    expect(signal?.aborted).toBe(true);
+    expect(closed).toHaveBeenCalledOnce();
+  });
+
+  it("does not publish additional buffered tool calls after parent cancellation", async () => {
+    const { runtime, model, options, setClock } = streamFixture();
+    const abortController = new AbortController();
+    const releaseWrite = Promise.withResolvers<void>();
+    const allRead = Promise.withResolvers<void>();
+    const onStreamToolCall = vi.fn();
+    const emit = runtime.emitModelStreamingEvent.bind(runtime);
+    vi.spyOn(runtime, "emitModelStreamingEvent").mockImplementation(async (...args) => {
+      await releaseWrite.promise;
+      return emit(...args);
+    });
+    model.streamText = async function* () {
+      yield { type: "text_delta", text: "first" };
+      yield { type: "tool_call", toolCall: { id: "first", name: "Read", input: {} } };
+      yield { type: "tool_call", toolCall: { id: "buffered", name: "Read", input: {} } };
+      setClock(1000);
+      yield { type: "finish", finishReason: "tool-calls", usage: { outputTokens: 100 } };
+      allRead.resolve();
+    };
+    const request = runtime.runModelTextRequest({
+      ...options,
+      abortSignal: abortController.signal,
+      onStreamToolCall,
+    });
+    try {
+      await allRead.promise;
+      abortController.abort(new Error("user cancelled"));
+    } finally {
+      releaseWrite.resolve();
+    }
+    await expect(request).rejects.toThrow("user cancelled");
+    expect(onStreamToolCall.mock.calls.flat().map((call) => call.id)).not.toContain("buffered");
+  });
+
+  it("bounds buffered large deltas by characters rather than only event count", async () => {
+    const { runtime, model, options, setClock } = streamFixture();
+    const releaseWrite = Promise.withResolvers<void>();
+    let readCount = 0;
+    const emit = runtime.emitModelStreamingEvent.bind(runtime);
+    vi.spyOn(runtime, "emitModelStreamingEvent").mockImplementation(async (...args) => {
+      await releaseWrite.promise;
+      return emit(...args);
+    });
+    model.streamText = async function* () {
+      yield { type: "text_delta", text: "first" };
+      yield { type: "tool_call", toolCall: { id: "call", name: "Read", input: {} } };
+      for (readCount = 0; readCount < 10; readCount += 1) {
+        yield { type: "text_delta", text: "x".repeat(256 * 1024) };
+      }
+      setClock(1000);
+      yield { type: "finish", finishReason: "stop", usage: { outputTokens: 100 } };
+    };
+    const request = runtime.runModelTextRequest(options);
+    try {
+      await vi.waitFor(() => expect(readCount).toBeGreaterThanOrEqual(1));
+      expect(readCount).toBeLessThan(10);
+    } finally {
+      releaseWrite.resolve();
+    }
+    expect(await request).toMatchObject({
+      outputGenerationUnavailableReason: "reader_backpressure",
+    });
+    expect(readCount).toBe(10);
   });
 
   it("still rejects a failed provider stream without creating a result", async () => {
@@ -406,6 +615,137 @@ describe("main-turn output speed stream timing", () => {
         usage: { outputTokens: 3100, reasoningTokens: 3000 },
         cacheHit: { outputTokensPerSecond: null, totalInputTokens: 100 },
       });
+    },
+  );
+
+  it("includes full streamed reasoning and keeps all provider usage intact", async () => {
+    let clock = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => clock);
+    const sessionId = createSessionId("output-speed-full-reasoning");
+    const eventStore = createTestSessionEventStore();
+    const runtime = createTestAgentRuntime(
+      sessionId,
+      { modelStreaming: "on", titleGeneration: { enabled: false } },
+      {
+        eventStore,
+        modelFactory: createTestModelFactory({
+          async *streamText() {
+            clock = 10_000; // 首 token 等待不计入；推理开始后 31 秒含回答。
+            yield { type: "reasoning_delta", text: "complete reasoning" };
+            clock = 40_000;
+            yield { type: "text_delta", text: "answer" };
+            clock = 41_000;
+            yield {
+              type: "finish",
+              finishReason: "stop",
+              reasoningOutput: "complete",
+              usage: {
+                inputTokens: 100,
+                outputTokens: 3100,
+                reasoningTokens: 3000,
+                cacheReadTokens: 80,
+              },
+            };
+          },
+        }),
+      },
+    );
+    await runtime.executeTurn("reason about this");
+    const complete = (await eventStore.getEvents(sessionId)).find(
+      (event) => event.type === SessionEventType.ModelComplete,
+    );
+    expect(complete?.payload).toMatchObject({
+      usage: { outputTokens: 3100, reasoningTokens: 3000 },
+      cacheHit: { outputTokensPerSecond: 100, hitRate: 0.8 },
+    });
+    expect(complete?.payload).not.toHaveProperty("outputGenerationUnavailableReason");
+    expect(complete?.payload).not.toHaveProperty("reasoningOutput");
+  });
+
+  it.each(["summary", "hidden", "unknown"] as const)(
+    "marks %s reasoning unavailable even if reasoning usage is omitted",
+    async (reasoningOutput) => {
+      const { runtime, model, options, setClock } = streamFixture();
+      model.streamText = async function* () {
+        yield { type: "reasoning_delta", text: "summary" };
+        setClock(1000);
+        yield { type: "text_delta", text: "answer" };
+        setClock(2000);
+        yield {
+          type: "finish",
+          finishReason: "stop",
+          reasoningOutput,
+          usage: { outputTokens: 100 },
+        };
+      };
+      expect(await runtime.runModelTextRequest(options)).toMatchObject({
+        outputGenerationUnavailableReason: "unaligned_reasoning",
+      });
+    },
+  );
+
+  it.each([3101, -1, 0.5, NaN, Infinity])(
+    "rejects invalid reasoning-token metadata at the timing owner (%s)",
+    async (reasoningTokens) => {
+      // 推理元数据的合法性只在 bounded reader 判定一次（result() 的 invalid_usage 分支）。
+      // 这段覆盖原先挂在 recordMainTurnCacheHitUsage 上的用例，owner 收敛后随之搬家。
+      const { runtime, model, options, setClock } = streamFixture();
+      model.streamText = async function* () {
+        yield { type: "text_delta", text: "answer" };
+        setClock(1000);
+        yield {
+          type: "finish",
+          finishReason: "stop",
+          usage: { outputTokens: 3100, reasoningTokens },
+        };
+      };
+      expect(await runtime.runModelTextRequest(options)).toMatchObject({
+        outputGenerationUnavailableReason: "invalid_usage",
+      });
+    },
+  );
+
+  it.each(["summary", "hidden", "unknown"] as const)(
+    "keeps %s reasoning unavailable out of the persisted ModelComplete payload",
+    async (reasoningOutput) => {
+      let clock = 0;
+      vi.spyOn(performance, "now").mockImplementation(() => clock);
+      const sessionId = createSessionId(`output-speed-unavailable-${reasoningOutput}`);
+      const eventStore = createTestSessionEventStore();
+      const runtime = createTestAgentRuntime(
+        sessionId,
+        { modelStreaming: "on", titleGeneration: { enabled: false } },
+        {
+          eventStore,
+          modelFactory: createTestModelFactory({
+            async *streamText() {
+              yield { type: "reasoning_delta", text: "summary" };
+              clock = 1000;
+              yield { type: "text_delta", text: "answer" };
+              clock = 2000;
+              yield {
+                type: "finish",
+                finishReason: "stop",
+                reasoningOutput,
+                usage: { inputTokens: 100, outputTokens: 100 },
+              };
+            },
+          }),
+        },
+      );
+      await runtime.executeTurn("reason about this");
+      const complete = (await eventStore.getEvents(sessionId)).find(
+        (event) => event.type === SessionEventType.ModelComplete,
+      );
+      expect(complete?.payload).toMatchObject({
+        usage: { outputTokens: 100 },
+        cacheHit: { outputTokensPerSecond: null },
+      });
+      // 不可测原因与推理来源都只在 runtime 内部保留，不进 ModelComplete / UI / 历史用量。
+      // 这里必须走 executeTurn：直接调 runModelTextRequest 拿不到落库 payload，
+      // 断言不到这条不外泄约束。
+      expect(complete?.payload).not.toHaveProperty("outputGenerationUnavailableReason");
+      expect(complete?.payload).not.toHaveProperty("reasoningOutput");
     },
   );
 

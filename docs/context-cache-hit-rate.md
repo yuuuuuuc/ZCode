@@ -34,31 +34,53 @@ requests:
 sum(outputTokens of measurable requests) / (sum(generationDurationMs) / 1000)
 ```
 
-- The model stream consumer owns request-local timing. Generation duration runs from the first
+- A bounded model stream reader owns request-local timing. Generation duration runs from the first
   non-empty `text_delta`, `reasoning_delta`, or `tool_input_delta` to receipt of the provider's
   `finish` event, using the monotonic `performance.now()` clock. Both instants are captured
-  before enqueueing/persisting the corresponding events. A private, optional
+  before buffering or enqueueing/persisting the corresponding events. A private, optional
   `RuntimeModelTextResult.outputGenerationDurationMs` carries the duration to the main-turn
   accumulator; it is not added to the wire protocol or persisted history. Neither event-store
   timestamps nor the return time after queue draining/part persistence define this interval.
-- If a pre-finish tool boundary or high-water-mark backpressure makes the consumer wait for
-  event writes after output has started, the request is not measurable. Provider generation
-  can overlap that wait, so subtracting the write time would invent a faster speed. The event
-  queue's existing ordering, draining and backpressure behavior must remain unchanged.
+- The reader continues sampling while the business consumer drains tool/event writes. Normal
+  tool commits and write-queue backpressure do not themselves invalidate timing. Read-ahead is
+  bounded to 128 events / 512 Ki UTF-16 delta characters (one oversized provider event
+  is not split). If that buffer actually stops reads before finish, timing is unavailable:
+  generation can overlap the wait, so neither subtracting it nor counting it is valid. Event
+  ordering, tool callbacks, write draining and persistence remain unchanged. Errors follow all
+  previously read events; cancellation closes/aborts the reader rather than leaving a background
+  model request running. Natural EOF does not close the completed iterator a second time;
+  cleanup failures must not replace an already propagating stream failure.
 - A request is **measurable only when both** an observable first token and a reported
   positive `outputTokens` are present, with a finite, positive, uninterrupted duration and a
   matching token scope; otherwise it contributes to **neither** numerator nor denominator.
   Each direction of asymmetry skews the number on its own: tokens without time inflate the
   average, time without tokens deflate it. Non-streaming and error-fallback requests fail the
   first condition, requests whose provider omits usage fail the second.
-- AI SDK `outputTokens` includes reasoning tokens. A provider that reports positive
-  `reasoningTokens` does not guarantee that `reasoning_delta` exposes all of that generation;
-  it can expose no reasoning or only a summary. Such requests are conservatively excluded from
-  speed accumulation, even when a reasoning delta exists. Invalid reasoning-token metadata is
-  also excluded. Ordinary output with zero/omitted reasoning-token metadata remains eligible.
-  This does not subtract reasoning tokens from normal usage, change cache-hit accumulation,
-  or redefine the metric as visible-text speed. A skipped request preserves any existing
-  measurable average; if none exists, the row stays hidden.
+- AI SDK `outputTokens` includes reasoning tokens; they are retained, not added twice or
+  subtracted. The adapter supplies optional request-local reasoning provenance at finish:
+  `complete`, `summary`, `hidden`, or `unknown`. This is an internal Model port fact, not a new
+  session/UI field. OpenAI-compatible raw `choices[0].delta.reasoning_content` is the full
+  reasoning field; every non-empty normalized reasoning delta must match those raw characters
+  for `complete` provenance. The generic `reasoning` fallback, absent raw evidence, and mixed
+  streams are `unknown`. Raw reasoning that never reaches the normalized output stream is also
+  unavailable, even if reasoning usage is omitted or zero. OpenAI Responses reasoning is a
+  summary, not a full stream. Anthropic
+  Claude 3.7 native thinking is full reasoning, matched by the single allowlist constant
+  `FULL_NATIVE_THINKING_MODEL` (dated id and `-latest` alias both covered); other Anthropic
+  thinking (which may be summarized) is `unknown`, and `redacted_thinking` is `hidden`.
+  Beyond that documented Claude 3.7 API
+  contract, no provider/model-name heuristic upgrades unknown streams to complete. Raw bodies
+  are never sent to the runtime/UI by this feature.
+  As with provider token usage, this relies on the upstream honoring its field contract; a
+  non-conforming proxy that labels a summary as full `reasoning_content` cannot be detected
+  from this stream alone. The generic `reasoning` field is deliberately not treated as proof.
+- Complete reasoning participates from the first reasoning delta, with all output tokens.
+  Positive reasoning usage without observed reasoning, summary/hidden/unknown reasoning, or
+  invalid reasoning metadata makes the request explicitly unavailable in the private timing
+  result. Even omitted/zero reasoning usage does not make an observed summary/redaction safe.
+  Existing usage and cache-hit accumulation are unchanged. Unavailable samples contribute to
+  neither speed counter and preserve any existing average; with no measurable sample the
+  aggregate field is `null` (the existing UI hides the row, not a fabricated zero).
 - The row is deliberately **not** gated by a production threshold, unlike the neighbouring
   cache hit rate (hidden below 0.78 in production so a low rate does not distract from context
   capacity). Output speed has no good/bad threshold to compare against, so it shows whenever a
@@ -73,18 +95,23 @@ sum(outputTokens of measurable requests) / (sum(generationDurationMs) / 1000)
   from the debug observation, while this panel row is the shared aggregate.
 
 ```text
-provider stream -> request-local monotonic timing -> main-turn aggregate -> ModelComplete.cacheHit
-                  |                                  |                    | desktop continuous
-                  +-> ordered event writes           +-> reset on resume   + mobile replayable
-                      (not a timing source)
+provider adapter (reasoning provenance) -> bounded reader (monotonic timing)
+                                         |                         |
+                                         v                         v
+                                ordered business consumer -> main-turn aggregate
+                                + event writes/tools         -> ModelComplete.cacheHit
+                                (not a timing source)           | desktop continuous
+                                                               + mobile replayable
 ```
 
 Regression acceptance:
 
-- Delaying event writes, the terminal drain, or reasoning/text part persistence does not change
-  the measured speed of an otherwise uninterrupted stream.
+- Delaying event writes, normal tool commits, the terminal drain, or reasoning/text part
+  persistence does not change the measured speed while read-ahead remains uninterrupted.
 - Empty deltas/preludes do not start timing; a missing finish, zero/invalid duration, non-streaming
-  response, pre-finish write wait, or missing output usage does not create a speed sample.
+  response, actual pre-finish reader backpressure, or missing output usage does not create a sample.
+- Complete reasoning with 3000 reasoning tokens plus 100 text tokens over 31 seconds contributes
+  all 3100 output tokens at 100 tok/s. Pure streaming tool calls also contribute.
 - A response with 3000 reported reasoning tokens and 100 text tokens does not report 3100 tok/s
   over its one-second visible-text tail, with or without visible reasoning summary chunks.
 - Skipped requests leave both speed counters unchanged, while cache-hit/token behavior remains

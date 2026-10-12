@@ -817,6 +817,8 @@ export type ModelStreamEvent =
   | {
       type: "finish";
       finishReason: string;
+      /** Adapter 的推理流来源事实，仅用于同口径计速；不进入 session streaming/history。 */
+      reasoningOutput?: "complete" | "summary" | "hidden" | "unknown";
       providerMetadata?: Record<string, unknown>;
       usage: ModelUsage;
     }

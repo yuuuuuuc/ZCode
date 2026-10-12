@@ -88,6 +88,7 @@ import {
   readModelFailureErrorPhase,
 } from "./runner-telemetry.js";
 import { repairReasoningHistoryAfterSignatureRejection } from "./reasoning-history-normalization.js";
+import { createStreamReasoningProvenance } from "./stream-reasoning-provenance.js";
 
 type StreamFailurePhase = "request_setup" | "response_body";
 
@@ -312,6 +313,7 @@ export async function* runStreamText(input: {
       const streamResult = input.runtime.streamText(options);
       result = streamResult;
       streamIterator = streamResult.fullStream[Symbol.asyncIterator]();
+      const reasoningProvenance = createStreamReasoningProvenance(resolved);
 
       while (true) {
         const next = await readNextWithStreamIdleTimeout(streamIterator, {
@@ -356,6 +358,7 @@ export async function* runStreamText(input: {
 
         let event: Awaited<ReturnType<typeof handleStreamChunk>>;
         try {
+          reasoningProvenance.observeRaw(next.value);
           event = await handleStreamChunk({
             admission,
             attempt,
@@ -431,10 +434,13 @@ export async function* runStreamText(input: {
         }
         if (event.visibleEvents.length > 0) {
           for (const visibleEvent of event.visibleEvents) {
+            reasoningProvenance.observeEvent(visibleEvent);
             const observation = observeVisibleStreamEvent(visibleEvent, Date.now() - startedAt);
             await publishVisibleMilestones(observation);
             streamOutputCommitted = streamOutputCommitted || observation.outputCommitted;
-            yield visibleEvent;
+            yield visibleEvent.type === "finish"
+              ? reasoningProvenance.finish(visibleEvent)
+              : visibleEvent;
           }
         }
       }

@@ -889,8 +889,16 @@ export interface StreamedToolExecutionResult {
 
 export interface RuntimeModelTextResult {
   contextUsageBreakdown?: ContextUsageBreakdownItem[];
-  /** 首非空输出 delta 到 provider finish 的单调时钟耗时；读取被写队列阻塞时不提供。仅 runtime 内部使用。 */
+  /** 有界 reader 的首非空输出到 finish；含完整推理、正文、工具参数，不含首 token 等待。 */
   outputGenerationDurationMs?: number;
+  /** 不可测原因只在 runtime 内部保留；不进入 ModelComplete、UI 或历史用量。 */
+  outputGenerationUnavailableReason?:
+    | "missing_finish"
+    | "missing_output"
+    | "reader_backpressure"
+    | "unaligned_reasoning"
+    | "invalid_usage"
+    | "invalid_duration";
   finishReason: string;
   providerMetadata?: Record<string, unknown>;
   reasoning?: ModelReasoningContentBlock[];

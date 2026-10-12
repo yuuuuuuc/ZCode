@@ -150,9 +150,13 @@ export function createStreamTextOptions(input: {
     // printing its generic system-message warning to process stderr.
     allowSystemInMessages: true,
     maxRetries: 0,
-    // AI SDK 会吞掉 Anthropic message_start 等 metadata 事件；compact 需要
-    // 在 adapter 内观察 raw event 才能精确结束 SSE retry，raw chunk 不会上送 Core/UI。
-    includeRawChunks: input.request.preserveProviderStreamBoundaries ? true : undefined,
+    // raw 只在 adapter 内用于 compact 边界及推理来源判定，不会上送 Core/UI。
+    includeRawChunks:
+      input.request.preserveProviderStreamBoundaries ||
+      input.resolved.providerKind === "openai-compatible" ||
+      input.resolved.providerKind === "anthropic"
+        ? true
+        : undefined,
     // zcode-plan 的业务码可能只在流式响应尾部 body 里，需保留 responseBody 供错误分类读取。
     experimental_include: createStreamExperimentalInclude(input),
   }) as AiSdkStreamTextOptions;

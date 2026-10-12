@@ -6169,7 +6169,8 @@ describe("AiSdkModelAdapter", () => {
     }
 
     expect(attempts).toBe(2);
-    expect(includeRawChunks).toEqual([undefined, undefined]);
+    // raw 用于 adapter 内部推理来源判定，不改变空 block 的重试与上送事件边界。
+    expect(includeRawChunks).toEqual([true, true]);
     expect(events.map((event) => event.type)).toEqual([
       "start",
       "text_start",
