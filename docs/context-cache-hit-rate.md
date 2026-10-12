@@ -25,8 +25,10 @@ Anthropic path, so the denominator must not add cache fields again.
 ## Average Output Speed
 
 The same aggregate also carries `outputTokensPerSecond`, rendered one row below the average
-cache hit rate in the context panel as `<n> tok/s` (at most one fractional digit). It is
-token-and-time weighted across main-turn requests:
+cache hit rate in the context panel. The value and its unit come from one i18n message
+(`chat.contextUsage.outputSpeedValue`, `<value> tok/s`, at most one fractional digit) so the
+unit localizes with the rest of the panel. It is token-and-time weighted across main-turn
+requests:
 
 ```text
 sum(outputTokens of measurable requests) / (sum(generationDurationMs) / 1000)
@@ -34,15 +36,25 @@ sum(outputTokens of measurable requests) / (sum(generationDurationMs) / 1000)
 
 - Generation duration runs from the first streamed non-empty `text_delta`/`reasoning_delta`
   to model-step completion — the same clock the usage observability path uses for
-  `timeToFirstTokenMs`, not the whole request or turn duration.
-- Requests without an observable first token (non-streaming or error fallbacks) contribute to
-  neither numerator nor denominator, so they cannot inflate the average by adding tokens
-  without time.
-- Resume/rewind recovery rebuilds the aggregate from persisted assistant messages, which carry
-  token counts but no generation timing. The speed counters restart at zero, so the row hides
-  (field `null`) until the next measurable request completes; `hitRate` keeps its full-history
-  window. The displayed speed therefore reflects the current runtime process, not the whole
-  session history.
+  `timeToFirstTokenMs`, not the whole request or turn duration. The completion instant is taken
+  when the model request returns, *before* the reasoning/text parts are persisted; taking it
+  after those writes would fold part-persistence latency into the denominator and understate
+  the speed.
+- A request is **measurable only when both** an observable first token and a reported
+  `outputTokens` are present; otherwise it contributes to **neither** numerator nor denominator.
+  Each direction of asymmetry skews the number on its own: tokens without time inflate the
+  average, time without tokens deflate it. Non-streaming and error-fallback requests fail the
+  first condition, requests whose provider omits usage fail the second.
+- The row is deliberately **not** gated by a production threshold, unlike the neighbouring
+  cache hit rate (hidden below 0.78 in production so a low rate does not distract from context
+  capacity). Output speed has no good/bad threshold to compare against, so it shows whenever a
+  measurable sample exists and hides only when the field is `null`.
+- The value is a **cumulative average, not a sliding window**: it accumulates from process start
+  (or the last resume) and becomes progressively insensitive to any single request. Resume/rewind
+  recovery rebuilds the aggregate from persisted assistant messages, which carry token counts but
+  no generation timing. The speed counters restart at zero, so the row hides (field `null`) until
+  the next measurable request completes, while `hitRate` keeps its full-history window. The
+  displayed speed therefore reflects the current runtime process, not the whole session history.
 - The Developer Tools per-request TPS column stays independent: it shows one request at a time
   from the debug observation, while this panel row is the shared aggregate.
 
