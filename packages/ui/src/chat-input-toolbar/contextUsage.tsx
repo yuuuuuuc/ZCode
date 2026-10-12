@@ -138,8 +138,13 @@ export function formatContextCacheHitRateLabel(
   }).format(Math.max(0, hitRate));
 }
 
-/** 主轮累计平均输出速度（tok/s）；无耗时数据（如 resume 恢复后）或零速时不展示。 */
-export function formatContextOutputSpeedLabel(
+/**
+ * 主轮累计平均输出速度的**数值部分**（按 locale 格式化，最多一位小数）。
+ * 无耗时数据（如 resume 恢复后）或零速时返回 null，整行不展示。
+ * 单位 tok/s 走 i18n（`chat.contextUsage.outputSpeedValue`），不在这里拼字符串——
+ * 面板是双语的，单位跟着文案一起本地化，避免中文界面出现 `平均输出速度 42.5 tok/s` 这种混排。
+ */
+export function formatContextOutputSpeedValue(
   outputTokensPerSecond: number | null | undefined,
   locale: string,
 ): string | null {
@@ -152,10 +157,7 @@ export function formatContextOutputSpeedLabel(
     return null;
   }
 
-  const formatted = new Intl.NumberFormat(locale, {
-    maximumFractionDigits: 1,
-  }).format(outputTokensPerSecond);
-  return `${formatted} tok/s`;
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(outputTokensPerSecond);
 }
 
 function getBreakdownToneStyle(index: number): CSSProperties {
@@ -897,12 +899,18 @@ export function ChatContextUsage({
       },
     );
   }, [locale, renderableTaskUsage]);
+  // 刻意**不设生产阈值**，与相邻的命中率行不同：命中率低于 0.78 时隐藏是为了不干扰
+  // 「上下文容量」这个主信息（见 formatContextCacheHitRateLabel 的 showBelowThreshold），
+  // 而输出速度没有「好/坏」阈值可判，除缺失与零速外都值得看，所以有可测样本就展示。
   const outputSpeedLabel = useMemo(() => {
-    return formatContextOutputSpeedLabel(
+    const value = formatContextOutputSpeedValue(
       renderableTaskUsage?.cache?.outputTokensPerSecond,
       locale,
     );
-  }, [locale, renderableTaskUsage]);
+    return value === null
+      ? null
+      : intl.formatMessage({ id: "chat.contextUsage.outputSpeedValue" }, { value });
+  }, [intl, locale, renderableTaskUsage]);
   const breakdownSegments = useMemo(
     () => buildContextUsageBreakdownSegments(renderableTaskUsage?.breakdown),
     [renderableTaskUsage?.breakdown],

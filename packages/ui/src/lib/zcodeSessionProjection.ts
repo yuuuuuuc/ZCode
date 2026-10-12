@@ -84,6 +84,7 @@ import {
   type ZCodeUserInputRequestParams,
   type ZCodeUserInputResponse,
   zcodeContextUsageBreakdownSchema,
+  parseContextCacheUsageAggregate,
 } from "@zcode/shared";
 import { errorAttributionSchema } from "@zcode/shared/zcode-protocol-v4";
 import { logger } from "@/logger.js";
@@ -3243,32 +3244,11 @@ function contextCacheUsageFromPayload(
   payload: Record<string, unknown>,
   usage: Record<string, unknown>,
 ): ContextUsageUpdate["cache"] {
-  const aggregate = asRecord(payload.cacheHit);
-  if (Object.keys(aggregate).length > 0) {
-    const inputTokens = nonNegativeIntegerValue(aggregate.inputTokens) ?? 0;
-    const cacheReadTokens = nonNegativeIntegerValue(aggregate.cacheReadTokens) ?? 0;
-    const cacheWriteTokens = nonNegativeIntegerValue(aggregate.cacheWriteTokens) ?? 0;
-    const latestHitRate = numberValue(aggregate.latestHitRate);
-    const hitRate = numberValue(aggregate.hitRate);
-    const hitRateRequestCount = nonNegativeIntegerValue(aggregate.hitRateRequestCount);
-    const totalInputTokens = nonNegativeIntegerValue(aggregate.totalInputTokens);
-    const totalCacheReadTokens = nonNegativeIntegerValue(aggregate.totalCacheReadTokens);
-    const totalCacheWriteTokens = nonNegativeIntegerValue(aggregate.totalCacheWriteTokens);
-    const outputTokensPerSecond = numberValue(aggregate.outputTokensPerSecond);
-    return {
-      inputTokens,
-      cacheReadTokens,
-      cacheWriteTokens,
-      ...(latestHitRate !== undefined ? { latestHitRate: Math.max(0, latestHitRate) } : {}),
-      ...(hitRateRequestCount !== undefined ? { hitRateRequestCount } : {}),
-      ...(totalInputTokens !== undefined ? { totalInputTokens } : {}),
-      ...(totalCacheReadTokens !== undefined ? { totalCacheReadTokens } : {}),
-      ...(totalCacheWriteTokens !== undefined ? { totalCacheWriteTokens } : {}),
-      ...(outputTokensPerSecond !== undefined
-        ? { outputTokensPerSecond: Math.max(0, outputTokensPerSecond) }
-        : {}),
-      hitRate: hitRate !== undefined ? Math.max(0, hitRate) : null,
-    };
+  // Agent 已经上报的 cacheHit 聚合优先；解析规则在 @zcode/shared，与 services 侧共用一份，
+  // 避免加字段时两处平行副本只改一处。
+  const aggregateCache = parseContextCacheUsageAggregate(payload.cacheHit);
+  if (aggregateCache) {
+    return aggregateCache;
   }
 
   const hasCacheRead = "cachedReadTokens" in usage || "cacheReadTokens" in usage;

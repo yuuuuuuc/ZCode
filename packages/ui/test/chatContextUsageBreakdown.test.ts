@@ -970,7 +970,9 @@ describe("ChatContextUsage", () => {
     const html = renderToStaticMarkup(
       createElement(ChatContextUsage, {
         intl: {
-          formatMessage: ({ id }: { id: string }) => id,
+          // 单位走 i18n 消息，mock 把 {value} 插回 id，便于断言「数值 + 单位」来自同一条文案。
+          formatMessage: ({ id }: { id: string }, values?: Record<string, string>) =>
+            values?.value ? `${id}:${values.value}` : id,
         },
         locale: "en-US",
         selectedProvider: "glm",
@@ -982,8 +984,7 @@ describe("ChatContextUsage", () => {
       }),
     );
 
-    expect(html).toContain("chat.contextUsage.outputSpeed");
-    expect(html).toContain("42.5 tok/s");
+    expect(html).toContain("chat.contextUsage.outputSpeedValue:42.5");
     // 输出速度行位于缓存命中率行之后（共享同一汇总块的 DOM 顺序）。
     expect(html.indexOf("chat.contextUsage.cacheHitRate")).toBeLessThan(
       html.indexOf("chat.contextUsage.outputSpeed"),
@@ -1007,7 +1008,6 @@ describe("ChatContextUsage", () => {
     );
 
     expect(html).not.toContain("chat.contextUsage.outputSpeed");
-    expect(html).not.toContain("tok/s");
   });
 
   it("renders Coding Plan quota without real task context usage", () => {
