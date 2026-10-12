@@ -34,17 +34,31 @@ requests:
 sum(outputTokens of measurable requests) / (sum(generationDurationMs) / 1000)
 ```
 
-- Generation duration runs from the first streamed non-empty `text_delta`/`reasoning_delta`
-  to model-step completion — the same clock the usage observability path uses for
-  `timeToFirstTokenMs`, not the whole request or turn duration. The completion instant is taken
-  when the model request returns, *before* the reasoning/text parts are persisted; taking it
-  after those writes would fold part-persistence latency into the denominator and understate
-  the speed.
+- The model stream consumer owns request-local timing. Generation duration runs from the first
+  non-empty `text_delta`, `reasoning_delta`, or `tool_input_delta` to receipt of the provider's
+  `finish` event, using the monotonic `performance.now()` clock. Both instants are captured
+  before enqueueing/persisting the corresponding events. A private, optional
+  `RuntimeModelTextResult.outputGenerationDurationMs` carries the duration to the main-turn
+  accumulator; it is not added to the wire protocol or persisted history. Neither event-store
+  timestamps nor the return time after queue draining/part persistence define this interval.
+- If a pre-finish tool boundary or high-water-mark backpressure makes the consumer wait for
+  event writes after output has started, the request is not measurable. Provider generation
+  can overlap that wait, so subtracting the write time would invent a faster speed. The event
+  queue's existing ordering, draining and backpressure behavior must remain unchanged.
 - A request is **measurable only when both** an observable first token and a reported
-  `outputTokens` are present; otherwise it contributes to **neither** numerator nor denominator.
+  positive `outputTokens` are present, with a finite, positive, uninterrupted duration and a
+  matching token scope; otherwise it contributes to **neither** numerator nor denominator.
   Each direction of asymmetry skews the number on its own: tokens without time inflate the
   average, time without tokens deflate it. Non-streaming and error-fallback requests fail the
   first condition, requests whose provider omits usage fail the second.
+- AI SDK `outputTokens` includes reasoning tokens. A provider that reports positive
+  `reasoningTokens` does not guarantee that `reasoning_delta` exposes all of that generation;
+  it can expose no reasoning or only a summary. Such requests are conservatively excluded from
+  speed accumulation, even when a reasoning delta exists. Invalid reasoning-token metadata is
+  also excluded. Ordinary output with zero/omitted reasoning-token metadata remains eligible.
+  This does not subtract reasoning tokens from normal usage, change cache-hit accumulation,
+  or redefine the metric as visible-text speed. A skipped request preserves any existing
+  measurable average; if none exists, the row stays hidden.
 - The row is deliberately **not** gated by a production threshold, unlike the neighbouring
   cache hit rate (hidden below 0.78 in production so a low rate does not distract from context
   capacity). Output speed has no good/bad threshold to compare against, so it shows whenever a
@@ -57,6 +71,25 @@ sum(outputTokens of measurable requests) / (sum(generationDurationMs) / 1000)
   displayed speed therefore reflects the current runtime process, not the whole session history.
 - The Developer Tools per-request TPS column stays independent: it shows one request at a time
   from the debug observation, while this panel row is the shared aggregate.
+
+```text
+provider stream -> request-local monotonic timing -> main-turn aggregate -> ModelComplete.cacheHit
+                  |                                  |                    | desktop continuous
+                  +-> ordered event writes           +-> reset on resume   + mobile replayable
+                      (not a timing source)
+```
+
+Regression acceptance:
+
+- Delaying event writes, the terminal drain, or reasoning/text part persistence does not change
+  the measured speed of an otherwise uninterrupted stream.
+- Empty deltas/preludes do not start timing; a missing finish, zero/invalid duration, non-streaming
+  response, pre-finish write wait, or missing output usage does not create a speed sample.
+- A response with 3000 reported reasoning tokens and 100 text tokens does not report 3100 tok/s
+  over its one-second visible-text tail, with or without visible reasoning summary chunks.
+- Skipped requests leave both speed counters unchanged, while cache-hit/token behavior remains
+  unchanged. Successful main-turn results still deliver the same aggregate to both desktop and
+  mobile; sidecar requests do not contribute, and resume/rewind still restart the speed window.
 
 ## Context Source Breakdown
 

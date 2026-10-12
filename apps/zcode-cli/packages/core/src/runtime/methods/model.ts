@@ -157,6 +157,9 @@ export async function runModelTextRequest(
   let text = "";
   let finishReason = "unknown";
   let usage: ModelUsage = {};
+  let firstOutputAtMs: number | undefined;
+  let finishReceivedAtMs: number | undefined;
+  let outputReadBlockedByWrites = false;
   let providerMetadata: Record<string, unknown> | undefined;
   const reasoning: ModelReasoningContentBlock[] = [];
   const reasoningById = new Map<string, ModelReasoningContentBlock>();
@@ -173,11 +176,18 @@ export async function runModelTextRequest(
     payload: Parameters<typeof streamingEventQueue.enqueue>[0],
   ) => {
     streamingEventQueue.enqueue(payload);
-    await streamingEventQueue.maybeApplyBackpressure();
+    const appliedBackpressure = await streamingEventQueue.maybeApplyBackpressure();
+    // 修复原因：背压期间 provider 可能继续生成；减去等待会高估速度，保留等待会混入 IO，整条不计速。
+    if (appliedBackpressure && firstOutputAtMs !== undefined && finishReceivedAtMs === undefined) {
+      outputReadBlockedByWrites = true;
+    }
   };
   const enqueueStreamingEventAndDrain = async (
     payload: Parameters<typeof streamingEventQueue.enqueue>[0],
   ) => {
+    if (firstOutputAtMs !== undefined && finishReceivedAtMs === undefined) {
+      outputReadBlockedByWrites = true;
+    }
     streamingEventQueue.enqueue(payload);
     await streamingEventQueue.drain();
   };
@@ -230,6 +240,17 @@ export async function runModelTextRequest(
   finishAssembly();
   try {
     for await (const event of modelStream) {
+      // 修复原因：ModelStreaming 时间戳在写队列执行时才创建，且函数返回已等完 drain。
+      // 在消费边界用同一单调时钟取两端，不能从落库事件或返回时刻反推生成耗时。
+      if (
+        firstOutputAtMs === undefined &&
+        (((event.type === "text_delta" || event.type === "reasoning_delta") &&
+          event.text.length > 0) ||
+          (event.type === "tool_input_delta" && event.delta.length > 0))
+      ) {
+        firstOutputAtMs = performance.now();
+      }
+      if (event.type === "finish") finishReceivedAtMs = performance.now();
       switch (event.type) {
         case "start": {
           await enqueueStreamingEvent({
@@ -505,8 +526,17 @@ export async function runModelTextRequest(
     });
   }
 
+  const outputGenerationDurationMs =
+    !outputReadBlockedByWrites && firstOutputAtMs !== undefined && finishReceivedAtMs !== undefined
+      ? finishReceivedAtMs - firstOutputAtMs
+      : undefined;
   return {
     ...(contextUsageBreakdown.length > 0 ? { contextUsageBreakdown } : {}),
+    ...(outputGenerationDurationMs !== undefined &&
+    Number.isFinite(outputGenerationDurationMs) &&
+    outputGenerationDurationMs > 0
+      ? { outputGenerationDurationMs }
+      : {}),
     finishReason,
     providerMetadata,
     reasoning: reasoning.length > 0 ? reasoning : undefined,

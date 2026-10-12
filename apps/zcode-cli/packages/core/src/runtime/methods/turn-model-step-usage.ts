@@ -142,15 +142,18 @@ export function recordMainTurnCacheHitUsage(
     return undefined;
   }
 
-  // 生成耗时口径 = 首 token 到模型步完成，与 usage 观测/debug 旁路的 timeToFirstToken 对齐。
-  // 只有**耗时与 outputTokens 同时可得**才计入：任一缺失都整条跳过。
-  //   - 拿不到首 token 时刻（非流式/异常兜底）时只加分子 → 平均速度被高估；
-  //   - 耗时可得但 outputTokens 缺失（provider 没回报 usage）时只加分母 → 平均速度被低估。
-  // 两个方向都会让数字系统性偏，所以门控成对生效，分子分母始终同口径。
+  // 修复原因：outputTokens 含隐藏推理，reasoning_delta 也可能只是摘要，无法证明同一生成窗口。
+  // 有推理或无效推理元数据时整条不计速，不能把所有 token 除以可见回答尾段的耗时。
+  const alignedTokenScope = usage.reasoningTokens === undefined || usage.reasoningTokens === 0;
   const generationMs =
-    generationDurationMs !== undefined && generationDurationMs > 0 ? generationDurationMs : 0;
+    generationDurationMs !== undefined &&
+    Number.isFinite(generationDurationMs) &&
+    generationDurationMs > 0
+      ? generationDurationMs
+      : 0;
   const outputTokens = nonNegativeInteger(usage.outputTokens) ?? 0;
-  const measurable = generationMs > 0 && outputTokens > 0;
+  // 缺 token 或缺同口径耗时均成对跳过，避免污染后续累计平均。
+  const measurable = alignedTokenScope && generationMs > 0 && outputTokens > 0;
 
   runtime.mainTurnCacheHitAggregate = {
     requestCount: runtime.mainTurnCacheHitAggregate.requestCount + 1,

@@ -70,7 +70,6 @@ import {
   recordMainTurnCacheHitUsage,
   recordMainTurnModelUsage,
 } from "./turn-model-step-usage.js";
-import { firstModelTokenAt } from "./usage-observability.js";
 import { estimateCurrentModelInputTokens } from "./compact.js";
 import {
   resolveModelStepMaxOutputTokens,
@@ -235,9 +234,6 @@ async function runModelBackedTurnStepImpl(
   };
 
   let result: RuntimeModelTextResult;
-  // 模型步完成时刻：必须在 runModelTextRequest 返回处立刻取，不能等下面的 part 落库 await 之后
-  // 再取 Date.now()——那会把两次 persistPart 的写盘延迟算进生成耗时，把平均输出速度压低。
-  let modelCompletedAtMs: number | undefined;
   try {
     const baselineMaxOutputTokens = resolveNormalRequestMaxOutputTokens({
       modelMaxOutputTokens: executionMaxOutputTokens,
@@ -270,7 +266,6 @@ async function runModelBackedTurnStepImpl(
       tools: options.tools,
       traceContext: modelTraceContext,
     });
-    modelCompletedAtMs = Date.now();
     throwIfTurnAborted(state.turnAbortSignal);
   } catch (error) {
     let finalError = error;
@@ -634,16 +629,10 @@ async function runModelBackedTurnStepImpl(
     );
   }
 
-  // 平均输出速度的耗时口径：首流式 token 到模型步完成时刻（见上面的 modelCompletedAtMs），
-  // 与 usage 观测口径一致；非流式/无首 token 事件时传 undefined，该请求不计入速度分母。
-  const firstTokenAt = firstModelTokenAt(state.events, networkEventStartIndex);
-  const generationDurationMs =
-    firstTokenAt !== undefined && modelCompletedAtMs !== undefined
-      ? modelCompletedAtMs - firstTokenAt
-      : undefined;
+  // 修复原因：写队列和 part 持久化不属于生成时间；只消费模型流边界提供的请求级耗时。
   const cacheHit =
     querySource === "main_turn"
-      ? recordMainTurnCacheHitUsage(this, result.usage, generationDurationMs)
+      ? recordMainTurnCacheHitUsage(this, result.usage, result.outputGenerationDurationMs)
       : undefined;
   // subagent 的文件 checkpoint 已经持久化，但旧 gate 只允许 main_turn 把
   // 汇总写入 ModelComplete，导致 child 详情无法从权威事件恢复摘要和撤销入口。

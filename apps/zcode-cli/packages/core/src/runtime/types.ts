@@ -281,7 +281,7 @@ export interface MainTurnCacheHitAggregate {
   totalCacheWriteTokens: number;
   /** 主轮累计输出 token 数；用于计算累计平均输出速度。 */
   totalOutputTokens: number;
-  /** 主轮累计生成耗时（首 token 到请求完成，毫秒）；resume 恢复时无历史耗时，从 0 重新累计。 */
+  /** 可测主轮累计生成耗时（消费首非空输出到 provider finish，毫秒）；resume 恢复时从 0 重新累计。 */
   totalGenerationDurationMs: number;
 }
 
@@ -889,6 +889,8 @@ export interface StreamedToolExecutionResult {
 
 export interface RuntimeModelTextResult {
   contextUsageBreakdown?: ContextUsageBreakdownItem[];
+  /** 首非空输出 delta 到 provider finish 的单调时钟耗时；读取被写队列阻塞时不提供。仅 runtime 内部使用。 */
+  outputGenerationDurationMs?: number;
   finishReason: string;
   providerMetadata?: Record<string, unknown>;
   reasoning?: ModelReasoningContentBlock[];
