@@ -17,6 +17,10 @@
  * 渲染成不同文本），不归一化会让门禁在每次无关改动后误报。短的字符串字面量联合
  * （`"active" | "handoff"` 这种）也会被重排，按字母序再冻一次。
  *
+ * 规范化还会把**仓库根绝对路径**替换成 `<repo>`：TS6059/TS6307 会把 rootDir、project
+ * 的绝对路径打进消息，短路径不触发 `'X'` 替换，会被原样冻进基线，换机器或改仓库目录名
+ * 就漂移。规则与单测见 `scripts/lib/desktop-main-type-baseline.mjs`。
+ *
  * 用法：
  *   node scripts/check-desktop-main-type-baseline.mjs            # 检查
  *   node scripts/check-desktop-main-type-baseline.mjs --update   # 用当前错误重写基线
@@ -30,15 +34,21 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
+import {
+  countByKey,
+  createRepoRootStripper,
+  findAbsolutePathLeaks,
+  keyOf,
+  parseDiagnostics,
+} from "./lib/desktop-main-type-baseline.mjs";
+
 const execFile = promisify(execFileCallback);
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 const TSC_PATH = require.resolve("typescript/bin/tsc");
 const TSCONFIG = "packages/desktop/tsconfig.main.json";
 const BASELINE_PATH = join(repoRoot, ".desktop-main-type-baseline.json");
-/** 超过这个长度的引号片段视为「类型渲染」，归一化掉。 */
-const TYPE_RENDER_QUOTE_LENGTH = 60;
-const TYPE_RENDER_QUOTE = new RegExp(`'[^']{${TYPE_RENDER_QUOTE_LENGTH},}'`, "gu");
+const stripRepoRoot = createRepoRootStripper(repoRoot);
 
 const args = process.argv.slice(2);
 const update = args.includes("--update");
@@ -46,43 +56,6 @@ const unknown = args.filter((arg) => arg !== "--update");
 if (unknown.length > 0) {
   console.error(`[main-types] 未知参数：${unknown.join(" ")}`);
   process.exit(2);
-}
-
-const DIAGNOSTIC_LINE = /^(?<file>.+?)\((?<line>\d+),(?<column>\d+)\): error (?<code>TS\d+): (?<message>.*)$/u;
-
-/** 字符串字面量联合：`"a" | "b"`。tsc 会随无关改动重排短联合的打印顺序。 */
-const STRING_LITERAL_UNION = /'((?:"[^"]*" \| )+"[^"]*")'/gu;
-
-/** 归一化诊断消息：只留首行，抹掉长引号片段，短字面量联合按字母序冻结。 */
-function normalizeMessage(message) {
-  const firstLine = message.split("\n")[0] ?? "";
-  return firstLine
-    .replace(TYPE_RENDER_QUOTE, "'X'")
-    .replace(STRING_LITERAL_UNION, (_full, inner) => `'${inner.split(" | ").sort().join(" | ")}'`)
-    .replace(/\s+/gu, " ")
-    .trim();
-}
-
-function keyOf(diagnostic) {
-  return `${diagnostic.file}\u0000${diagnostic.code}\u0000${diagnostic.message}`;
-}
-
-/**
- * 解析 `tsc --pretty false` 输出。诊断可能跨多行（嵌套类型渲染），
- * 只有匹配 DIAGNOSTIC_LINE 的行才是新诊断的起点，其余行归入上一条并被丢弃。
- */
-function parseDiagnostics(output) {
-  const diagnostics = [];
-  for (const rawLine of output.split(/\r?\n/u)) {
-    const match = DIAGNOSTIC_LINE.exec(rawLine);
-    if (!match?.groups) continue;
-    diagnostics.push({
-      file: match.groups.file.replaceAll("\\", "/"),
-      code: match.groups.code,
-      message: normalizeMessage(match.groups.message),
-    });
-  }
-  return diagnostics;
 }
 
 async function runTsc() {
@@ -99,16 +72,6 @@ async function runTsc() {
     console.error(`[main-types] 无法运行 tsc：${error.message}`);
     process.exit(2);
   }
-}
-
-/** key -> 条数 */
-function countByKey(diagnostics) {
-  const counts = new Map();
-  for (const diagnostic of diagnostics) {
-    const key = keyOf(diagnostic);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  return counts;
 }
 
 function readBaseline() {
@@ -147,7 +110,26 @@ function writeBaseline(counts) {
   );
 }
 
-const current = countByKey(parseDiagnostics(await runTsc()));
+const current = countByKey(parseDiagnostics(await runTsc(), stripRepoRoot));
+
+/**
+ * 归一化后仍残留绝对路径，说明 stripRepoRoot 漏了某种写法，基线会随机器漂移。
+ * 这时既不能检查也不能 --update：前者会把存量误报成「新增」，后者会把绝对路径写进基线、
+ * 把漂移固化下来——正是本归一化要消灭的那种基线。
+ */
+function assertNoAbsolutePathLeak(counts) {
+  const leaked = findAbsolutePathLeaks(counts.keys());
+  if (leaked.length === 0) return;
+  console.error(`[main-types] 归一化漏掉了绝对路径，基线会随机器漂移（${leaked.length} 个键）：`);
+  for (const key of leaked.slice(0, 5)) console.error(`  ${describe(key)}`);
+  console.error(
+    "  请修 `createRepoRootStripper`（scripts/lib/desktop-main-type-baseline.mjs）" +
+      "覆盖的分隔符与大小写变体，不要用 --update 绕过。",
+  );
+  process.exit(2);
+}
+
+assertNoAbsolutePathLeak(current);
 
 if (update) {
   writeBaseline(current);

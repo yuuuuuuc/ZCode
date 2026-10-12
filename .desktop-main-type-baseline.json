@@ -149,13 +149,13 @@
     {
       "file": "packages/desktop/src/main/desktopCronScheduler.ts",
       "code": "TS6059",
-      "message": "File 'X' is not under 'rootDir' 'D:/2_Project/k-code/ZCode/packages/desktop/src/main'. 'rootDir' is expected to contain all source files.",
+      "message": "File '<repo>/packages/desktop/src/scheduler/schedulerProtocol.ts' is not under 'rootDir' '<repo>/packages/desktop/src/main'. 'rootDir' is expected to contain all source files.",
       "count": 1
     },
     {
       "file": "packages/desktop/src/main/desktopCronScheduler.ts",
       "code": "TS6307",
-      "message": "File 'X' is not listed within the file list of project 'X'. Projects must list all files or use an 'include' pattern.",
+      "message": "File '<repo>/packages/desktop/src/scheduler/schedulerProtocol.ts' is not listed within the file list of project '<repo>/packages/desktop/tsconfig.main.json'. Projects must list all files or use an 'include' pattern.",
       "count": 1
     },
     {

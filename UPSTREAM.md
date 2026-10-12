@@ -80,7 +80,7 @@ pnpm architecture:check
 
 `verify:static`（本地 `pre-push` 钩子）与 CI（[`.github/workflows/ci.yml`](.github/workflows/ci.yml)，`windows-latest`）里都挂着，专抓「模块在、接线没了」——静态类型检查看不见这类缺口：
 
-- `scripts/check-desktop-main-type-baseline.mjs`：`pnpm typecheck` **不含** `packages/desktop/tsconfig.main.json`，所以 main 进程的类型错误会漏网；本脚本对它做棘轮。**不要**从 typecheck 工程列表里删掉 `packages/desktop/tsconfig.e2e.json`。
+- `scripts/check-desktop-main-type-baseline.mjs`：`pnpm typecheck` **不含** `packages/desktop/tsconfig.main.json`，所以 main 进程的类型错误会漏网；本脚本对它做棘轮。**不要**从 typecheck 工程列表里删掉 `packages/desktop/tsconfig.e2e.json`。归一化会把仓库根绝对路径换成 `<repo>`（规则见 `scripts/lib/desktop-main-type-baseline.mjs`），所以基线里的路径与机器、仓库目录名无关，**不要**为了让它在别的机器上通过而 `--update`。
 - `scripts/check-desktop-orphan-modules.mjs`：扫 `packages/desktop/src/{host,main}` 的零引用模块。只数**生产引用**（测试 import 不算接线），按 basename 匹配（同名文件会互相遮蔽）。
 - `packages/services/test/localServiceChannelCoverage.test.ts`：断言客户端请求的每个服务通道都有本地实现。
 

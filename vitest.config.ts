@@ -84,6 +84,9 @@ export default defineConfig({
             "packages/services/src/gen-ui/**/*.test.ts",
             "scripts/assert-safe-cua-helper-zip.test.mjs",
             "scripts/ci/ci-telemetry-keyword-guard.test.mjs",
+            // 归一化规则决定 main 类型基线能否跨机器稳定（换机器/改仓库目录名会漂移），
+            // 必须进默认入口而不是只靠手动跑。
+            "scripts/test/desktop-main-type-baseline.test.mjs",
           ],
           exclude: ["packages/desktop/test/e2e/**", ...forkIsolatedTests],
           // Node 24/macOS 的 threads 全量运行可触发 V8 SIGSEGV；诊断时切换进程隔离，测试范围不变。
