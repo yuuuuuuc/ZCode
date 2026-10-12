@@ -364,24 +364,37 @@
 !ifndef BUILD_UNINSTALLER
   ; 修复原因：electron-builder 会先编译卸载器，但快捷方式目标读取只在安装更新流程中调用。
   ; 若把函数带入卸载器，NSIS 会产生 6010 未引用告警，并在 /WX 下直接中断 Windows CI。
+  ; CI Windows runners often need >5s for a cold PowerShell + WScript.Shell
+  ; CreateShortcut; 5s timeouts look like "empty target" and flake the smoke test.
   Function ZCodeReadShortcutTarget
     Exch $R9
     Push $R1
     Push $R2
+    Push $R3
 
     StrCpy $R2 ""
+    StrCpy $R3 "0"
     System::Call 'Kernel32::SetEnvironmentVariableW(w "ZCODE_SHORTCUT_PATH", w "$R9") i.R1'
     StrCmp $R1 "0" zcodeReadShortcutTargetDone 0
 
-    nsExec::ExecToStack /TIMEOUT=5000 `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "[Console]::Out.Write(([Activator]::CreateInstance([type]::GetTypeFromProgID('WScript.Shell'))).CreateShortcut([Environment]::GetEnvironmentVariable('ZCODE_SHORTCUT_PATH')).TargetPath)"`
-    Pop $R1
-    Pop $R2
-    StrCmp $R1 "0" zcodeReadShortcutTargetDone 0
-    StrCpy $R2 ""
+    zcodeReadShortcutTargetAttempt:
+      nsExec::ExecToStack /TIMEOUT=20000 `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "[Console]::Out.Write(([Activator]::CreateInstance([type]::GetTypeFromProgID('WScript.Shell'))).CreateShortcut([Environment]::GetEnvironmentVariable('ZCODE_SHORTCUT_PATH')).TargetPath)"`
+      Pop $R1
+      Pop $R2
+      StrCmp $R1 "0" zcodeReadShortcutTargetDone 0
+      ; Non-zero / timeout: one retry after a short sleep (cold PowerShell on GHA).
+      StrCmp $R3 "1" zcodeReadShortcutTargetFailed 0
+      StrCpy $R3 "1"
+      Sleep 500
+      Goto zcodeReadShortcutTargetAttempt
+
+    zcodeReadShortcutTargetFailed:
+      StrCpy $R2 ""
 
     zcodeReadShortcutTargetDone:
       System::Call 'Kernel32::SetEnvironmentVariableW(w "ZCODE_SHORTCUT_PATH", p 0) i.R1'
       StrCpy $R9 "$R2"
+      Pop $R3
       Pop $R2
       Pop $R1
       Exch $R9

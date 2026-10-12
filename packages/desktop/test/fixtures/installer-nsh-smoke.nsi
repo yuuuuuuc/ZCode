@@ -83,7 +83,7 @@ Section
     !ifndef BUILD_UNINSTALLER
       ; Diagnostic only, and deliberately run BEFORE the macro call below so that this replica of
       ; the macro's nsExec call is the cold PowerShell launch (the macro is then the warm one). It
-      ; uses the macro's own /TIMEOUT=5000 and records the exit code, the raw output and the
+      ; uses the macro's own /TIMEOUT=20000 and records the exit code, the raw output and the
       ; elapsed milliseconds, so the CI log can tell a cold-start timeout apart from a genuine
       ; logic difference in the macro.
       ;
@@ -93,7 +93,7 @@ Section
       ; pass would therefore silently overwrite the first. Keep this file ASCII.
       System::Call 'Kernel32::SetEnvironmentVariableW(w "ZCODE_SHORTCUT_PATH", w "$newStartMenuLink") i.R4'
       System::Call 'kernel32::GetTickCount() i.R0'
-      nsExec::ExecToStack /TIMEOUT=5000 `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "[Console]::Out.Write(([Activator]::CreateInstance([type]::GetTypeFromProgID('WScript.Shell'))).CreateShortcut([Environment]::GetEnvironmentVariable('ZCODE_SHORTCUT_PATH')).TargetPath)"`
+      nsExec::ExecToStack /TIMEOUT=20000 `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "[Console]::Out.Write(([Activator]::CreateInstance([type]::GetTypeFromProgID('WScript.Shell'))).CreateShortcut([Environment]::GetEnvironmentVariable('ZCODE_SHORTCUT_PATH')).TargetPath)"`
       Pop $R1
       Pop $R2
       System::Call 'kernel32::GetTickCount() i.R3'
