@@ -11,6 +11,7 @@ metadata:
 - 错误键 = `(文件, TS 错误码, 规范化后的首行消息)`，忽略行列号。
 - **关键技巧**：必须把**长于 60 字符的引号片段**替换成 `'X'`。tsc 打印的 union/object 类型渲染会随**无关**的窄化变化（实测：给 `desktopHostProcess.ts` 加/删一个 `if (msg.type === ...)` 分支，同一批存量错误的消息文本就变了），不归一化会每次无关改动都误报。实测该归一化对增删分支稳定。
 - 多行诊断（嵌套类型渲染）只取首行，续行丢弃。ycode 上 117 条错误在 `--pretty false` 下是 187 行；zcode2 的 85 条不要套这个行数。
+- **归一化盲区：短于 60 字符的绝对路径会原样冻结进消息**。TS6059 的 rootDir `'D:/…/packages/desktop/src/main'` 只有 50–55 字符，不触发 `'X'` 替换；仓库目录改名（2026-10-12 `2_WorkProject` → `2_Project`）后同一条存量错误的消息文本漂移，棘轮误报「新增」卡住 pre-push。处理：`--update` 前后核对键数/条数不变（当时 55 键/82 条一条没动，diff 仅 1 行路径），再挪仓库目录同理。
 - 重写基线：`node scripts/check-desktop-main-type-baseline.mjs --update`。
 
 **P2-3 孤儿扫描**：`scripts/check-desktop-orphan-modules.mjs`（`pnpm check:desktop-orphans`），基线 `.desktop-orphan-modules-baseline.json`。

@@ -22,6 +22,30 @@ Anthropic path, so the denominator must not add cache fields again.
 - Task stream emits the same value on `usage_update.cache`, so desktop `continuous` and mobile `/remote` `replayable` clients consume one shared payload.
 - UI displays `cache.hitRate` in the chat input context panel when the field is present. Production builds keep the aggregate `0.78` (78%) threshold so lower rates do not distract from context capacity; development builds always display every valid rate to make provider cache diagnostics observable. It does not invent a fallback when the provider omits cache usage, and it does not infer cache hit rate from task cumulative token usage.
 
+## Average Output Speed
+
+The same aggregate also carries `outputTokensPerSecond`, rendered one row below the average
+cache hit rate in the context panel as `<n> tok/s` (at most one fractional digit). It is
+token-and-time weighted across main-turn requests:
+
+```text
+sum(outputTokens of measurable requests) / (sum(generationDurationMs) / 1000)
+```
+
+- Generation duration runs from the first streamed non-empty `text_delta`/`reasoning_delta`
+  to model-step completion — the same clock the usage observability path uses for
+  `timeToFirstTokenMs`, not the whole request or turn duration.
+- Requests without an observable first token (non-streaming or error fallbacks) contribute to
+  neither numerator nor denominator, so they cannot inflate the average by adding tokens
+  without time.
+- Resume/rewind recovery rebuilds the aggregate from persisted assistant messages, which carry
+  token counts but no generation timing. The speed counters restart at zero, so the row hides
+  (field `null`) until the next measurable request completes; `hitRate` keeps its full-history
+  window. The displayed speed therefore reflects the current runtime process, not the whole
+  session history.
+- The Developer Tools per-request TPS column stays independent: it shows one request at a time
+  from the debug observation, while this panel row is the shared aggregate.
+
 ## Context Source Breakdown
 
 Main-session `model_complete` payloads may also carry `contextUsageBreakdown`, which estimates context source proportions by character count. The input toolbar uses that breakdown only for the context popover display; the progress meter's total `used` / `size` still comes from the token usage fields.

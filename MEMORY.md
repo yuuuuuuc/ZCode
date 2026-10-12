@@ -1,10 +1,11 @@
 - [ycode 已合入 v3.14.3](memory/ycode-main-v3143-merge.md) — origin/ycode 是 6cc93f2；未登录侧栏显示 Yuuc，不要写无值的恢复登录属性
 - [开源化改造审查与修复](memory/ycode-opensource-audit.md) — 模型链无损失，强更锁已删；2026-10-10 修 runtime headers 阻断 api-key；2026-10-11 修 WRC/gen-ui 漏接线、恢复网络抓包接线、删零引用模块；根 typecheck 不覆盖 desktop main；测试预存红名单；远程凭据/分享页 401 未处理
-- [漏接线的两道自动化护栏](memory/ycode-wiring-guardrails.md) — zcode2 P1 后 main 类型 55 键/82 条；孤儿 7 条；只数生产引用（测试 import 不算接线）
+- [漏接线的两道自动化护栏](memory/ycode-wiring-guardrails.md) — zcode2 P1 后 main 类型 55 键/82 条；孤儿 7 条；只数生产引用（测试 import 不算接线）；基线消息内嵌绝对路径，目录改名需 --update 同步
 - [makensis 的编码陷阱](memory/nsis-makensis-encoding.md) — 无 BOM 脚本按 ANSI 代码页解码，中文可能报 Bad text encoding；加 UTF-8 BOM 即解，不是「中文一律失败」
 - [本机出网 IPv6 被驱动阻断](memory/local-machine-ipv6-blocked.md) — WSAEACCES 全拒 IPv6；dev:desktop 卡在等 Vite，用 NODE_OPTIONS=--dns-result-order=ipv4first 绕开
 - [从 main 重开 zcode2 分支](memory/zcode2-fresh-branch-plan.md) — 放弃 ycode 修补，只做减法（去遥测 + 去强更锁）；决策已拍板，方案见 docs/FRESH-BRANCH-FROM-MAIN-PLAN.md
 - [zcode2 的门禁分工](memory/zcode2-ci-gate.md) — 本地 pre-push 只跑静态快检（verify:static），全量单测交给 CI；三个「CI 里会骗人」的坑；干净检出要先建 CLI 包；runner 的 8.3 短名会让本地全绿
+- [上下文面板平均输出速度](memory/context-panel-output-speed.md) — 走 cacheHit aggregate 链；首 token 口径、分子分母同权、resume 后从零累计；两处桌面投影是平行副本要同步改
 - [visualize vendor 资源被 CRLF 破坏哈希](memory/visualize-vendor-crlf-hashes.md) — Windows autocrlf 换掉换行导致 vendor.py 报 hash mismatch；已在 .gitattributes 强制 LF
 - [Windows 许可证图解析锁文件](memory/windows-license-lockfile-graph.md) — 不要 spawn pnpm ls；snapshot 键不能 lastIndexOf("@")
 - [全仓架构审查已落盘](memory/architecture-review-2026-09-26.md) — docs/architecture-review-2026-09-26/ 八份文档；无 CI/6 个测试/session 契约声明漂移
