@@ -235,6 +235,9 @@ async function runModelBackedTurnStepImpl(
   };
 
   let result: RuntimeModelTextResult;
+  // 模型步完成时刻：必须在 runModelTextRequest 返回处立刻取，不能等下面的 part 落库 await 之后
+  // 再取 Date.now()——那会把两次 persistPart 的写盘延迟算进生成耗时，把平均输出速度压低。
+  let modelCompletedAtMs: number | undefined;
   try {
     const baselineMaxOutputTokens = resolveNormalRequestMaxOutputTokens({
       modelMaxOutputTokens: executionMaxOutputTokens,
@@ -267,6 +270,7 @@ async function runModelBackedTurnStepImpl(
       tools: options.tools,
       traceContext: modelTraceContext,
     });
+    modelCompletedAtMs = Date.now();
     throwIfTurnAborted(state.turnAbortSignal);
   } catch (error) {
     let finalError = error;
@@ -630,11 +634,13 @@ async function runModelBackedTurnStepImpl(
     );
   }
 
-  // 平均输出速度的耗时口径：首流式 token 到当前完成时刻，与 usage 观测口径一致；
-  // 非流式/无首 token 事件时传 undefined，该请求不计入速度分母。
+  // 平均输出速度的耗时口径：首流式 token 到模型步完成时刻（见上面的 modelCompletedAtMs），
+  // 与 usage 观测口径一致；非流式/无首 token 事件时传 undefined，该请求不计入速度分母。
   const firstTokenAt = firstModelTokenAt(state.events, networkEventStartIndex);
   const generationDurationMs =
-    firstTokenAt !== undefined ? Date.now() - firstTokenAt : undefined;
+    firstTokenAt !== undefined && modelCompletedAtMs !== undefined
+      ? modelCompletedAtMs - firstTokenAt
+      : undefined;
   const cacheHit =
     querySource === "main_turn"
       ? recordMainTurnCacheHitUsage(this, result.usage, generationDurationMs)

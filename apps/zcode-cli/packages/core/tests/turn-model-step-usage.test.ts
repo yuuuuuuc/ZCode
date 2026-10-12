@@ -58,4 +58,25 @@ describe("recordMainTurnCacheHitUsage output speed", () => {
     );
     expect(next?.outputTokensPerSecond).toBe(250);
   });
+
+  it("skips the request when output tokens are missing, so the average is not diluted", () => {
+    const runtime = createRuntime();
+
+    // provider 没回报 outputTokens：耗时可得但分子拿不到，整条跳过。
+    // 只跳分母会把 9s 摊进后续请求，平均速度被系统性拉低。
+    const withoutOutputTokens = recordMainTurnCacheHitUsage(
+      runtime,
+      { inputTokens: 100, cacheReadTokens: 80, cacheWriteTokens: 10 },
+      9000,
+    );
+    expect(withoutOutputTokens?.outputTokensPerSecond).toBeNull();
+
+    // 后一个可测请求只反映自己的口径：1000 token / 5000ms = 200 tok/s，没被前面 9s 摊薄。
+    const measurable = recordMainTurnCacheHitUsage(
+      runtime,
+      { inputTokens: 100, outputTokens: 1000, cacheReadTokens: 80, cacheWriteTokens: 10 },
+      5000,
+    );
+    expect(measurable?.outputTokensPerSecond).toBe(200);
+  });
 });

@@ -9,6 +9,9 @@ import {
 } from "../../agent/message-history-usage.js";
 import { recordModelUsageFact } from "./usage-observability.js";
 
+/** 毫秒 → 秒的换算基数。与 packages/ui/src/app-shell/workflowRunThrottle.ts 的 MS_PER_SECOND 同名，便于全仓搜索。 */
+const MS_PER_SECOND = 1_000;
+
 interface RecordMainTurnModelUsageInput {
   assistantMessageId: MessageId;
   error?: unknown;
@@ -139,11 +142,15 @@ export function recordMainTurnCacheHitUsage(
     return undefined;
   }
 
-  // 生成耗时口径 = 首 token 到请求完成，与 usage 观测/debug 旁路的 timeToFirstToken 对齐；
-  // 拿不到首 token 时刻（如非流式或异常兜底）的请求分子分母都不计入，避免只加分子高估平均速度。
+  // 生成耗时口径 = 首 token 到模型步完成，与 usage 观测/debug 旁路的 timeToFirstToken 对齐。
+  // 只有**耗时与 outputTokens 同时可得**才计入：任一缺失都整条跳过。
+  //   - 拿不到首 token 时刻（非流式/异常兜底）时只加分子 → 平均速度被高估；
+  //   - 耗时可得但 outputTokens 缺失（provider 没回报 usage）时只加分母 → 平均速度被低估。
+  // 两个方向都会让数字系统性偏，所以门控成对生效，分子分母始终同口径。
   const generationMs =
     generationDurationMs !== undefined && generationDurationMs > 0 ? generationDurationMs : 0;
-  const outputTokens = generationMs > 0 ? (nonNegativeInteger(usage.outputTokens) ?? 0) : 0;
+  const outputTokens = nonNegativeInteger(usage.outputTokens) ?? 0;
+  const measurable = generationMs > 0 && outputTokens > 0;
 
   runtime.mainTurnCacheHitAggregate = {
     requestCount: runtime.mainTurnCacheHitAggregate.requestCount + 1,
@@ -151,9 +158,10 @@ export function recordMainTurnCacheHitUsage(
     totalCacheReadTokens: runtime.mainTurnCacheHitAggregate.totalCacheReadTokens + cacheReadTokens,
     totalCacheWriteTokens:
       runtime.mainTurnCacheHitAggregate.totalCacheWriteTokens + cacheWriteTokens,
-    totalOutputTokens: runtime.mainTurnCacheHitAggregate.totalOutputTokens + outputTokens,
+    totalOutputTokens:
+      runtime.mainTurnCacheHitAggregate.totalOutputTokens + (measurable ? outputTokens : 0),
     totalGenerationDurationMs:
-      runtime.mainTurnCacheHitAggregate.totalGenerationDurationMs + generationMs,
+      runtime.mainTurnCacheHitAggregate.totalGenerationDurationMs + (measurable ? generationMs : 0),
   };
 
   const aggregate = runtime.mainTurnCacheHitAggregate;
@@ -167,9 +175,13 @@ export function recordMainTurnCacheHitUsage(
         ? aggregate.totalCacheReadTokens / aggregate.totalInputTokens
         : null,
     hitRateRequestCount: aggregate.requestCount,
+    // 刻意是**累计平均**而非滑动窗口：自进程启动（或上次 resume 恢复）起单调累加，
+    // 与同面板的 hitRate 一样是「平均」语义。resume 后耗时计数器从 0 重启而 hitRate 仍是
+    // 全历史窗口，两行口径不同是已知且接受的妥协（见 docs/context-cache-hit-rate.md）。
+    // 返回 null 时面板隐藏整行，不显示 0。
     outputTokensPerSecond:
       aggregate.totalGenerationDurationMs > 0
-        ? (aggregate.totalOutputTokens * 1000) / aggregate.totalGenerationDurationMs
+        ? (aggregate.totalOutputTokens * MS_PER_SECOND) / aggregate.totalGenerationDurationMs
         : null,
     totalInputTokens: aggregate.totalInputTokens,
     totalCacheReadTokens: aggregate.totalCacheReadTokens,
