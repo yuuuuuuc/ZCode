@@ -72,6 +72,12 @@
 - 远程链路贯穿传递 `workspaceIdentity` 与 `remoteSessionId`，不得仅按路径匹配。
 - 新接口保留本地路径 fallback；远程 identity 复用现有构造和解析工具，不在业务代码中手写格式。
 
+## Cursor Cloud
+
+- Node **24.14.0** 与 pnpm **10.33.2** 在 `/usr/local/bin`。Cloud Agent 运行时的 `node` 可能更旧，执行 `pnpm`、`typecheck`、`dev:web` 前先 `export PATH="/usr/local/bin:$PATH"`。
+- 环境启动脚本会拉起 Web：Vite `http://localhost:5173`，HTTP 服务 `http://localhost:3030`，`ZCODE_SERVER_WORKSPACE` 默认为 `/workspace`。
+- Web 首屏是登录页。选 **Use API key**，再选 **Skip for now**，即可进入本地工作区。未配置模型时，发送消息会提示没有可用模型。
+
 ## 日志
 
 - UI 使用 `packages/ui/src/logger.ts`，不直接使用 `console.log` 或 `window.zcode?.log`。
