@@ -1,6 +1,8 @@
 # 平均输出速度：暂存工具参数导致计时窗口塌缩 —— 设计与修复方案
 
 > 状态：已按方案 A 实现。真实流量核对（7.2）仍待 GLM Anthropic model-io。
+> 2.4 的第二种情况已由用户核对确认，对应的白名单放行见
+> `apps/zcode-cli/docs/design/v2/model/reasoning-output-provenance.md`。
 > 关联：`docs/context-cache-hit-rate.md` 的 *Average Output Speed* 一节、`memory/context-panel-output-speed.md`
 
 ## 1. 现象
@@ -55,7 +57,7 @@ core reader                                                       firstOutputAt 
 `tool_call` 和 `finish` 往往只隔几毫秒，失真会更严重。（这个复现用的临时测试已经删除，
 正式回归测试见第 6 节。）
 
-### 2.4 为什么只有 Anthropic 接口明显受影响（推断，待真实流量佐证）
+### 2.4 为什么只有 Anthropic 接口明显受影响（已确认是第 2 种）
 
 累计平均按 token 加权：`Σ outputTokens / Σ duration`。只要有少量「大 token、近零耗时」的样本，
 就会把整体数值拉到上千。
@@ -68,8 +70,14 @@ core reader                                                       firstOutputAt 
   2. GLM 返回了 thinking，但只有 Claude 3.7 被认定为完整推理，其它模型的推理是 `unknown`，
      对应 step 被判为 `unaligned_reasoning` 后排除。剩下能进入统计的样本，主要就是失真的纯工具 step。
 
-两种情况都会让失真样本占主导。具体是哪一种，需要用 model-io 抓一次 GLM Anthropic 流来确认
-（见 7.2），但不影响本方案：本方案修的是 provider 无关的计时起点问题。
+**已确认是第 2 种**（2026-10-13 用户核对）：GLM 在 Anthropic 接口返回的是完整推理，
+所以含推理的 step 被判为 `unknown` 后整体排除，剩下能进入统计的样本主要就是失真的纯工具 step。
+
+放行这部分 step 需要把 GLM 加入完整原生 thinking 白名单——Anthropic 的 SSE 流里没有
+「这是摘要」的标记，只能按后端契约声明。判定规则、依据、证伪条件和测试矩阵见
+`apps/zcode-cli/docs/design/v2/model/reasoning-output-provenance.md`。
+
+注意这只影响「哪些 step 计入」，本方案修的是 provider 无关的计时起点问题，两者独立。
 
 ### 2.5 同源的次要影响
 
@@ -269,8 +277,9 @@ pnpm --filter <core 包名> exec vitest run tests/turn-model-step-usage.test.ts
 
 1. 开启 model-io 记录，用 GLM + Anthropic 接口跑一个包含「写大文件」（大工具参数）的任务，
    确认面板速度回到几十 tok/s 的量级，并与 OpenAI Chat 接口同模型的结果对比。
-2. 从 model-io 原始 SSE 确认 2.4 的两种可能里实际是哪一种（有没有 `thinking` content block），
-   把结论回写到本文档和 memory。
+2. 从 model-io 原始 SSE 按
+   `apps/zcode-cli/docs/design/v2/model/reasoning-output-provenance.md` 的证伪条件逐条核对
+   GLM 推理的完整性，把抓包结论留痕到该文档的「核对记录」一节。
 3. 同时关注 debug 日志里的 `model.runtime.output_speed.unavailable` 分布，确认没有大量新增的
    `invalid_duration`。
 
@@ -278,9 +287,10 @@ pnpm --filter <core 包名> exec vitest run tests/turn-model-step-usage.test.ts
 
 1. **遥测首内容耗时同源偏差**：`model_first_content` 里程碑同样在放出时刻打点。可以复用同一个
    跟踪器，把 `contentMs` 改成到达时刻。这属于遥测口径变更，单独评审。
-2. **GLM Anthropic thinking 不计速**：如果 7.2 证实 GLM 会返回完整 thinking，可以评估把它加入
-   完整推理白名单。这需要 GLM 官方对 Anthropic 兼容 thinking 完整性的契约依据，
-   不能只凭模型名推断（与现有设计决定一致）。
+2. ~~**GLM Anthropic thinking 不计速**~~：已实现，把 GLM 系列加入完整原生 thinking 白名单。
+   契约、依据和证伪条件见 `apps/zcode-cli/docs/design/v2/model/reasoning-output-provenance.md`。
+   遗留：该条目的证据强度目前低于 Claude 3.7 条目，需要按该文档的核对记录补一次
+   GLM + Anthropic 的 model-io 抓包留痕。
 3. **隐藏推理 token 风险**：Anthropic usage 没有单独的 reasoning token 字段。如果某个兼容端点
    在内部推理却不下发 thinking block，`outputTokens` 里会混入窗口外生成的 token，导致速度偏高
    （量级远小于本 bug）。现有 `hidden` 判定依赖 `reasoningTokens > 0`，在这条路径上拿不到这个信号。
