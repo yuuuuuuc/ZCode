@@ -161,11 +161,18 @@ export function createTimedModelStream(
         reason = "unaligned_reasoning";
       else if (firstOutputAt === undefined) reason = "missing_output";
       else {
-        const duration = finishAt - firstOutputAt;
-        if (Number.isFinite(duration) && duration > 0) {
-          return { outputGenerationDurationMs: duration };
+        const lead = finish.deferredOutputLeadMs ?? 0;
+        if (!Number.isFinite(lead) || lead < 0) {
+          reason = "invalid_duration";
+        } else {
+          // 修复原因：adapter 为重试安全会暂存首段工具参数，reader 读到的是放出时刻；
+          // 不回填暂存时长时，纯工具 step 窗口塌缩到 tool_call→finish 的几毫秒，速度虚高上千倍。
+          const duration = finishAt - firstOutputAt + lead;
+          if (Number.isFinite(duration) && duration > 0) {
+            return { outputGenerationDurationMs: duration };
+          }
+          reason = "invalid_duration";
         }
-        reason = "invalid_duration";
       }
       return { outputGenerationUnavailableReason: reason };
     },

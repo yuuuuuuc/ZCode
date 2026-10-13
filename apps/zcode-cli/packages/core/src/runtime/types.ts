@@ -889,7 +889,7 @@ export interface StreamedToolExecutionResult {
 
 export interface RuntimeModelTextResult {
   contextUsageBreakdown?: ContextUsageBreakdownItem[];
-  /** 有界 reader 的首非空输出到 finish；含完整推理、正文、工具参数，不含首 token 等待。 */
+  /** 有界 reader 的首非空输出到 finish；含完整推理、正文、工具参数，不含首 token 等待。起点含 adapter 暂存回填。 */
   outputGenerationDurationMs?: number;
   /** 不可测原因只在 runtime 内部保留；不进入 ModelComplete、UI 或历史用量。 */
   outputGenerationUnavailableReason?:

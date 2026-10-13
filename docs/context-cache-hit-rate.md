@@ -36,8 +36,13 @@ sum(outputTokens of measurable requests) / (sum(generationDurationMs) / 1000)
 
 - A bounded model stream reader owns request-local timing. Generation duration runs from the first
   non-empty `text_delta`, `reasoning_delta`, or `tool_input_delta` to receipt of the provider's
-  `finish` event, using the monotonic `performance.now()` clock. Both instants are captured
-  before buffering or enqueueing/persisting the corresponding events. A private, optional
+  `finish` event, using the monotonic `performance.now()` clock. The first-output instant is when
+  that output reaches the adapter. If the adapter holds a retry-safe prelude — currently a
+  non-empty `tool_input_delta` — `finish.deferredOutputLeadMs` carries the hold duration and the
+  reader moves the start earlier by the same amount. The reader remains the only timing owner;
+  the adapter does not compute speed or measurability. Sub-millisecond holds are scheduling
+  noise and are omitted. The release instant and finish are captured before buffering or
+  enqueueing/persisting the corresponding events. A private, optional
   `RuntimeModelTextResult.outputGenerationDurationMs` carries the duration to the main-turn
   accumulator; it is not added to the wire protocol or persisted history. Neither event-store
   timestamps nor the return time after queue draining/part persistence define this interval.
@@ -95,7 +100,7 @@ sum(outputTokens of measurable requests) / (sum(generationDurationMs) / 1000)
   from the debug observation, while this panel row is the shared aggregate.
 
 ```text
-provider adapter (reasoning provenance) -> bounded reader (monotonic timing)
+provider adapter (reasoning provenance, deferred output lead) -> bounded reader (monotonic timing)
                                          |                         |
                                          v                         v
                                 ordered business consumer -> main-turn aggregate
@@ -111,7 +116,9 @@ Regression acceptance:
 - Empty deltas/preludes do not start timing; a missing finish, zero/invalid duration, non-streaming
   response, actual pre-finish reader backpressure, or missing output usage does not create a sample.
 - Complete reasoning with 3000 reasoning tokens plus 100 text tokens over 31 seconds contributes
-  all 3100 output tokens at 100 tok/s. Pure streaming tool calls also contribute.
+  all 3100 output tokens at 100 tok/s. Pure streaming tool calls also contribute. A pure tool
+  step whose input deltas were held for retry safety counts that hold via
+  `deferredOutputLeadMs`; text or complete reasoning that arrives first does not attach the field.
 - A response with 3000 reported reasoning tokens and 100 text tokens does not report 3100 tok/s
   over its one-second visible-text tail, with or without visible reasoning summary chunks.
 - Skipped requests leave both speed counters unchanged, while cache-hit/token behavior remains

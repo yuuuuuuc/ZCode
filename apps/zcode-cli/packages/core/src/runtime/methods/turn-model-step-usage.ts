@@ -142,7 +142,7 @@ export function recordMainTurnCacheHitUsage(
     return undefined;
   }
 
-  // 修复原因：可测性由 bounded reader 的 result() 唯一判定，adapter 只提供推理来源。
+  // 修复原因：可测性由 bounded reader 的 result() 唯一判定。adapter 只提供推理来源和暂存回填。
   // 聚合层没有流证据，不能另行判断推理口径；duration 存在即代表计时 owner 已通过
   // 用量、来源和时间窗口校验（含 reasoningTokens <= outputTokens），这里只成对累计。
   const generationMs =

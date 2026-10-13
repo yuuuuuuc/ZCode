@@ -327,6 +327,117 @@ describe("main-turn output speed stream timing", () => {
     ]);
   });
 
+  it("adds a deferred tool-input lead back onto the visible window", async () => {
+    const { runtime, model, options, setClock } = streamFixture();
+    model.streamText = async function* () {
+      setClock(1000);
+      yield { type: "tool_input_delta", id: "call", delta: "{\"content\":\"big\"}" };
+      setClock(1005);
+      yield {
+        type: "finish",
+        finishReason: "tool-calls",
+        deferredOutputLeadMs: 500,
+        usage: { inputTokens: 10, outputTokens: 50 },
+      };
+    };
+    const result = await runtime.runModelTextRequest(options);
+    expect(result.outputGenerationDurationMs).toBe(505);
+    expect(JSON.stringify(options.events)).not.toContain("deferredOutputLeadMs");
+    expect(
+      recordMainTurnCacheHitUsage(runtime, result.usage, result.outputGenerationDurationMs)
+        ?.outputTokensPerSecond,
+    ).toBeCloseTo((50 * 1000) / 505, 5);
+  });
+
+  it.each([-1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects deferred output lead %s",
+    async (lead) => {
+      const { runtime, model, options, setClock } = streamFixture();
+      model.streamText = async function* () {
+        yield { type: "tool_input_delta", id: "call", delta: "{}" };
+        setClock(5);
+        yield {
+          type: "finish",
+          finishReason: "tool-calls",
+          deferredOutputLeadMs: lead,
+          usage: { outputTokens: 50 },
+        };
+      };
+      expect(await runtime.runModelTextRequest(options)).toMatchObject({
+        outputGenerationUnavailableReason: "invalid_duration",
+      });
+    },
+  );
+
+  it("keeps reader backpressure ahead of a deferred output lead", async () => {
+    const { runtime, model, options, setClock } = streamFixture();
+    const releaseWrite = Promise.withResolvers<void>();
+    let readCount = 0;
+    const emit = runtime.emitModelStreamingEvent.bind(runtime);
+    vi.spyOn(runtime, "emitModelStreamingEvent").mockImplementation(async (...args) => {
+      await releaseWrite.promise;
+      return emit(...args);
+    });
+    model.streamText = async function* () {
+      yield { type: "text_delta", text: "first" };
+      for (readCount = 0; readCount < 256; readCount += 1) {
+        setClock(readCount + 1);
+        yield { type: "text_delta", text: "token" };
+      }
+      setClock(2000);
+      yield {
+        type: "finish",
+        finishReason: "stop",
+        deferredOutputLeadMs: 500,
+        usage: { outputTokens: 100 },
+      };
+    };
+    const request = runtime.runModelTextRequest(options);
+    try {
+      await vi.waitFor(() => expect(readCount).toBeGreaterThan(100));
+    } finally {
+      releaseWrite.resolve();
+    }
+    const result = await request;
+    expect(result.outputGenerationUnavailableReason).toBe("reader_backpressure");
+    expect(result.outputGenerationDurationMs).toBeUndefined();
+  });
+
+  it("blends a text step and a deferred tool step between their real speeds", async () => {
+    const { runtime, model, options, setClock } = streamFixture();
+    model.streamText = async function* () {
+      yield { type: "text_delta", text: "hello" };
+      setClock(1000);
+      yield { type: "finish", finishReason: "stop", usage: { inputTokens: 10, outputTokens: 100 } };
+    };
+    const text = await runtime.runModelTextRequest(options);
+    expect(text.outputGenerationDurationMs).toBe(1000);
+
+    model.streamText = async function* () {
+      setClock(0);
+      yield { type: "tool_input_delta", id: "call", delta: "x" };
+      setClock(5);
+      yield {
+        type: "finish",
+        finishReason: "tool-calls",
+        deferredOutputLeadMs: 500,
+        usage: { inputTokens: 10, outputTokens: 50 },
+      };
+    };
+    const tool = await runtime.runModelTextRequest(options);
+    expect(tool.outputGenerationDurationMs).toBe(505);
+
+    recordMainTurnCacheHitUsage(runtime, text.usage, text.outputGenerationDurationMs);
+    const combined = recordMainTurnCacheHitUsage(
+      runtime,
+      tool.usage,
+      tool.outputGenerationDurationMs,
+    );
+    const speed = combined?.outputTokensPerSecond ?? 0;
+    expect(speed).toBeGreaterThan((50 * 1000) / 505);
+    expect(speed).toBeLessThan(100);
+  });
+
   it("marks timing unavailable only when the bounded reader itself waits for space", async () => {
     const { runtime, model, options, setClock } = streamFixture();
     const releaseWrite = Promise.withResolvers<void>();
