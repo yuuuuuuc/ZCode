@@ -17,3 +17,7 @@ third-party/runtime/*.txt -text -whitespace
 docs/knip/docs/LICENSE -text -whitespace
 docs/knip/docs/licenses/** -text -whitespace
 third-party/inventory.json linguist-generated=true
+
+# Gen UI vendor 快照按字节做 sha256 校验（gen-ui-runtime-assets.mjs），
+# 被 checkout 成 CRLF 会让 desktop dev/e2e 构建直接失败。
+apps/zcode-cli/packages/visualize-plugin/skills/visualize/assets/vendor/** -text -whitespace
