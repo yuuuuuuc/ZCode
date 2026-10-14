@@ -88,6 +88,7 @@ import {
   readModelFailureErrorPhase,
 } from "./runner-telemetry.js";
 import { repairReasoningHistoryAfterSignatureRejection } from "./reasoning-history-normalization.js";
+import { createDeferredOutputTiming } from "./stream-deferred-output-timing.js";
 import { createStreamReasoningProvenance } from "./stream-reasoning-provenance.js";
 
 type StreamFailurePhase = "request_setup" | "response_body";
@@ -314,6 +315,12 @@ export async function* runStreamText(input: {
       result = streamResult;
       streamIterator = streamResult.fullStream[Symbol.asyncIterator]();
       const reasoningProvenance = createStreamReasoningProvenance(resolved);
+      const deferredOutputTiming = createDeferredOutputTiming();
+      const releaseToCore = (event: ModelStreamEvent): ModelStreamEvent => {
+        deferredOutputTiming.onReleased(event);
+        if (event.type !== "finish") return event;
+        return deferredOutputTiming.finish(reasoningProvenance.finish(event));
+      };
 
       while (true) {
         const next = await readNextWithStreamIdleTimeout(streamIterator, {
@@ -366,6 +373,7 @@ export async function* runStreamText(input: {
             diagnostics,
             emittedRetryBoundaryEvent,
             input,
+            onPreludeHeld: (held) => deferredOutputTiming.onHeld(held),
             pendingRetrySafeEvents,
             requestHeaderCount,
             requestHeaders,
@@ -384,12 +392,12 @@ export async function* runStreamText(input: {
             emittedRetryBoundaryEvent = true;
             for (const pendingEvent of pendingRetrySafeEvents.splice(0)) {
               emittedEvent = true;
-              yield pendingEvent;
+              yield releaseToCore(pendingEvent);
             }
             // 无 raw message-block provenance 的 provider 可能直接给完整 tool-call。
             // 先把 inferred block stop 交给隐藏 collector，再传播校验错误，避免 HTTP 重放。
             emittedEvent = true;
-            yield directToolCommit;
+            yield releaseToCore(directToolCommit);
           }
           throw error;
         }
@@ -438,9 +446,7 @@ export async function* runStreamText(input: {
             const observation = observeVisibleStreamEvent(visibleEvent, Date.now() - startedAt);
             await publishVisibleMilestones(observation);
             streamOutputCommitted = streamOutputCommitted || observation.outputCommitted;
-            yield visibleEvent.type === "finish"
-              ? reasoningProvenance.finish(visibleEvent)
-              : visibleEvent;
+            yield releaseToCore(visibleEvent);
           }
         }
       }
@@ -456,6 +462,7 @@ export async function* runStreamText(input: {
       const flushedEvents = applyStreamEventsToRetryBoundary({
         emittedRetryBoundaryEvent,
         events: toolCallAssembler.flush(),
+        onPreludeHeld: (held) => deferredOutputTiming.onHeld(held),
         pendingRetrySafeEvents,
         preserveProviderStreamBoundaries: input.request.preserveProviderStreamBoundaries,
       });
@@ -467,7 +474,7 @@ export async function* runStreamText(input: {
           const observation = observeVisibleStreamEvent(visibleEvent, Date.now() - startedAt);
           await publishVisibleMilestones(observation);
           streamOutputCommitted = streamOutputCommitted || observation.outputCommitted;
-          yield visibleEvent;
+          yield releaseToCore(visibleEvent);
         }
       }
 
@@ -476,7 +483,7 @@ export async function* runStreamText(input: {
         const observation = observeVisibleStreamEvent(pendingEvent, Date.now() - startedAt);
         await publishVisibleMilestones(observation);
         streamOutputCommitted = streamOutputCommitted || observation.outputCommitted;
-        yield pendingEvent;
+        yield releaseToCore(pendingEvent);
       }
 
       if (!emittedError) {
@@ -1050,6 +1057,7 @@ async function handleStreamChunk(input: {
     retry: ResolvedAiSdkModelRetryOptions;
     statusSink?: ModelStatusSink;
   };
+  onPreludeHeld?: (event: ModelStreamEvent) => void;
   pendingRetrySafeEvents: ModelStreamEvent[];
   repairThinkingSignatureRejection: (error: unknown) => boolean;
   canRecoverProjectToken: (error: unknown) => boolean;
@@ -1099,6 +1107,7 @@ async function handleStreamChunk(input: {
       return applyStreamEventsToRetryBoundary({
         emittedRetryBoundaryEvent: input.emittedRetryBoundaryEvent,
         events: providerBoundaryEvent ? [providerBoundaryEvent] : [],
+        onPreludeHeld: input.onPreludeHeld,
         pendingRetrySafeEvents: input.pendingRetrySafeEvents,
         providerEventObserved: true,
         preserveProviderStreamBoundaries: true,
@@ -1116,6 +1125,7 @@ async function handleStreamChunk(input: {
   return applyStreamEventsToRetryBoundary({
     emittedRetryBoundaryEvent: input.emittedRetryBoundaryEvent,
     events: input.toolCallAssembler.handle(event),
+    onPreludeHeld: input.onPreludeHeld,
     pendingRetrySafeEvents: input.pendingRetrySafeEvents,
     providerEventObserved,
     preserveProviderStreamBoundaries: input.input.request.preserveProviderStreamBoundaries,
@@ -1125,6 +1135,7 @@ async function handleStreamChunk(input: {
 function applyStreamEventsToRetryBoundary(input: {
   emittedRetryBoundaryEvent: boolean;
   events: ModelStreamEvent[];
+  onPreludeHeld?: (event: ModelStreamEvent) => void;
   pendingRetrySafeEvents: ModelStreamEvent[];
   providerEventObserved?: boolean;
   preserveProviderStreamBoundaries?: boolean;
@@ -1147,6 +1158,7 @@ function applyStreamEventsToRetryBoundary(input: {
       (!input.preserveProviderStreamBoundaries || event.type === "start");
     if (retrySafePrelude && !emittedRetryBoundaryEvent) {
       input.pendingRetrySafeEvents.push(event);
+      input.onPreludeHeld?.(event);
       continue;
     }
 

@@ -819,6 +819,11 @@ export type ModelStreamEvent =
       finishReason: string;
       /** Adapter 的推理流来源事实，仅用于同口径计速；不进入 session streaming/history。 */
       reasoningOutput?: "complete" | "summary" | "hidden" | "unknown";
+      /**
+       * Adapter 为重试安全暂存首个非空输出（目前只有 tool_input_delta）的时长，单位毫秒，
+       * 只用于把同口径计速的起点回填到 provider 真实到达时刻；不进入 session streaming/history。
+       */
+      deferredOutputLeadMs?: number;
       providerMetadata?: Record<string, unknown>;
       usage: ModelUsage;
     }

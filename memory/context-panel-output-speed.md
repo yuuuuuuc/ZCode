@@ -11,8 +11,8 @@ metadata:
 
 **三个设计决定（改这块前先知道为什么）**：
 
-1. **耗时口径是「reader 读取首个非空输出 delta → 读取 provider finish」**：有界 reader 与业务消费/落库分离，正常工具 drain 和写背压不再污染采样；仅 reader 缓冲真正满而停止读取时不可测。事件顺序、工具回调、落库语义不变，异常跟随已读事件，取消关闭 reader。不能用落库时间、请求起点或减去 IO 等待反推耗时。
-2. **分子分母同口径，且两个方向都要挡**：首输出、finish、有限正耗时与正 `outputTokens` 同时可得才成对累计。Adapter 在 finish 标记 reasoning provenance：compatible 原始 reasoning_content 与所有推理 delta 匹配、Claude 3.7 native thinking 可认定完整；Responses 摘要、Anthropic redaction、其他未知来源不可测。完整推理包含在 outputTokens 中且不重复相加；不能仅凭 reasoning_delta 或模型名称猜测完整性。异常 token 元数据仍跳过，原始 usage/cacheHit 不变；没有样本时返回 null，不造零值。
+1. **耗时口径是「首个非空输出到达 adapter → reader 读取 provider finish」**：有界 reader 与业务消费/落库分离，正常工具 drain 和写背压不再污染采样；仅 reader 缓冲真正满而停止读取时不可测。事件顺序、工具回调、落库语义不变，异常跟随已读事件，取消关闭 reader。不能用落库时间、请求起点或减去 IO 等待反推耗时。起点以 provider 到达 adapter 为准；adapter 为重试安全暂存的前奏通过 `finish.deferredOutputLeadMs` 回填，core 仍是唯一计时 owner。坑：暂存的 tool_input_delta 会让放出时刻冒充生成时刻。
+2. **分子分母同口径，且两个方向都要挡**：首输出、finish、有限正耗时与正 `outputTokens` 同时可得才成对累计。Adapter 在 finish 标记 reasoning provenance：compatible 原始 reasoning_content 与所有推理 delta 匹配、Claude 3.7 和 GLM 系列的 native thinking 可认定完整；Responses 摘要、Anthropic redaction、其他未知来源不可测。完整推理包含在 outputTokens 中且不重复相加；不能凭 reasoning_delta 或模型名猜测完整性，白名单每一条都必须有后端契约依据（契约、依据和证伪条件见 `apps/zcode-cli/docs/design/v2/model/reasoning-output-provenance.md`）。异常 token 元数据仍跳过，原始 usage/cacheHit 不变；没有样本时返回 null，不造零值。
 3. **resume 后速度从零累计**：持久化消息只有 token 数没有耗时，恢复路径 `mainTurnCacheHitAggregateFromMessages` 的速度计数器是 0（`hitRate` 却是全历史窗口）。面板显示的其实是「本次运行」口径，字段为 null 时整行隐藏。**也是累计平均而非滑动窗口**——越跑越钝，这是刻意的，不是 bug。
 
 **面板行为上刻意的两处不对称**（别当成遗漏去「修」）：速度行**没有**生产阈值（命中率行低于 0.78 会隐藏，是为了不干扰「上下文容量」这个主信息；速度没有好坏阈值，有样本就显示）。

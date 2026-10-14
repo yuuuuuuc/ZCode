@@ -76,7 +76,7 @@ describe("stream reasoning provenance", () => {
     },
   );
 
-  it.each(["claude-sonnet-4-5", "claude-3-7-sonnet-custom", "glm-5"])(
+  it.each(["claude-sonnet-4-5", "claude-3-7-sonnet-custom", "qwen3-max", "glm"])(
     "does not guess full Anthropic thinking from %s",
     (modelId) => {
       const provenance = fixture("anthropic", modelId);
@@ -85,8 +85,34 @@ describe("stream reasoning provenance", () => {
     },
   );
 
-  it.each(["raw", "metadata"])("redaction overrides otherwise complete thinking (%s)", (source) => {
-    const provenance = fixture("anthropic", "claude-3-7-sonnet");
+  // GLM 的 Anthropic-compatible 端点返回完整推理（依据见
+  // docs/design/v2/model/reasoning-output-provenance.md）；id 的大小写、provider 前缀
+  // 和日期/1m 别名都要覆盖。
+  it.each(["glm-5.2", "glm-5.2-pro", "GLM-4.6", "zai/glm-5.2", "glm-0528", "glm-0528[1m]"])(
+    "allows documented full native thinking for %s",
+    (modelId) => {
+      const provenance = fixture("anthropic", modelId);
+      provenance.observeEvent({ type: "reasoning_delta", text: "native thinking" });
+      expect(provenance.finish(finish).reasoningOutput).toBe("complete");
+    },
+  );
+
+  it.each([
+    ["openai", "summary"],
+    ["openai-compatible", "unknown"],
+  ] as const)("keeps the native thinking allowlist Anthropic-only on %s", (providerKind, expected) => {
+    const provenance = fixture(providerKind, "glm-5.2");
+    provenance.observeEvent({ type: "reasoning_delta", text: "thinking" });
+    expect(provenance.finish(finish).reasoningOutput).toBe(expected);
+  });
+
+  it.each([
+    ["raw", "claude-3-7-sonnet"],
+    ["metadata", "claude-3-7-sonnet"],
+    ["raw", "glm-5.2"],
+    ["metadata", "glm-5.2"],
+  ] as const)("redaction overrides otherwise complete thinking (%s on %s)", (source, modelId) => {
+    const provenance = fixture("anthropic", modelId);
     provenance.observeEvent({ type: "reasoning_delta", text: "visible part" });
     if (source === "raw")
       provenance.observeRaw({
@@ -126,10 +152,15 @@ describe("stream reasoning provenance", () => {
     },
   );
 
-  it.each(["content_block_start", "content_block_delta"])(
-    "does not upgrade raw-only native thinking at %s even on the allowlist",
-    (type) => {
-      const provenance = fixture("anthropic", "claude-3-7-sonnet");
+  it.each([
+    ["content_block_start", "claude-3-7-sonnet"],
+    ["content_block_delta", "claude-3-7-sonnet"],
+    ["content_block_start", "glm-5.2"],
+    ["content_block_delta", "glm-5.2"],
+  ] as const)(
+    "does not upgrade raw-only native thinking at %s on %s even on the allowlist",
+    (type, modelId) => {
+      const provenance = fixture("anthropic", modelId);
       provenance.observeRaw({
         type: "raw",
         rawValue:

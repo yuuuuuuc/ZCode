@@ -13,12 +13,28 @@ type FinishEvent = Extract<ModelStreamEvent, { type: "finish" }>;
 const MAX_RAW_REASONING_CHARACTERS = 512 * 1024;
 
 /**
- * 唯一被认可「native thinking 即完整推理」的模型白名单，依据 Claude 3.7 Sonnet 的
- * API 契约（Claude 4+ 的 thinking 可能是摘要，不能类推）。带日期的正式 id 与
- * `-latest` 别名指向同一模型，都要覆盖。
- * 未命中只会退化成 `unknown`（该请求不计速），不会算出偏快的数字。
+ * 被认可「native thinking 即完整推理」的模型白名单。Anthropic 的 SSE 流里没有
+ * 「这是摘要」的标记（摘要和完整推理都是 `thinking_delta`），所以只能按后端契约声明，
+ * 不能用流内证据判定。未命中只会退化成 `unknown`（该请求不计速），不会算出偏快的数字。
+ * 判据、证伪条件和核对记录见
+ * apps/zcode-cli/docs/design/v2/model/reasoning-output-provenance.md。
  */
+// Claude 3.7 Sonnet 的 thinking 由 Anthropic 文档保证原样返回；Claude 4+ 可能是摘要，
+// 不能类推。带日期的正式 id 与 `-latest` 别名指向同一模型，都要覆盖。
 const FULL_NATIVE_THINKING_MODEL = /^claude-3-7-sonnet(?:-20250219|-latest)?$/;
+// 智谱 GLM 的 Anthropic-compatible 端点返回完整推理。该系列 id 常带 provider 前缀
+// （`zai/glm-5.2`）、大小写变体和 `[1m]` 后缀，所以只判最后一段、忽略大小写。
+const FULL_NATIVE_THINKING_GLM_MODEL = /^glm-/i;
+
+function isFullNativeThinking(
+  providerKind: ResolvedAiSdkModel["providerKind"],
+  modelId: string,
+): boolean {
+  if (providerKind !== "anthropic") return false;
+  if (FULL_NATIVE_THINKING_MODEL.test(modelId)) return true;
+  const segments = modelId.split("/");
+  return FULL_NATIVE_THINKING_GLM_MODEL.test(segments[segments.length - 1] ?? "");
+}
 
 export function createStreamReasoningProvenance(resolved: ResolvedAiSdkModel) {
   let rawReasoning = "";
@@ -26,9 +42,10 @@ export function createStreamReasoningProvenance(resolved: ResolvedAiSdkModel) {
   let sawReasoning = false;
   let incomplete = false;
   let redacted = false;
-  const fullAnthropicThinking =
-    resolved.providerKind === "anthropic" &&
-    FULL_NATIVE_THINKING_MODEL.test(String(resolved.modelId));
+  const fullAnthropicThinking = isFullNativeThinking(
+    resolved.providerKind,
+    String(resolved.modelId),
+  );
 
   return {
     observeRaw(chunk: TextStreamPart<ToolSet>): void {
