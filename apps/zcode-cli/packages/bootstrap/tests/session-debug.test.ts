@@ -109,6 +109,29 @@ describe("session debug observation", () => {
     expect(readSessionDebug(target).rounds[1]?.tokensPerSecond).toBeNull();
   });
 
+  it("exposes the runtime output speed diagnostics as a schema-valid copy", () => {
+    const diagnostics = {
+      measurableCount: 12,
+      unavailableCounts: { reader_backpressure: 3 },
+      lastUnavailableReason: "reader_backpressure" as const,
+    };
+    const target = {
+      app: { sessionId: "session-1", runtime: { getOutputSpeedDiagnostics: () => diagnostics } },
+    };
+    observeSessionDebug(target, event(1));
+    const snapshot = sessionDebugSnapshotSchema.parse(readSessionDebug(target));
+    expect(snapshot.outputSpeed).toEqual(diagnostics);
+    // 快照对象被调用方序列化 / 修改时不能回写到 observation 缓存。
+    expect(readSessionDebug(target).rounds).toHaveLength(1);
+  });
+
+  it("omits output speed diagnostics when the record has no runtime", () => {
+    const target = record();
+    observeSessionDebug(target, event(1));
+    expect(readSessionDebug(target)).not.toHaveProperty("outputSpeed");
+    expect(readSessionDebug(record())).not.toHaveProperty("outputSpeed");
+  });
+
   it("keeps bounded rows while preserving the observation aggregate", () => {
     const target = record();
     for (let i = 1; i <= 250; i++) observeSessionDebug(target, event(i));

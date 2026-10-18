@@ -158,6 +158,8 @@ export type {
   ConversationRewindResult,
   ExecuteTurnOptions,
   ModelExecutionContext,
+  OutputGenerationUnavailableReason,
+  OutputSpeedDiagnostics,
   PromptAdmissionOptions,
   PromptAdmissionReceipt,
   ProviderRuntimeHeadersPort,

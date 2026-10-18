@@ -157,3 +157,28 @@ sequenceDiagram
 - 不改速度口径与可测判定（除 D3 的缓冲上限）。
 - 不改 legacy 投影、手机 `web-remote-replayable` 链路语义（两条链路都读同一份 v4 快照，D1 同时生效）。
 - 不提升 `model.runtime.output_speed.unavailable` 日志等级。
+
+## Recorded validation
+
+2026-10-19，Windows 本机执行：
+
+| 命令 | 结果 |
+| --- | --- |
+| `pnpm architecture:check --changed` | OK，0 violations |
+| `pnpm typecheck` | 通过 |
+| `pnpm lint` | 0 errors（59 条既有 warning） |
+| `pnpm --dir apps/zcode-cli typecheck` | 30/30 通过（需把根 `node_modules/.bin` 加入 PATH 才能找到 `turbo`） |
+| `pnpm --dir apps/zcode-cli lint` | 失败，均为既有问题：`bootstrap` 20 条 `max-lines`（含原本 5000+ 行的 `product-projection.ts`），`cli`、`debug` 包未改动；`core` 0 errors |
+| `pnpm fmt:check` | 失败于既有的 `docs/electron` HTML；本次改动文件按 LF 检查后，仅剩非本次改动行的既有差异 |
+| core `vitest run tests/turn-model-step-usage.test.ts` | 63 通过（场景 5、6） |
+| bootstrap `vitest run tests/product-projection*.test.ts tests/session-debug.test.ts` | 256 通过（场景 1–4、6） |
+| `vitest run packages/shared/test/sessionDebug.test.ts` | 4 通过 |
+| ui `vitest run test/developerToolsPaneOutputSpeed.test.tsx` | 2 通过（场景 7 的渲染部分） |
+| `node --test scripts/agent-bundle-freshness.test.mjs` | 2 通过（场景 9）；当前仓库 dist 实测判定为 `fresh: false` |
+
+未验证：
+
+- 场景 7 的手机宽度、深浅主题、中英文视觉检查。
+- 场景 8：D3 未落地，等待多会话手工取证（计划 Task 4）后由用户确认。
+- 场景 10：需要真实 SSH 远端与已发布的同版本远程制品；macOS / Linux 远端均未实测。
+- `pnpm dev:desktop` 下陈旧 dist 触发重建的端到端日志未实跑。

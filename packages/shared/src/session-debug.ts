@@ -63,6 +63,24 @@ export const sessionDebugNetworkEntrySchema = z
     responseHeaderCount: count,
   })
   .strict();
+/** 主轮输出速度不可测原因；与 CLI core 的 OutputGenerationUnavailableReason 一一对应。 */
+export const OUTPUT_SPEED_UNAVAILABLE_REASONS = [
+  "missing_finish",
+  "missing_output",
+  "reader_backpressure",
+  "unaligned_reasoning",
+  "invalid_usage",
+  "invalid_duration",
+] as const;
+export type OutputSpeedUnavailableReason = (typeof OUTPUT_SPEED_UNAVAILABLE_REASONS)[number];
+const outputSpeedUnavailableReasonSchema = z.enum(OUTPUT_SPEED_UNAVAILABLE_REASONS);
+export const sessionDebugOutputSpeedSchema = z
+  .object({
+    measurableCount: count,
+    unavailableCounts: z.partialRecord(outputSpeedUnavailableReasonSchema, count),
+    lastUnavailableReason: outputSpeedUnavailableReasonSchema.nullable(),
+  })
+  .strict();
 export const sessionDebugSnapshotSchema = z
   .object({
     sessionId: z.string(),
@@ -77,8 +95,11 @@ export const sessionDebugSnapshotSchema = z
       })
       .strict()
       .nullable(),
+    // 旧 Agent 不带该字段；runtime 不可用时同样省略。
+    outputSpeed: sessionDebugOutputSpeedSchema.optional(),
   })
   .strict();
+export type SessionDebugOutputSpeed = z.infer<typeof sessionDebugOutputSpeedSchema>;
 export type SessionDebugSnapshot = z.infer<typeof sessionDebugSnapshotSchema>;
 export type SessionDebugNetworkEntry = z.infer<typeof sessionDebugNetworkEntrySchema>;
 

@@ -1,8 +1,8 @@
-import { existsSync } from "node:fs";
 import { access } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stageAgentBundle } from "../packages/desktop/scripts/stage-agent-bundle.mjs";
+import { readAgentBundleFreshness } from "./agent-bundle-freshness.mjs";
 import { runCommand } from "./spawn-command.mjs";
 
 // adapters tsc 在内存受限机器上会 OOM（exit 134），给整条构建链路提高堆上限。
@@ -108,7 +108,13 @@ function stageDevAgentBundle() {
 }
 
 async function runBootstrapWithRemoteBuild() {
-  if (existsSync(resolve(repoRoot, "apps/zcode-cli/packages/cli/dist/zcode.cjs"))) {
+  // 修复原因：过去只要 dist/zcode.cjs 存在就复用，源码更新后 dev 与 SSH dev 上传仍静默跑旧 Agent
+  // （输出速度等新能力“没生效”）。现在 dist 必须不旧于 CLI 各包 src，才允许复用。
+  const bundleFreshness = await readAgentBundleFreshness({
+    bundlePath: resolve(repoRoot, "apps/zcode-cli/packages/cli/dist/zcode.cjs"),
+    packagesRoot: resolve(repoRoot, "apps/zcode-cli/packages"),
+  });
+  if (bundleFreshness.fresh) {
     await stageBuiltinProviderConfig({
       root: repoRoot,
       env: pnpmRunEnv,
@@ -116,6 +122,9 @@ async function runBootstrapWithRemoteBuild() {
     });
     console.log("[build-desktop-agent-cli] reuse existing zcode-cli desktop agent bundle");
     return;
+  }
+  if (bundleFreshness.exists) {
+    console.log("[build-desktop-agent-cli] source newer than dist/zcode.cjs, rebuilding");
   }
 
   for (const { packageDir, prepareScript } of cliWorkspaceBuilds) {
