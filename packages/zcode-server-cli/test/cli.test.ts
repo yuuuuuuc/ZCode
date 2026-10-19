@@ -199,7 +199,7 @@ describe("Server CLI routing", () => {
   it.each([false, true])("reports online update progress only when requested (%s) and waits for convergence", async (progress) => {
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zuh-"));
     const serverRoot = join(root, "server");
-    const layout = resolveServerLayout(serverRoot);
+    const layout = await resolveCanonicalServerLayout(serverRoot);
     const releases = new ReleaseManager(layout);
     await releases.ensure();
     const oldReleaseDir = join(layout.releasesDir, "release-a");
@@ -259,7 +259,7 @@ describe("Server CLI routing", () => {
   it("allows only one update command to own the daemon handoff", async () => {
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zul-"));
     const serverRoot = join(root, "server");
-    const layout = resolveServerLayout(serverRoot);
+    const layout = await resolveCanonicalServerLayout(serverRoot);
     const releases = new ReleaseManager(layout);
     await releases.ensure();
     const oldReleaseDir = join(layout.releasesDir, "release-a");

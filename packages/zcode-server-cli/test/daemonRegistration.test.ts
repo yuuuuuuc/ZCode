@@ -217,7 +217,9 @@ describe("daemon service registration", () => {
     // Bug 原因：stop-failed 的 Supervisor 在迟到 exit 后仍持有锁与 control socket，旧实现直接拉起
     // 新 Supervisor，只能锁冲突失败；设备在有人手工 stop 前一直无法重新连接。
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zsf-"));
-    const layout = resolveServerLayout(join(root, "server"));
+    // Bugfix：runServerCli 会 canonicalize server root 后再算 control endpoint 哈希；os.tmpdir() 为 8.3
+    // 短名时，非规范布局上的 Supervisor 与 CLI 不在同一命名管道，CLI 无法关闭它而读到 stop-failed。
+    const layout = await resolveCanonicalServerLayout(join(root, "server"));
     const core = Object.assign(new EventEmitter(), {
       pid: 42,
       send: () => true,

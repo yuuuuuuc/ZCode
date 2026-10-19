@@ -107,17 +107,24 @@ class ShellInstallerBackend extends InstallerBackend {
       '"$HOME"',
       quotePosixShellArg(toLocalShellPath(this.rootDir)),
     );
-    const child = spawn(localShellCommand!, ["-c", `${this.prelude}\n${isolatedCommand}`], {
+    // Bugfix: Windows 上 `-c <script>` 会先经 Node 命令行转义，再被 MSYS 运行时按单/双引号重新拆分，
+    // 含单引号的长脚本会被拆坏并报 "unexpected EOF"。改为经 stdin 传脚本，与真实 SSH exec 一样不经 argv 二次解析。
+    // 锁心跳等后台子进程会继承 stdout/stderr 管道，Windows 无法按进程组回收，`close` 会一直等不到；
+    // 因此脚本开头先把输出 exec 到临时文件，管道只由 shell 本身持有。
+    const outputDir = await mkdtemp(join(tmpdir(), "zcode-installer-shell-output-"));
+    const stdoutPath = join(outputDir, "stdout");
+    const stderrPath = join(outputDir, "stderr");
+    const child = spawn(localShellCommand!, ["-s"], {
       detached: process.platform !== "win32",
     });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString();
-    });
+    child.stdin.end(
+      [
+        `exec >${quotePosixShellArg(toLocalShellPath(stdoutPath))} 2>${quotePosixShellArg(toLocalShellPath(stderrPath))}`,
+        this.prelude,
+        isolatedCommand,
+        "",
+      ].join("\n"),
+    );
     // macOS sh 的后台子进程可能在主命令退出后仍持有管道；退出码已确定后回收测试进程组。
     child.once("exit", () => {
       if (process.platform === "win32" || !child.pid) return;
@@ -131,6 +138,11 @@ class ShellInstallerBackend extends InstallerBackend {
       child.once("error", reject);
       child.once("close", (exitCode) => resolve(exitCode ?? 1));
     });
+    const [stdout, stderr] = await Promise.all([
+      readFile(stdoutPath, "utf8").catch(() => ""),
+      readFile(stderrPath, "utf8").catch(() => ""),
+    ]);
+    await rm(outputDir, { recursive: true, force: true });
     return createClosedStream([stdout], code, stderr);
   }
 }

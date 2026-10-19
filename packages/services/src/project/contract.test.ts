@@ -1,6 +1,6 @@
 import { mkdtemp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { ProjectRepositoryContract, VirtualProject } from "#src/project-storage/contract.js";
 import type { IProjectService } from "#src/project/contract.js";
@@ -242,25 +242,30 @@ it("routes every foreign project operation to its existing owner and never falls
 });
 
 it("browses owner directories without touching project storage or admitting a session", async () => {
+  // 本地 Host 按本机路径规则 normalize，夹具使用宿主原生绝对路径，Windows 上才不会因分隔符误判。
+  const owner = resolve("/owner");
+  const another = resolve("/another");
   const repository = vi.fn();
-  const directories = { home: async () => "/owner", read: vi.fn(async () => []) };
+  const directories = { home: async () => owner, read: vi.fn(async () => []) };
   const service = createProjectService({
     repository,
     workspaceDirectory: "/workspace",
     directories,
   });
-  expect(await service.readDirectory()).toEqual({ path: "/owner", entries: [] });
-  expect(directories.read).toHaveBeenCalledWith({ path: "/owner" });
-  await service.readDirectory({ path: "/another", includeHidden: true });
-  expect(directories.read).toHaveBeenLastCalledWith({ path: "/another", includeHidden: true });
+  expect(await service.readDirectory()).toEqual({ path: owner, entries: [] });
+  expect(directories.read).toHaveBeenCalledWith({ path: owner });
+  await service.readDirectory({ path: another, includeHidden: true });
+  expect(directories.read).toHaveBeenLastCalledWith({ path: another, includeHidden: true });
   await expect(service.readDirectory({ path: "relative" })).rejects.toThrow(
     "project.absolute-path-required",
   );
-  expect(await service.readDirectory({ path: "/owner/child/../folder" })).toEqual({
-    path: "/owner/folder",
+  expect(
+    await service.readDirectory({ path: [owner, "child", "..", "folder"].join(sep) }),
+  ).toEqual({
+    path: join(owner, "folder"),
     entries: [],
   });
-  expect(directories.read).toHaveBeenLastCalledWith({ path: "/owner/folder" });
+  expect(directories.read).toHaveBeenLastCalledWith({ path: join(owner, "folder") });
   expect(repository).not.toHaveBeenCalled();
 });
 

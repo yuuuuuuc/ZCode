@@ -2,7 +2,7 @@ import { constants } from "node:fs";
 import { access, readdir, stat } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
-import { basename, extname, join, win32 } from "node:path";
+import { basename, extname, posix, win32 } from "node:path";
 
 export interface FileApplicationDef {
   id: string;
@@ -39,7 +39,8 @@ function mac(
     id,
     name,
     appPath,
-    appPathCandidates: [join(homedir(), "Applications", basename(appPath))],
+    // macOS/Linux 候选固定按 POSIX 拼接，不随宿主 path 分隔符变化（Windows 上解析 darwin 定义时曾得到反斜杠路径）。
+    appPathCandidates: [posix.join(homedir(), "Applications", basename(appPath))],
     command: null,
     fileExtensions,
   };
@@ -271,7 +272,7 @@ export async function resolveFileApplicationPath(
       ...searchPath
         .split(":")
         .filter(Boolean)
-        .flatMap((root) => (def.executableNames ?? []).map((name) => join(root, name))),
+        .flatMap((root) => (def.executableNames ?? []).map((name) => posix.join(root, name))),
     );
   }
   async function findPath(): Promise<string | null> {

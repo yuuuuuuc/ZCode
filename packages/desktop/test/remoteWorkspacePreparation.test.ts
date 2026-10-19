@@ -15,7 +15,9 @@ const fileService = createFileService();
 describe.each([null, 0o000, 0o400, 0o100])(
   "远程工作区目录 admission，权限 %s（null 为删除）",
   (permissions) => {
-    it.each(["manual", "automatic"] as const)(
+    // Bugfix：it.each 不会把 TestContext 传给回调，context.skip() 在 Windows 跳过分支上读到 undefined；
+    // it.for 才会以第二个参数传入 TestContext。
+    it.for(["manual", "automatic"] as const)(
       "%s：单个目录失效只拒绝该项目，修复后可以重连",
       async (mode, context) => {
         if (permissions !== null && (process.platform === "win32" || process.getuid?.() === 0)) {
