@@ -769,6 +769,22 @@ exceptions:
     rule: unmanaged-new-file
     paths: [packages/shared/src/clientConfig.ts]
     reason: Existing upstream public config parser gains one validated recommendation field; ownership and module boundaries remain unchanged, and adopting the shared package is outside this change.
+  - id: websearch-deepseek-backend-unmanaged-new-files
+    rule: unmanaged-new-file
+    paths:
+      - apps/zcode-cli/packages/contracts/src/interfaces/web-tools.port.ts
+      - apps/zcode-cli/packages/adapters/src/web-tools/deepseek-web-tools.ts
+      - apps/zcode-cli/packages/adapters/src/web-tools/index.ts
+      - apps/zcode-cli/packages/bootstrap/src/app/web-tools-credential.ts
+      - apps/zcode-cli/packages/core/src/tool/handlers/websearch-backend.ts
+    reason: >-
+      WebSearch 的 DeepSeek REST 后端新增的端口、适配器、宿主凭据来源与结果投影。
+      其中三个文件必须落在既有目录（contracts/interfaces、bootstrap/app、core/tool/handlers），
+      而 managed 模块以目录为根，登记即把该目录全部既有文件纳入结构规则，
+      会在这些大文件上产生与本改动无关的违规；另两个文件所在的 adapters/src/web-tools
+      新目录只服务本功能，单独立模块同样只是把一个端口拆成五份骨架。
+      五个文件均未超过 800 行、只从 @zcode/* 包根导入，模块边界与既有 zcode-cli
+      布局一致，接管整个 zcode-cli 包不在本次改动范围内。
   - id: highspeed-fallback-snapshot-unmanaged-edit
     rule: unmanaged-new-file
     paths: [apps/zcode-cli/packages/core/src/runtime/methods/turn-execution-fallback.ts]
