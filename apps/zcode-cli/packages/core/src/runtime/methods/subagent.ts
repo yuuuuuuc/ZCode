@@ -368,6 +368,9 @@ export function createDefaultSubagentPort(
             httpClientPort: deps.httpClientPort,
             imageProcessorPort: deps.imageProcessorPort,
             pdfDocumentPort: deps.pdfDocumentPort,
+            // 子代理共用父会话的搜索后端：否则 Explore 在没有 native search 的模型下
+            // 看不到 WebSearch，而主会话看得到——同一份配置两套工具面。
+            webToolsPort: deps.webToolsPort,
             memoryRoot: persistentMemory?.rootDir,
             mcpPort: childMcpAccess.port,
             skillPort: childSkillPort,

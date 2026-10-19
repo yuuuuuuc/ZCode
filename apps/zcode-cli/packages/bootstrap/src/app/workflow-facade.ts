@@ -27,6 +27,7 @@ import {
   type ExecutionPort,
   type FileSystemPort,
   type HttpClientPort,
+  type WebToolsPort,
   type ImageProcessorPort,
   type PdfDocumentPort,
   type Logger,
@@ -54,6 +55,8 @@ interface CreateWorkflowFacadeDeps {
   executionPort?: ExecutionPort;
   fileSystemPort?: FileSystemPort;
   httpClientPort?: HttpClientPort;
+  /** 搜索后端端口；workflow 子运行时与父会话共用同一份可用性判定。 */
+  webToolsPort?: WebToolsPort;
   imageProcessorPort: ImageProcessorPort;
   pdfDocumentPort?: PdfDocumentPort;
   logger: Logger;
@@ -324,6 +327,7 @@ function createWorkflowChildRuntime(
           noProxy: deps.configResult.config.network.noProxy,
           caCertFile: deps.configResult.config.network.caCertFile,
         }),
+      webToolsPort: deps.webToolsPort,
       imageProcessorPort: deps.imageProcessorPort,
       pdfDocumentPort: deps.pdfDocumentPort,
       artifactStore: deps.artifactStore,

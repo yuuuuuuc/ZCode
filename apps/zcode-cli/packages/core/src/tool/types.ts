@@ -56,6 +56,7 @@ import type {
   WorkflowEscalatePort,
   WorkflowPort,
   WorkflowSubmitPort,
+  WebToolsPort,
 } from "@zcode/contracts";
 import type { RuntimeTaskRegistry } from "../runtime-task/registry.js";
 import type {
@@ -164,6 +165,8 @@ export interface ToolExecutionContext {
   httpClientPort?: HttpClientPort;
   imageProcessorPort?: ImageProcessorPort;
   pdfDocumentPort?: PdfDocumentPort;
+  /** 搜索后端端口；在场且可用时 WebSearch 直接走 REST，不发起模型请求。 */
+  webToolsPort?: WebToolsPort;
   model?: Model;
   /** Core Server 对前台 child 的 Selection override。 */
   subagentModelOverride?: SubagentRunOptions["modelOverride"];

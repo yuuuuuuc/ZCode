@@ -386,7 +386,7 @@ describe("tool contract declarations", () => {
     expect(byName.get("WebFetch")?.needsApproval).toBe(true);
     expect(byName.get("WebFetch")?.description).toBe(SOURCE_DERIVED_WEBFETCH_DESCRIPTION);
     expect(normalizeWebSearchDynamicDate(byName.get("WebSearch")?.description)).toContain(
-      "Search the web. Returns result blocks with titles and URLs. US-only.",
+      "Search the web. Returns result blocks with titles and URLs.",
     );
     expect(byName.get("TodoRead")?.permission?.sideEffectScope).toBe("none");
     expect(byName.get("TodoWrite")?.permission?.sideEffectScope).toBe("session");

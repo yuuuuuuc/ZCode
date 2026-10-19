@@ -13,6 +13,7 @@ import {
 } from "@zcode/adapters/exec";
 import { createNodeFileSystemAdapter } from "@zcode/adapters/fs";
 import { createNodeWebFetchHttpClientAdapter } from "@zcode/adapters/http";
+import { createDeepSeekWebToolsAdapter } from "@zcode/adapters/web-tools";
 import { createJimpImageProcessorAdapter } from "@zcode/adapters/image";
 import { createPopplerPdfDocumentAdapter } from "@zcode/adapters/pdf";
 import { createNodeSessionMailboxAdapter } from "@zcode/adapters/mailbox";
@@ -85,6 +86,7 @@ import {
 import { getWorkflowConcurrencyGovernor } from "./workflow-concurrency-governor.js";
 import { createDynamicWorkflowSnippetService } from "./dynamic-workflow-snippet-service.js";
 import { createModelCatalogPort } from "./model-catalog-port.js";
+import { createProviderRegistryWebToolsCredentials } from "./web-tools-credential.js";
 import { createDynamicWorkflowRunProgressSink } from "./dynamic-workflow-run-progress-sink.js";
 import { createScriptWorkflowAgentRuntime } from "./script-workflow-child-runtime.js";
 import { workflowActorModelPolicy } from "./workflow-actor-model.js";
@@ -453,6 +455,11 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
         noProxy: configResult.config.network.noProxy,
         caCertFile: configResult.config.network.caCertFile,
       });
+    // 搜索后端：只依赖 httpClientPort 与注册表凭据函数，可用性由每次 tool call 现问。
+    const webToolsPort = options.webToolsPort ?? createDeepSeekWebToolsAdapter({
+      credentials: createProviderRegistryWebToolsCredentials(options.providerRegistry),
+      httpClientPort,
+    });
     const providerEndpointRoutingPort = options.providerEndpointRoutingPort;
     markMcpAdapterInitialized({
       configuredMcpServers,
@@ -615,6 +622,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       configResult,
       fileSystemPort,
       httpClientPort,
+      webToolsPort,
       imageProcessorPort,
       pdfDocumentPort,
       logger,
@@ -694,6 +702,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
                   configResult,
                   fileSystemPort,
                   httpClientPort,
+                  webToolsPort,
                   imageProcessorPort,
                   logger,
                   mcpPort,
@@ -848,6 +857,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       browserControlPort,
       fileSystemPort,
       httpClientPort,
+      webToolsPort,
       imageProcessorPort,
       pdfDocumentPort,
       artifactStore,
@@ -956,6 +966,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       cliStorageRoot,
       configResult,
       eventSink: options.eventSink,
+      webToolsPort,
       imageProcessorPort,
       pdfDocumentPort,
       logger,

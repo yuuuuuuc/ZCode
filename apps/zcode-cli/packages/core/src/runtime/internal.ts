@@ -19,6 +19,7 @@ import type {
   HookRunner,
   ImageProcessorPort,
   PdfDocumentPort,
+  WebToolsPort,
   McpConnectionSnapshot,
   SkillLoadOutcome,
   SkillPort,
@@ -138,6 +139,8 @@ export interface AgentRuntimeInternal
   fileSystemPort?: FileSystemPort;
   imageProcessorPort?: ImageProcessorPort;
   pdfDocumentPort?: PdfDocumentPort;
+  /** 搜索后端端口；暴露门每次现问其可用性，不在这里冻结成布尔值。 */
+  webToolsPort?: WebToolsPort;
   skillLoadOutcome?: SkillLoadOutcome;
   workingDirectory: string;
   workspaceRoot: string;

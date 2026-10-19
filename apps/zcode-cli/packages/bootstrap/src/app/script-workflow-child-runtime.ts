@@ -18,6 +18,7 @@ import {
   type ContextSourcePort,
   type FileSystemPort,
   type HttpClientPort,
+  type WebToolsPort,
   type ImageProcessorPort,
   type JsonSchema,
   type PdfDocumentPort,
@@ -47,6 +48,8 @@ export interface ScriptWorkflowAgentRuntimeDeps {
   contextSourcePort?: ContextSourcePort;
   fileSystemPort: FileSystemPort;
   httpClientPort?: HttpClientPort;
+  /** 搜索后端端口；子运行时与父会话共用同一份可用性判定。 */
+  webToolsPort?: WebToolsPort;
   imageProcessorPort: ImageProcessorPort;
   pdfDocumentPort?: PdfDocumentPort;
   logger: Logger;
@@ -256,6 +259,7 @@ function createRuntimeDeps(
         caCertFile: deps.configResult.config.network.caCertFile,
         timeoutMs: deps.configResult.config.network.timeout,
       }),
+    webToolsPort: deps.webToolsPort,
     imageProcessorPort: deps.imageProcessorPort,
     pdfDocumentPort: deps.pdfDocumentPort,
     logger: deps.logger,

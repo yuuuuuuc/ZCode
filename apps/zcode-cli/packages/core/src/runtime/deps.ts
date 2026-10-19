@@ -207,6 +207,7 @@ export type {
   HttpClientPort,
   ImageProcessorPort,
   PdfDocumentPort,
+  WebToolsPort,
   InteractionRequestOrigin,
   HooksRuntimeConfig,
   SkillLoadOutcome,

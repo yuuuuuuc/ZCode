@@ -21,6 +21,7 @@ import type {
   GoalStatus,
   HttpClientPort,
   ImageProcessorPort,
+  WebToolsPort,
   InputDelivery,
   InputHistoryEntry,
   InputHistoryKind,
@@ -185,6 +186,8 @@ export interface ZCodeAppOptions {
   nodeReplBrowserBroker?: NodeReplBrowserBroker;
   fileSystemPort?: FileSystemPort;
   httpClientPort?: HttpClientPort;
+  /** 搜索后端端口；宿主可注入自定义实现，缺省时 app 用注册表里的 DeepSeek 凭据自建。 */
+  webToolsPort?: WebToolsPort;
   imageProcessorPort?: ImageProcessorPort;
   pdfDocumentPort?: PdfDocumentPort;
   artifactStore?: ToolArtifactStorePort;

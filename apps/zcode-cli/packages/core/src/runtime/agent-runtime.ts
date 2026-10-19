@@ -45,6 +45,7 @@ import type {
   FileSystemPort,
   ImageProcessorPort,
   PdfDocumentPort,
+  WebToolsPort,
   McpConnectionSnapshot,
   SkillLoadOutcome,
   SkillPort,
@@ -227,6 +228,7 @@ export class AgentRuntime {
   private fileSystemPort?: FileSystemPort;
   private imageProcessorPort?: ImageProcessorPort;
   private pdfDocumentPort?: PdfDocumentPort;
+  private webToolsPort?: WebToolsPort;
   private skillLoadOutcome?: SkillLoadOutcome;
   private workingDirectory: string;
   private workspaceRoot: string;
@@ -354,6 +356,8 @@ export class AgentRuntime {
     this.fileSystemPort = deps.fileSystemPort;
     this.imageProcessorPort = deps.imageProcessorPort;
     this.pdfDocumentPort = deps.pdfDocumentPort;
+    // 搜索后端端口：只存引用，可用性由 handler 与暴露门每次现问（用户可中途增删 Key）。
+    this.webToolsPort = deps.webToolsPort;
     this.subagentPort = deps.subagentPort ?? runtime.createDefaultSubagentPort(deps);
     this.dynamicWorkflowRunPort = deps.dynamicWorkflowRunPort;
     // GUI「配置」解析子代理模型用的目录（与工具上下文拿的是同一个端口）。

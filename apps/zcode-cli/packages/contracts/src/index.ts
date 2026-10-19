@@ -26,6 +26,7 @@ export * from "./interfaces/workflow-escalate.port.js";
 export * from "./interfaces/dynamic-workflow-run.port.js";
 export * from "./interfaces/dynamic-workflow-snippet.port.js";
 export * from "./interfaces/model-catalog.port.js";
+export * from "./interfaces/web-tools.port.js";
 export * from "./interfaces/automation.port.js";
 export * from "./interfaces/off-peak.port.js";
 export * from "./interfaces/topic-resource.port.js";

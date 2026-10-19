@@ -179,6 +179,7 @@ function createRuntimeToolExecutor(
     imageProcessorPort: deps.imageProcessorPort,
     // 合并删除旧模型连接时曾漏掉此端口；Read 分页渲染与整份 PDF 页数检查仍依赖宿主注入。
     pdfDocumentPort: deps.pdfDocumentPort,
+    webToolsPort: deps.webToolsPort,
     embeddedSearchBackend: runtime.config.embeddedSearchBackend,
     nativeSearchEnhancementsEnabled: runtime.config.nativeSearchEnhancementsEnabled,
     skillPort: deps.skillPort,

@@ -35,6 +35,7 @@ import type {
   WorkflowEscalatePort,
   WorkflowPort,
   WorkflowSubmitPort,
+  WebToolsPort,
 } from "@zcode/contracts";
 import type { HookRunner } from "../../hooks/index.js";
 import type { PermissionService } from "../../permission/service.js";
@@ -96,6 +97,8 @@ export interface ToolExecutorOptions {
   httpClientPort?: HttpClientPort;
   imageProcessorPort?: ImageProcessorPort;
   pdfDocumentPort?: PdfDocumentPort;
+  /** 搜索后端端口；在场且可用时 WebSearch 直接走 REST，不发起模型请求。 */
+  webToolsPort?: WebToolsPort;
   model?: Model;
   embeddedSearchBackend?: EmbeddedSearchBackend;
   nativeSearchEnhancementsEnabled?: boolean;
@@ -211,6 +214,8 @@ export interface ToolExecutorDeps {
   httpClientPort?: HttpClientPort;
   imageProcessorPort?: ImageProcessorPort;
   pdfDocumentPort?: PdfDocumentPort;
+  /** 搜索后端端口；在场且可用时 WebSearch 直接走 REST，不发起模型请求。 */
+  webToolsPort?: WebToolsPort;
   model?: Model;
   embeddedSearchBackend?: EmbeddedSearchBackend;
   nativeSearchEnhancementsEnabled?: boolean;

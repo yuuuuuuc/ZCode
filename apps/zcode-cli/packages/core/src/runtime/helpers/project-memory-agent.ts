@@ -116,6 +116,7 @@ export function createProjectMemoryAgentToolExecutor(
     getWorkspaceRoot: () => context.workspaceRoot,
     imageProcessorPort: runtime.imageProcessorPort,
     pdfDocumentPort: runtime.pdfDocumentPort,
+    webToolsPort: runtime.webToolsPort,
     maxConcurrency: runtime.config.toolConcurrency?.maxConcurrency,
     model: context.model,
     permissionBroker: createDenyPermissionBroker(),

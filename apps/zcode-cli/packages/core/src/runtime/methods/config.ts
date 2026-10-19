@@ -290,6 +290,9 @@ function shouldExposeWebSearch(this: AgentRuntimeInternal, model?: Model): boole
   // 无 Model 的调用只枚举完整注册表，供持久化和 UI 元数据使用；真实执行始终传入
   // 当前 Active Model，并只读取其冻结的完整能力事实。
   if (!model) return true;
-  return model.properties.supportsNativeWebSearch;
+  if (model.properties.supportsNativeWebSearch) return true;
+  // 搜索后端在场且可用时，任意模型都能用 WebSearch——它不再依赖 provider-native 能力。
+  // 每次现问 status()：用户删掉 Key 之后，下一个 turn 的工具面必须立刻回落。
+  return this.webToolsPort?.status().available === true;
 }
 import { resolveExecutionState } from "@zcode/shared";

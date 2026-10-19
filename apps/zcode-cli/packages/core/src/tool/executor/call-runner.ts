@@ -501,6 +501,7 @@ async function executeToolCallImpl(
         httpClientPort: deps.httpClientPort,
         imageProcessorPort: deps.imageProcessorPort,
         pdfDocumentPort: deps.pdfDocumentPort,
+        webToolsPort: deps.webToolsPort,
         // 工具内部的模型请求默认把状态事件发进会话：deadline 暂停与 driver 相位都靠这条流。
         model: withDefaultToolModelStatusSink(
           model,

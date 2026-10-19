@@ -4,6 +4,7 @@
 
 import {
   CoreErrorType,
+  SessionEventType,
   WEBSEARCH_PROVIDER_NATIVE_SPEC,
   WEBSEARCH_TOOL_CONTRACT,
   WebSearchInputJsonSchema,
@@ -11,6 +12,7 @@ import {
   WebSearchOutputJsonSchema,
   WebSearchOutputSchema,
   createCoreError,
+  isWebToolsPortError,
   runWithModelInvocationContext,
   toWebSearchProviderNativeArgs,
   type ModelStreamEvent,
@@ -18,11 +20,20 @@ import {
   type ModelToolCall,
   type ModelUsage,
   type ModelToolContract,
+  type NetworkRequestStatusPayload,
   type WebSearchInput,
   type WebSearchOutput,
+  type WebToolsErrorCode,
 } from "@zcode/contracts";
-import type { ToolEntry, ToolHandler } from "../types.js";
+import type { ToolEntry, ToolExecutionContext, ToolHandler } from "../types.js";
 import { auxiliaryModelOptions } from "../../model/auxiliary-model-options.js";
+import {
+  applyDomainConstraintsToQuery,
+  filterResultsByDomain,
+  formatBackendResultsSummary,
+  formatEmptyBackendResultsNotice,
+  toWebSearchResultItems,
+} from "./websearch-backend.js";
 import { buildWebSearchOutput, formatWebSearchModelContent } from "./websearch-results.js";
 import { webSearchTraceFromContext } from "./websearch-support.js";
 
@@ -49,7 +60,7 @@ const WEBSEARCH_MONTH_NAMES = [
 function buildWebSearchProviderDescription(now: Date = new Date()): string {
   const currentMonth = `${WEBSEARCH_MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
   return [
-    "Search the web. Returns result blocks with titles and URLs. US-only.",
+    "Search the web. Returns result blocks with titles and URLs.",
     "",
     `- The current month is ${currentMonth} — use this when searching for recent information.`,
     "- `allowed_domains` / `blocked_domains` filter results.",
@@ -59,6 +70,11 @@ function buildWebSearchProviderDescription(now: Date = new Date()): string {
 
 const webSearchHandler: ToolHandler<WebSearchInput, WebSearchOutput> = async (input, context) => {
   const startedAt = Date.now();
+  const backend = context.webToolsPort?.status();
+  if (backend?.available) {
+    return runBackendWebSearch(input, context, startedAt, backend.origin);
+  }
+
   const model = context.model;
 
   if (!model) {
@@ -153,6 +169,152 @@ export const webSearchToolEntry: ToolEntry = {
   runtimeInputSchema: WebSearchInputSchema,
   runtimeOutputSchema: WebSearchOutputSchema,
 };
+
+/**
+ * REST 后端路径：**不发起任何模型请求**。
+ *
+ * 与 provider-native 路径的分工是刻意的——那边把「搜索」外包给模型，这边只是调一个
+ * 计费接口，所以既没有 usage 也没有 summary；结果里的 summary/date/authority 走
+ * `WebSearchOutput.summary`（模型可见文本），结构化 `results` 仍是契约声明的 `{title,url}`。
+ */
+async function runBackendWebSearch(
+  input: WebSearchInput,
+  context: ToolExecutionContext,
+  startedAt: number,
+  origin: string | undefined,
+): Promise<WebSearchOutput> {
+  const backend = context.webToolsPort;
+  if (!backend) {
+    // 不可达：调用点已确认 available。保留第二道校验而不是断言，避免上游改造后静默空转。
+    throw createCoreError(CoreErrorType.ConfigurationError, "Web search backend is unavailable", {
+      context: { toolCallId: context.toolCallId, toolName: WEBSEARCH_TOOL_NAME },
+      recoverable: true,
+    });
+  }
+
+  const requestId = `net_${crypto.randomUUID()}`;
+  const requestStartedAt = new Date();
+  const endpoint = `${origin ?? "https://api.deepseek.com"}/v1/tools/search`;
+  const baseStatus = {
+    method: "POST",
+    requestId,
+    source: "http_client" as const,
+    startedAt: requestStartedAt.toISOString(),
+    toolCallId: context.toolCallId,
+    toolName: WEBSEARCH_TOOL_NAME,
+    url: endpoint,
+  };
+  // 搜索词会出网到 api.deepseek.com：与直连抓取一样进 NetworkRequestStatus，
+  // 否则 UI / debug 看不到这次真实出网点。
+  await emitWebSearchNetworkStatus(context, { ...baseStatus, status: "pending" });
+
+  let results;
+  try {
+    results = await backend.search(
+      { query: applyDomainConstraintsToQuery(input) },
+      { signal: context.abortSignal, trace: webSearchTraceFromContext(context) },
+    );
+    await emitWebSearchNetworkStatus(context, {
+      ...baseStatus,
+      completedAt: new Date().toISOString(),
+      durationMs: Date.now() - requestStartedAt.getTime(),
+      status: "complete",
+    });
+  } catch (error) {
+    await emitWebSearchNetworkStatus(context, {
+      ...baseStatus,
+      completedAt: new Date().toISOString(),
+      durationMs: Date.now() - requestStartedAt.getTime(),
+      error: describeBackendError(error),
+      status: "error",
+    });
+    throw toWebSearchBackendError(error, input);
+  }
+
+  const filtered = filterResultsByDomain(results, input);
+  const items = toWebSearchResultItems(filtered);
+  const summary =
+    formatBackendResultsSummary(filtered) ?? formatEmptyBackendResultsNotice(input);
+
+  return {
+    query: input.query,
+    results: items,
+    sources: items.map((item) => ({ url: item.url, title: item.title })),
+    summary,
+    durationMs: Date.now() - startedAt,
+  };
+}
+
+async function emitWebSearchNetworkStatus(
+  context: ToolExecutionContext,
+  payload: Omit<NetworkRequestStatusPayload, "sessionId">,
+): Promise<void> {
+  await context.emitEvent?.({
+    id: crypto.randomUUID() as never,
+    payload,
+    sequenceNumber: 0,
+    sessionId: context.sessionId,
+    timestamp: new Date(),
+    traceId: context.traceId,
+    turnId: context.turnId,
+    type: SessionEventType.NetworkRequestStatus,
+  });
+}
+
+function describeBackendError(error: unknown): string {
+  return error instanceof Error ? error.message : "Web search backend request failed";
+}
+
+/** 后端失败映射成稳定、可执行的工具错误；不静默回退 provider-native，避免同一 query 搜两次。 */
+function toWebSearchBackendError(error: unknown, input: WebSearchInput): Error {
+  if (!isWebToolsPortError(error)) return error instanceof Error ? error : new Error(String(error));
+
+  const hints: Record<WebToolsErrorCode, { message: string; recoverable: boolean }> = {
+    not_configured: { message: "Web search backend is not configured", recoverable: false },
+    unauthorized: {
+      message: "Web search backend rejected the API key; check the DeepSeek key in provider settings",
+      recoverable: false,
+    },
+    insufficient_balance: {
+      message: "Web search backend account has insufficient balance",
+      recoverable: false,
+    },
+    blocked_by_policy: {
+      message: "Web search request was blocked by the backend policy",
+      recoverable: true,
+    },
+    not_found: { message: "Web search backend endpoint was not found", recoverable: false },
+    rate_limited: {
+      message: "Web search was rate limited; wait a moment before searching again",
+      recoverable: true,
+    },
+    timeout: { message: "Web search request timed out; retry the search", recoverable: true },
+    invalid_request: {
+      message: "Web search backend rejected the query; rephrase it and retry",
+      recoverable: true,
+    },
+    upstream_error: {
+      message: "Web search backend failed; retry the search",
+      recoverable: true,
+    },
+    network_error: {
+      message: "Web search request could not reach the backend; check the network and retry",
+      recoverable: true,
+    },
+  };
+
+  const hint = hints[error.code];
+  return createCoreError(CoreErrorType.ToolExecutionFailed, hint.message, {
+    cause: error,
+    context: {
+      query: input.query,
+      toolName: WEBSEARCH_TOOL_NAME,
+      webSearchCode: error.code,
+      ...(error.status === undefined ? {} : { httpStatus: error.status }),
+    },
+    recoverable: hint.recoverable,
+  });
+}
 
 function createProviderNativeWebSearchContract(input: WebSearchInput): ModelToolContract {
   return {

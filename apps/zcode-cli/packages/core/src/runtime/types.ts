@@ -80,6 +80,7 @@ import type {
   HttpClientPort,
   ImageProcessorPort,
   PdfDocumentPort,
+  WebToolsPort,
   HooksRuntimeConfig,
   SkillPort,
   McpPort,
@@ -359,6 +360,8 @@ export interface AgentRuntimeDeps {
   httpClientPort?: HttpClientPort;
   imageProcessorPort?: ImageProcessorPort;
   pdfDocumentPort?: PdfDocumentPort;
+  /** 搜索后端端口；在场且可用时 WebSearch 直接走 REST，不暴露门也随之放宽。 */
+  webToolsPort?: WebToolsPort;
   skillPort?: SkillPort;
   mcpPort?: McpPort;
   subagentPort?: SubagentPort;

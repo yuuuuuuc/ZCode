@@ -50,8 +50,19 @@ export function formatWebSearchModelContent(output: unknown): string {
   ]).slice(0, MAX_SOURCE_LINKS);
   const lines = [`Web search results for query: "${data.query}"`, ""];
 
-  if (data.summary) {
+  // REST 后端的 summary 本身就是逐条结果块（URL 已在其中），再列一遍 Links
+  // 只是把同样的 10 个链接重复给模型。provider-native 的综述不含链接，仍走下面的 Links。
+  const summaryCarriesLinks =
+    data.summary !== undefined && links.length > 0 && links.every((source) => data.summary!.includes(source.url));
+
+  if (data.summary && !summaryCarriesLinks) {
     lines.push("Summary:", data.summary, "");
+  } else if (data.summary) {
+    lines.push(data.summary, "");
+    lines.push(
+      "REMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks.",
+    );
+    return lines.join("\n").trim();
   }
 
   if (links.length > 0) {

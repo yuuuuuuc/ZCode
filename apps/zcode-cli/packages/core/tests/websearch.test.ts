@@ -90,7 +90,8 @@ describe("provider-visible WebSearch wrapper", () => {
     expect(prompt).toContain("allowed_domains");
     expect(prompt).toContain("blocked_domains");
     expect(prompt).toContain("current month");
-    expect(prompt).toContain("US-only");
+    // 描述不再绑定 provider-native 的区域限制：配置了搜索后端时任意模型都能用它。
+    expect(prompt).not.toContain("US-only");
   });
 
   it("generates the public WebSearch current month from the current clock", async () => {
@@ -169,6 +170,45 @@ describe("provider-visible WebSearch wrapper", () => {
     expect(runtime.getTools(createModel(false)).some((tool) => tool.name === "WebSearch")).toBe(
       false,
     );
+  });
+
+  it("exposes WebSearch to non-native models when a search backend is available", () => {
+    const createModel = () =>
+      createTestRuntimeModel({
+        generateText: async () => ({ finishReason: "stop", text: "", usage: {} }),
+        propertyOverrides: { supportsNativeWebSearch: false },
+      });
+
+    const withBackend = createRuntime("runtime-websearch-backend-available", {}, {
+      webToolsPort: {
+        search: async () => [],
+        status: () => ({ available: true, origin: "https://api.deepseek.com" }),
+      },
+    });
+    expect(withBackend.getTools(createModel()).some((tool) => tool.name === "WebSearch")).toBe(true);
+
+    const withoutBackend = createRuntime("runtime-websearch-backend-absent", {}, {
+      webToolsPort: { search: async () => [], status: () => ({ available: false }) },
+    });
+    expect(
+      withoutBackend.getTools(createModel()).some((tool) => tool.name === "WebSearch"),
+    ).toBe(false);
+  });
+
+  it("re-reads backend availability on every projection", () => {
+    // 用户中途删掉 Key 之后，下一个 turn 的工具面必须立刻回落；暴露门不得缓存 status()。
+    let available = true;
+    const runtime = createRuntime("runtime-websearch-backend-dynamic", {}, {
+      webToolsPort: { search: async () => [], status: () => ({ available }) },
+    });
+    const model = createTestRuntimeModel({
+      generateText: async () => ({ finishReason: "stop", text: "", usage: {} }),
+      propertyOverrides: { supportsNativeWebSearch: false },
+    });
+
+    expect(runtime.getTools(model).some((tool) => tool.name === "WebSearch")).toBe(true);
+    available = false;
+    expect(runtime.getTools(model).some((tool) => tool.name === "WebSearch")).toBe(false);
   });
 
   it("normalizes legacy web_search allowlist aliases to WebSearch", () => {

@@ -1,5 +1,45 @@
 # Tool Change Chain Spec
 
+## WebSearch 的 DeepSeek 后端（2026-10-20）
+
+> 本轮**只实施 WebSearch**。WebFetch 的 `builtin-first` 回退**本轮不实施**，也不写进
+> [05-webfetch.md](05-webfetch.md)；设计稿留在
+> `docs/design/v2/tool/` 之外的方案文档里，等后续单独一轮再落地。
+
+`WebSearch` 在“配置了可用 DeepSeek API Key”时启用 REST 后端；未配置时行为与改动前完全一致。
+可用性每次现读 provider registry（host 为 `api.deepseek.com` 且有非空 `access.apiKey`），
+不缓存、不新增配置项、不新增 `ZCODE_*` 环境变量。
+
+链路：
+
+```text
+bootstrap/create-app.ts
+  resolveCredential() ──▶ adapters/web-tools/deepseek-web-tools.ts
+        (providerRegistry 活视图)         │  WebToolsPort
+                                          ▼
+        AgentRuntimeDeps.webToolsPort ─▶ runtime-tools / subagent /
+            project-memory-agent / dwf actor / script child
+                                          ▼
+              ToolExecutionContext.webToolsPort ─▶ handler 分流
+```
+
+- `WebSearch`：有后端时直接调 `/v1/tools/search`，**不发起模型请求**；无后端时保留
+  provider-native 内部请求；两者都不满足时保留原 ConfigurationError。
+- `WebToolsPort` 只有 `search()` 一个方法：本轮不定义 `fetch()`，避免留下无实现、
+  无调用方的死契约。后续实施 WebFetch 回退时再扩端口。
+- `allowed_domains` / `blocked_domains` 同时用于搜索语法改写与返回结果后置过滤。
+- 429 是普通 HTTP 响应，不是 `HttpClientPortError`；退避一次后仍失败则报 `rate_limited`。
+- 结构化 output **不变**：`WebSearchOutput` 与 `WebSearchResultItem` 零改动。
+  DeepSeek 的 snippet/summary/date/authority 只进模型可见文本，避免
+  `executor/validation.ts` 拒绝 schema 未声明的字段。
+- provider-visible 文案：`WebSearch` 去掉 “US-only”；描述改为后端中立，
+  并说明启用该后端后搜索词会发送到 `api.deepseek.com`。
+
+不改：tool 权限语义、scheduler、hook、resultBudget 策略、MCP、插件、协议、数据库、
+`packages/contracts/src/config`、`packages/adapters/src/config`。
+
+详细合同见 [13-websearch.md](13-websearch.md#deepseek-rest-后端2026-10-20)。
+
 ## 自定义 Agent Memory 工具投影（2026-10-15）
 
 Runtime 从当前父轮 Agent definitions 快照派生有效工具，启动配置、注入 reader 和 Host
@@ -1037,6 +1077,8 @@ history。重点检查：
 - contract 中有 provider-native 执行模式。
 - model adapter 把它拼到 provider tool schemas，而不是普通 function tool。
 - 兼容端点必须确认支持 provider-native schema；当前只有 Anthropic provider kind 且 baseURL host 为 `bigmodel.cn`、`z.ai`、`deepseek.com` 或其子域时允许投影 `web_search_20260209`。
+  另外，配置了 DeepSeek Key 时 `WebSearch` 会先走 REST 后端而完全不产生 provider-native
+  请求；该分支由 `webToolsPort` 是否可用决定，不影响上述 allowlist 判定。
 - 如果 provider-native tool 直接进入主模型请求，runtime 不调用 ToolExecutor 执行它；
   WebSearch 不采用这条路径。
 - 如果 provider-native tool 只服务 side request，外层 client-side tool 仍必须完整经过

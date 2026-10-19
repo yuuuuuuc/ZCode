@@ -20,6 +20,8 @@ export * from "./dynamic-workflow-snippet.port.js";
 // 宿主已配置模型的只读目录：ListModels 与 dwf 的
 // `subagent_model` 解析都从这里拿「有哪些模型」。
 export * from "./model-catalog.port.js";
+// 搜索后端的外部 I/O 边界：WebSearch 有后端时不再发起模型请求。
+export * from "./web-tools.port.js";
 export * from "./automation.port.js";
 export * from "./mcp.port.js";
 export * from "./browser-control.port.js";
