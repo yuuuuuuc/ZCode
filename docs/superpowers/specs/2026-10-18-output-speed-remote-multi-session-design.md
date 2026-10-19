@@ -179,6 +179,34 @@ sequenceDiagram
 未验证：
 
 - 场景 7 的手机宽度、深浅主题、中英文视觉检查。
-- 场景 8：D3 未落地，等待多会话手工取证（计划 Task 4）后由用户确认。
+- 场景 8：取证后确认 D3 不落地（见下方 Task 4 取证记录），`MAX_BUFFERED_EVENTS` 维持 128，验收场景 8 不再适用。
 - 场景 10：需要真实 SSH 远端与已发布的同版本远程制品；macOS / Linux 远端均未实测。
 - `pnpm dev:desktop` 下陈旧 dist 触发重建的端到端日志未实跑。
+
+## Recorded validation — Task 4 多会话取证（2026-10-19 13:09–13:11，Windows 本机）
+
+前置：`node scripts/build-desktop-agent-cli.mjs` 重建 dist 与 staged bundled-agents（两份制品
+`grep -c outputTokensPerSecond` 均为 3），`pnpm dev:desktop` 启动开发版桌面 App；3 个工作区各 1 个
+会话，同时发送长回答 prompt，三路 main_turn 完全时间重叠：
+
+| 会话 | 开始(UTC) | 总时长 | 生成窗口(duration−ttft) | 输出 tokens | finish |
+| --- | --- | --- | --- | --- | --- |
+| sess_0744857b | 05:09:50 | 102.7s | 89.1s | 4492 | stop |
+| sess_ecb9c676 | 05:10:06 | 53.9s | 40.8s | 1519 | tool-calls |
+| sess_b3172fe1 | 05:10:21 | 47.6s | 36.2s | 1861 | stop |
+
+证据来源：`~/.zcode/cli/log/zcode-2026-10-19.jsonl`（debug 级 JSONL）与
+`~/.zcode/cli/db/db.sqlite` 的 `model_usage` 表。
+
+- 全日 0 条 `model.runtime.output_speed.unavailable`；该文件含 7997 条其他 debug 级消息，日志链路
+  通畅。即三路并发请求全部可测，`unavailableCounts` 为空，无 `reader_backpressure`。
+- `model_usage` 三条 main_turn 均有有效 `time_to_first_token_ms` / `duration_ms` / `output_tokens`，
+  满足 `recordMainTurnCacheHitUsage` 的可测条件。
+
+决策（计划 Task 4 分支「Task 1 之后已全部显示 → 跳过 Task 5」）：
+
+- 干净负载（未额外施加 CPU/IO 压力）下 0 个不可测样本 → R4「并发负载下计时被判
+  reader_backpressure」未被证实。D3/Task 5 不落地，`MAX_BUFFERED_EVENTS` 维持 128。
+- 局限（如实记录）：每会话仅 1 轮长 prompt；加压取证经用户决定跳过；Developer Tools 面板与速度行
+  的目测未执行，可测性由日志与 DB 交叉验证代替（面板数据源即上述聚合）。若未来重负载场景复现
+  速度缺失，可按本节方法重跑取证（session/debug 的 `outputSpeed` 诊断已可随时查看）。
