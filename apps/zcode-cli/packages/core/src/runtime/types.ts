@@ -887,18 +887,28 @@ export interface StreamedToolExecutionResult {
   toolCallId: ToolCallId;
 }
 
+/** 与 @zcode/shared 的 OUTPUT_SPEED_UNAVAILABLE_REASONS 一一对应；bootstrap 有编译期断言防漂移。 */
+export type OutputGenerationUnavailableReason =
+  | "missing_finish"
+  | "missing_output"
+  | "reader_backpressure"
+  | "unaligned_reasoning"
+  | "invalid_usage"
+  | "invalid_duration";
+
+/** 当前 runtime 主轮请求的输出速度可测性计数；只存内存，只经 session/debug 诊断查询暴露。 */
+export interface OutputSpeedDiagnostics {
+  measurableCount: number;
+  unavailableCounts: Partial<Record<OutputGenerationUnavailableReason, number>>;
+  lastUnavailableReason: OutputGenerationUnavailableReason | null;
+}
+
 export interface RuntimeModelTextResult {
   contextUsageBreakdown?: ContextUsageBreakdownItem[];
   /** 有界 reader 的首非空输出到 finish；含完整推理、正文、工具参数，不含首 token 等待。起点含 adapter 暂存回填。 */
   outputGenerationDurationMs?: number;
-  /** 不可测原因只在 runtime 内部保留；不进入 ModelComplete、UI 或历史用量。 */
-  outputGenerationUnavailableReason?:
-    | "missing_finish"
-    | "missing_output"
-    | "reader_backpressure"
-    | "unaligned_reasoning"
-    | "invalid_usage"
-    | "invalid_duration";
+  /** 仅 runtime 内部与 session/debug 诊断查询可读；不进入 ModelComplete、聊天 UI 或历史用量。 */
+  outputGenerationUnavailableReason?: OutputGenerationUnavailableReason;
   finishReason: string;
   providerMetadata?: Record<string, unknown>;
   reasoning?: ModelReasoningContentBlock[];

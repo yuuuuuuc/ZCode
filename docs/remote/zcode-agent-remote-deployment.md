@@ -342,6 +342,40 @@ include that SHA so a hash-triggered deployment cannot accidentally copy bytes
 cached under an older artifact with the same semantic version. Other
 component-cache key semantics are unchanged.
 
+## Release Prerequisites
+
+SSH remote workspaces run the GLM bundle deployed to `~/.zcode/server/agents/glm/zcode.cjs`,
+not the desktop's local Agent. Packaged builds install that bundle from the CDN manifest of the
+current App version (`installBundle` in `zcodeAgentDeploy.ts`). Agent features therefore reach
+SSH workspaces only when the remote artifacts are built from the same commit as the desktop:
+
+1. Before publishing a desktop version, run
+   `pnpm --filter @zcode/desktop prepare:remote-assets` (`scripts/prepare-prebuilds.mjs`) on the
+   same commit.
+2. Publish the linux/darwin GLM artifacts and their manifest to the CDN path read by that App
+   version. A desktop release without matching remote assets keeps SSH workspaces on the older
+   Agent; for example, a remote bundle predating the average-output-speed change never emits
+   `outputTokensPerSecond`, so the context panel hides that row only on SSH.
+3. Local debugging can use the mock CDN or the development upload path
+   (`ZCODE_RUNTIME_ENV=development`, `zcodeAgentDevDeploy.ts`), which uploads the local
+   `apps/zcode-cli/packages/cli/dist/zcode.cjs`. `scripts/build-desktop-agent-cli.mjs` only reuses
+   that dist when it is not older than any `apps/zcode-cli/packages/*/src` file; otherwise it
+   rebuilds and logs `source newer than dist/zcode.cjs, rebuilding`.
+
+Remote verification after connecting:
+
+```sh
+# 大于 0 表示远端 Agent 含平均输出速度能力
+grep -c outputTokensPerSecond ~/.zcode/server/agents/glm/zcode.cjs
+```
+
+Then complete one measurable answer and confirm the context panel shows the speed row. The
+desktop log line prefixed `[zcode-agent-deploy]` records the deployed artifact SHA.
+
+`session/debug` is parsed by the desktop with a strict schema. A newer Agent paired with an
+older desktop can fail that query (Developer Tools only); this is accepted because desktop and
+remote Agent are released from the same version.
+
 ## Resource Package Compatibility
 
 `SSHConnectOptions.resourcePackages.selectedPackageIds` is still accepted as historical input, but current connections ignore retired package choices and use the default ZCode resource set. Linux remote runtime includes `bfs`, `ripgrep`, and `ugrep`; Darwin remote only deploys its supported `ripgrep` component. Old configs cannot disable active runtime tools or re-enable third-party agent runtimes.

@@ -98,6 +98,21 @@ sum(outputTokens of measurable requests) / (sum(generationDurationMs) / 1000)
   displayed speed therefore reflects the current runtime process, not the whole session history.
 - The Developer Tools per-request TPS column stays independent: it shows one request at a time
   from the debug observation, while this panel row is the shared aggregate.
+- The v4 projection keeps the last `contextWindow.cache` when a main-turn `ModelComplete` arrives
+  without `cacheHit` (usage missing, or input/cache all zero) and when a compact succeeds; the next
+  main-turn `cacheHit` replaces it as a whole. The projection never synthesizes or recomputes the
+  value. Compact still drops `breakdown`, because source proportions are stale after compaction.
+  Sidecar `ModelComplete` events never touch the main-session cache.
+- Why a session shows no speed is visible without debug logging: each `AgentRuntime` keeps an
+  in-memory `outputSpeed` diagnostic (`measurableCount`, `unavailableCounts` by reason,
+  `lastUnavailableReason`) for main-turn requests only, using the same measurable rule as the
+  aggregate. It is exposed only through `session/debug` and the Developer Tools summary, never
+  through `ModelComplete`, persisted history, or the chat UI, and it resets with the speed
+  counters on resume/rewind. Requests with neither a duration nor a reader reason (for example
+  non-streaming responses) are not counted.
+- SSH workspaces show the row only when the remote GLM bundle was built from the same commit as
+  the desktop; see
+  [Release Prerequisites](remote/zcode-agent-remote-deployment.md#release-prerequisites).
 
 ```text
 provider adapter (reasoning provenance, deferred output lead) -> bounded reader (monotonic timing)

@@ -4858,6 +4858,10 @@ export class ProductProjection {
     this.contextWindowState.usedTokens = usedTokens;
     const maxTokens = payload.contextWindow ?? this.contextWindowState.maxTokens;
     const cumulative = this.snapshot.usage.cumulative;
+    // Bug 原因：主轮 ModelComplete 在 usage 缺失或 input/cache 全 0 时不带 cacheHit，
+    // 而 state.updated 按键整替，过去会把已显示的平均输出速度一并抹掉。
+    // Agent 侧聚合单调累计，缺失时沿用上一份即可；下一份 cacheHit 会整体覆盖。
+    const cache = payload.cacheHit ?? this.snapshot.usage.contextWindow?.cache;
     deltas.push({
       op: "state.updated",
       patch: {
@@ -4872,7 +4876,7 @@ export class ProductProjection {
                   maxTokens,
                   autoCompactThresholdTokens:
                     this.snapshot.usage.contextWindow?.autoCompactThresholdTokens ?? null,
-                  ...(payload.cacheHit ? { cache: payload.cacheHit } : {}),
+                  ...(cache ? { cache } : {}),
                   ...(payload.contextUsageBreakdown && payload.contextUsageBreakdown.length > 0
                     ? { breakdown: payload.contextUsageBreakdown }
                     : {}),
@@ -5006,6 +5010,9 @@ export class ProductProjection {
       this.contextWindowState.usedTokens = tokensAfter;
       const maxTokens =
         this.snapshot.usage.contextWindow?.maxTokens ?? this.contextWindowState.maxTokens;
+      // Bug 原因：过去重建 contextWindow 时丢掉 cache，compact 后平均输出速度消失。
+      // cache 是会话级累计聚合，不随压缩失效；breakdown 描述的是压缩前的来源比例，故不保留。
+      const cache = this.snapshot.usage.contextWindow?.cache;
       deltas.push({
         op: "state.updated",
         patch: {
@@ -5019,6 +5026,7 @@ export class ProductProjection {
                     maxTokens,
                     autoCompactThresholdTokens:
                       this.snapshot.usage.contextWindow?.autoCompactThresholdTokens ?? null,
+                    ...(cache ? { cache } : {}),
                   },
           },
         },

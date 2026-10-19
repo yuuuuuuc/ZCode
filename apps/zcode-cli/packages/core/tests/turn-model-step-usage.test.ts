@@ -2,14 +2,20 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   SessionEventType,
   createMessageId,
+  createProjectId,
   createSessionId,
   createTraceId,
   type ModelStreamEvent,
   type SessionEvent,
+  type SessionStorePort,
   type SessionTaskType,
 } from "@zcode/contracts";
 import type { AgentRuntimeInternal } from "../src/runtime/internal.js";
-import { recordMainTurnCacheHitUsage } from "../src/runtime/methods/turn-model-step-usage.js";
+import {
+  emptyOutputSpeedDiagnostics,
+  recordMainTurnCacheHitUsage,
+  recordMainTurnOutputSpeedDiagnostics,
+} from "../src/runtime/methods/turn-model-step-usage.js";
 import { createTestAgentRuntime } from "./test-agent-runtime.js";
 import { createTestSessionEventStore } from "./test-event-store.js";
 import { createTestModelFactory, createTestRuntimeModel } from "./test-runtime-model.js";
@@ -893,4 +899,210 @@ describe("main-turn output speed stream timing", () => {
       expect(complete?.payload).not.toHaveProperty("cacheHit");
     },
   );
+});
+
+describe("recordMainTurnOutputSpeedDiagnostics", () => {
+  function diagnosticsRuntime(): AgentRuntimeInternal {
+    return {
+      outputSpeedDiagnostics: emptyOutputSpeedDiagnostics(),
+    } as Pick<AgentRuntimeInternal, "outputSpeedDiagnostics"> as AgentRuntimeInternal;
+  }
+
+  it("counts measurable and unavailable requests separately and keeps the latest reason", () => {
+    const runtime = diagnosticsRuntime();
+    const usage = { inputTokens: 100, outputTokens: 100 };
+    recordMainTurnOutputSpeedDiagnostics(runtime, { usage, outputGenerationDurationMs: 1000 });
+    recordMainTurnOutputSpeedDiagnostics(runtime, {
+      usage,
+      outputGenerationUnavailableReason: "reader_backpressure",
+    });
+    recordMainTurnOutputSpeedDiagnostics(runtime, {
+      usage,
+      outputGenerationUnavailableReason: "unaligned_reasoning",
+    });
+    recordMainTurnOutputSpeedDiagnostics(runtime, {
+      usage,
+      outputGenerationUnavailableReason: "reader_backpressure",
+    });
+    expect(runtime.outputSpeedDiagnostics).toEqual({
+      measurableCount: 1,
+      unavailableCounts: { reader_backpressure: 2, unaligned_reasoning: 1 },
+      lastUnavailableReason: "reader_backpressure",
+    });
+  });
+
+  it("does not invent a reason when the reader reported neither duration nor reason", () => {
+    const runtime = diagnosticsRuntime();
+    // 非流式请求没有 reader 计时结果；不可测但也没有原因，不能编造。
+    recordMainTurnOutputSpeedDiagnostics(runtime, { usage: { outputTokens: 100 } });
+    // 与速度聚合同口径：有 duration 但 outputTokens 缺失不算可测。
+    recordMainTurnOutputSpeedDiagnostics(runtime, {
+      usage: { inputTokens: 100 },
+      outputGenerationDurationMs: 1000,
+    });
+    expect(runtime.outputSpeedDiagnostics).toEqual(emptyOutputSpeedDiagnostics());
+  });
+});
+
+describe("main-turn output speed diagnostics through executeTurn", () => {
+  function diagnosticsFixture(
+    input: {
+      backpressureOnTurn?: number;
+      sessionStore?: SessionStorePort;
+      taskType?: SessionTaskType;
+    } = {},
+  ) {
+    let clock = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => clock);
+    let turn = 0;
+    let readCount = 0;
+    const sessionId = createSessionId(`output-speed-diagnostics-${Math.random()}`);
+    const eventStore = createTestSessionEventStore();
+    const runtime = createTestAgentRuntime(
+      sessionId,
+      {
+        ...(input.taskType ? { taskType: input.taskType } : {}),
+        modelStreaming: "on",
+        titleGeneration: { enabled: false },
+        ...(input.sessionStore ? { workingDirectory: "/workspace/project" } : {}),
+      },
+      {
+        eventStore,
+        ...(input.sessionStore ? { sessionStore: input.sessionStore } : {}),
+        modelFactory: createTestModelFactory({
+          async *streamText() {
+            turn += 1;
+            clock = 0;
+            yield { type: "text_delta", text: "first" };
+            if (turn === input.backpressureOnTurn) {
+              // 超过 128 条 read-ahead 上限，配合慢写入让 bounded reader 真正等缓冲空间。
+              for (readCount = 0; readCount < 256; readCount += 1) {
+                yield { type: "text_delta", text: "token" };
+              }
+            }
+            clock = 1000;
+            yield {
+              type: "finish",
+              finishReason: "stop",
+              usage: { inputTokens: 100, outputTokens: 100 },
+            };
+          },
+        }),
+      },
+    );
+    return {
+      runtime,
+      eventStore,
+      sessionId,
+      readCount: () => readCount,
+    };
+  }
+
+  it("counts a measurable main turn", async () => {
+    const { runtime } = diagnosticsFixture();
+    await runtime.executeTurn("measure");
+    expect(runtime.getOutputSpeedDiagnostics()).toEqual({
+      measurableCount: 1,
+      unavailableCounts: {},
+      lastUnavailableReason: null,
+    });
+  });
+
+  it("records reader backpressure after a measurable turn without changing the speed", async () => {
+    const fixture = diagnosticsFixture({ backpressureOnTurn: 2 });
+    const { runtime, eventStore, sessionId } = fixture;
+    await runtime.executeTurn("measurable");
+
+    const internal = runtime as unknown as AgentRuntimeInternal;
+    const releaseWrite = Promise.withResolvers<void>();
+    const emit = internal.emitModelStreamingEvent.bind(internal);
+    vi.spyOn(internal, "emitModelStreamingEvent").mockImplementation(async (...args) => {
+      await releaseWrite.promise;
+      return emit(...args);
+    });
+    const second = runtime.executeTurn("backpressure");
+    try {
+      await vi.waitFor(() => expect(fixture.readCount()).toBeGreaterThan(100));
+    } finally {
+      releaseWrite.resolve();
+    }
+    await second;
+
+    expect(runtime.getOutputSpeedDiagnostics()).toEqual({
+      measurableCount: 1,
+      unavailableCounts: { reader_backpressure: 1 },
+      lastUnavailableReason: "reader_backpressure",
+    });
+    const speeds = (await eventStore.getEvents(sessionId))
+      .filter((event) => event.type === SessionEventType.ModelComplete)
+      .map((event) => event.payload as { cacheHit?: { outputTokensPerSecond: number | null } })
+      .map((payload) => payload.cacheHit?.outputTokensPerSecond);
+    expect(speeds).toEqual([100, 100]);
+  });
+
+  it("returns a copy that callers cannot mutate", async () => {
+    const { runtime } = diagnosticsFixture();
+    await runtime.executeTurn("measure");
+    const snapshot = runtime.getOutputSpeedDiagnostics();
+    snapshot.measurableCount = 99;
+    snapshot.unavailableCounts.reader_backpressure = 99;
+    expect(runtime.getOutputSpeedDiagnostics()).toEqual({
+      measurableCount: 1,
+      unavailableCounts: {},
+      lastUnavailableReason: null,
+    });
+  });
+
+  it("keeps two runtimes' diagnostics independent", async () => {
+    // 每个夹具各自接管 performance.now 时钟，因此第二个 runtime 在第一个跑完后再建。
+    const first = diagnosticsFixture().runtime;
+    await first.executeTurn("one");
+    await first.executeTurn("two");
+    const second = diagnosticsFixture().runtime;
+    await second.executeTurn("three");
+    expect(first.getOutputSpeedDiagnostics().measurableCount).toBe(2);
+    expect(second.getOutputSpeedDiagnostics().measurableCount).toBe(1);
+  });
+
+  it.each(["subagent_child", "workflow_child"] as const)(
+    "does not count %s requests",
+    async (taskType) => {
+      const { runtime } = diagnosticsFixture({ taskType });
+      await runtime.executeTurn("child");
+      expect(runtime.getOutputSpeedDiagnostics()).toEqual(emptyOutputSpeedDiagnostics());
+    },
+  );
+
+  it("clears the counters on resume together with the speed aggregate", async () => {
+    const sessionId = createSessionId("output-speed-diagnostics-resume");
+    const session = {
+      id: sessionId,
+      projectID: createProjectId("output-speed-diagnostics"),
+      directory: "/workspace/project",
+      slug: "output-speed",
+      title: "output speed",
+      version: "test",
+      taskType: "interactive",
+      time: { created: 1, updated: 1 },
+    };
+    const sessionStore = {
+      createSession: vi.fn(async () => session),
+      getSession: vi.fn(async () => session),
+      messages: vi.fn(async () => []),
+      sessionEntries: vi.fn(async () => []),
+      readTodos: vi.fn(async () => []),
+      readTarget: vi.fn(async () => null),
+      saveMessage: vi.fn(async () => {}),
+      savePart: vi.fn(async () => {}),
+      saveSessionEntry: vi.fn(async () => {}),
+      updateSession: vi.fn(async () => session),
+    } as unknown as SessionStorePort;
+    const { runtime } = diagnosticsFixture({ sessionStore });
+    await runtime.executeTurn("measure");
+    expect(runtime.getOutputSpeedDiagnostics().measurableCount).toBe(1);
+
+    await runtime.resumeFromStore();
+
+    expect(runtime.getOutputSpeedDiagnostics()).toEqual(emptyOutputSpeedDiagnostics());
+  });
 });
