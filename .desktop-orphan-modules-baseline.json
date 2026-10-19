@@ -2,10 +2,6 @@
   "version": 1,
   "orphans": [
     {
-      "path": "packages/desktop/src/host/remoteConnectionServiceCollection.ts",
-      "reason": "上游存量：官方 main 上也只有 hostRemoteWorkspaceServices.test.ts 引用它，生产代码没有调用方（host 侧装配走 host/index.ts 自己的服务列表）。本分支不接线也不删。"
-    },
-    {
       "path": "packages/desktop/src/main/mcpUserDirectory/claude.ts",
       "reason": "官方 main 的 mcpUserDirectory/index.ts 只读 zcode/agents 的 JSON 目录约定，Claude CLI 专用读写没有调用方。这是上游存量死代码，本分支不接线也不删。"
     },

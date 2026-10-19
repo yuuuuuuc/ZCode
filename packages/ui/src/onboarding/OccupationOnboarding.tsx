@@ -76,7 +76,6 @@ export function OccupationOnboarding({
   const [needsOnboarding, markOnboarded] = useOnboardingTrigger({
     onboardingRecord,
     userId,
-    hasStoredOccupation: Boolean(settings?.onboardingOccupation),
     loadDeviceMid,
     update,
   });

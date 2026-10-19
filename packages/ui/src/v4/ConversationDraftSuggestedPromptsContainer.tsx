@@ -10,7 +10,15 @@ import {
   unregisterRecommendedPromptPane,
 } from "@/v4/featureSuggestedPromptRotation.js";
 /* oxlint-disable eslint(max-lines) -- 推荐 Prompt 同时收口 latest-wins、取消、可信解析、操作反馈和 Composer 收尾，拆分会打散这条状态机。 */
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID } from "@zcode/shared";
 import { cn } from "@/components/lib/utils.js";
 import { toast } from "@/components/ui/toast.js";
@@ -281,7 +289,6 @@ export function ConversationDraftSuggestedPromptsContainer({
   const revalidateAndPrependPlugin = useCallback(
     async (current: DraftSuggestedPluginFlow, requestVersion: number) => {
       await invalidateDeferredDraftSessionForSkillChange({
-        zcodeSessionService: resolution.services.zcodeSessionService,
         workspacePath,
         workspaceIdentity,
         reason: "suggested-prompt-plugin-change",
@@ -302,7 +309,6 @@ export function ConversationDraftSuggestedPromptsContainer({
       isWebRemoteControl,
       prependResolvedPlugin,
       resolution.services.pluginManagementService,
-      resolution.services.zcodeSessionService,
       targetParams,
       workspaceIdentity,
       workspacePath,
@@ -420,6 +426,10 @@ export function ConversationDraftSuggestedPromptsContainer({
           let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
           const installRequest = resolution.services.pluginManagementService.installPlugin({
             ...targetParams(),
+            telemetry: {
+              entry: "recommended_prompt",
+              client_kind: isWebRemoteControl ? "mobile" : "desktop",
+            },
             pluginName: flow.result!.pluginName!,
             marketplace: flow.result!.marketplace!,
             scope: "user",
@@ -463,6 +473,10 @@ export function ConversationDraftSuggestedPromptsContainer({
             operation,
             resolution.services.pluginManagementService.setPluginEnabled({
               ...targetParams(),
+              telemetry: {
+                entry: "recommended_prompt",
+                client_kind: isWebRemoteControl ? "mobile" : "desktop",
+              },
               pluginId: flow.plugin.stableId,
               enabled: true,
               operationId: flow.operationId,
