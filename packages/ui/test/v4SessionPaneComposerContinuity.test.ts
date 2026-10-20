@@ -5,7 +5,7 @@ import type { ConversationSnapshot } from "@zcode/shared/zcode-protocol-v4";
 import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
 import { pendingCommandRegistry, type PendingCommandEntry } from "@/v4/pendingCommandRegistry.js";
-import { SessionPane } from "@/v4/SessionPane.js";
+import { SessionPane, type SessionPaneProps } from "@/v4/SessionPane.js";
 import { useModelSelectionServiceView } from "@/hooks/useModelSelectionView.js";
 
 type ProjectionState = {
@@ -522,7 +522,11 @@ function installMinimalDom() {
   return createMinimalElement(documentMock, "div");
 }
 
-function renderPane(root: Root, sessionId: string | null): void {
+function renderPane(
+  root: Root,
+  sessionId: string | null,
+  props: Partial<SessionPaneProps> = {},
+): void {
   act(() => {
     root.render(
       createElement(
@@ -532,6 +536,7 @@ function renderPane(root: Root, sessionId: string | null): void {
           paneId: "workspace-main",
           sessionId,
           workspacePath: "/workspace",
+          ...props,
         }),
       ),
     );
@@ -539,6 +544,7 @@ function renderPane(root: Root, sessionId: string | null): void {
 }
 
 beforeEach(() => {
+  servicesMock.projectService.resolveSessionDirectories.mockClear();
   sessionCreateCapture.report.mockClear();
   recoveryCapture.entries = [];
   recoveryCapture.onResend = null;
@@ -584,6 +590,35 @@ afterEach(() => {
 });
 
 describe("SessionPane composer continuity", () => {
+  it.each([
+    ["selection_side_chat", true, "parent"],
+    ["interactive", false, "session-1"],
+    ["fork", false, "session-1"],
+  ] as const)("%s 发送按自身语义解析 Recent 归属", async (_kind, selectionSideChat, ownerId) => {
+    const root = createRoot(installMinimalDom());
+    mountedRoots.push(root);
+    projectionState.current = {
+      ...projectionState.current,
+      snapshot: { ...makeDraftSnapshot(), sessionId: "session-1" },
+    };
+    servicesMock.projectService.resolveSessionDirectories.mockImplementationOnce(async (task) => {
+      if (selectionSideChat && task.taskId === "session-1")
+        throw new Error("project.remote-project-required");
+      return { ...task, projectId: null, additionalDirectories: [] };
+    });
+    renderPane(root, "session-1", { selectionSideChat, rootSessionId: "parent" });
+    await act(async () => {
+      await scrollFocus.composerProps?.onSendText("follow up");
+    });
+    expect(servicesMock.projectService.resolveSessionDirectories).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: ownerId }),
+      expect.any(String),
+    );
+    expect(conversationMock.sendCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "sendText", sessionId: "session-1" }),
+    );
+  });
+
   // 官方 session_create 上报已移除，见 docs/FRESH-BRANCH-FROM-MAIN-PLAN.md §5。
   it.skip.each(["group", "project", "session"] as const)(
     "%s 首发只在 accepted 后报告，打开和后续发送不报告",
