@@ -5,7 +5,6 @@
 - [本机出网 IPv6 被驱动阻断](memory/local-machine-ipv6-blocked.md) — WSAEACCES 全拒 IPv6；dev:desktop 卡在等 Vite，用 NODE_OPTIONS=--dns-result-order=ipv4first 绕开
 - [从 main 重开 zcode2 分支](memory/zcode2-fresh-branch-plan.md) — 放弃 ycode 修补，只做减法（去遥测 + 去强更锁）；决策已拍板，方案见 docs/FRESH-BRANCH-FROM-MAIN-PLAN.md
 - [zcode2 的门禁分工](memory/zcode2-ci-gate.md) — 本地 pre-push 只跑静态快检（verify:static），全量单测交给 CI；三个「CI 里会骗人」的坑；干净检出要先建 CLI 包；runner 的 8.3 短名会让本地全绿
-- [上下文面板平均输出速度](memory/context-panel-output-speed.md) — 走 cacheHit aggregate 链；首 token 口径、分子分母同权、resume 后从零累计；聚合解析已收敛到 shared，加字段只改一处
 - [visualize vendor 资源被 CRLF 破坏哈希](memory/visualize-vendor-crlf-hashes.md) — Windows autocrlf 换掉换行导致 vendor.py 报 hash mismatch；已在 .gitattributes 强制 LF
 - [Windows 许可证图解析锁文件](memory/windows-license-lockfile-graph.md) — 不要 spawn pnpm ls；snapshot 键不能 lastIndexOf("@")
 - [全仓架构审查已落盘](memory/architecture-review-2026-09-26.md) — docs/architecture-review-2026-09-26/ 八份文档；无 CI/6 个测试/session 契约声明漂移

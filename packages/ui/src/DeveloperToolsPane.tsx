@@ -1,10 +1,6 @@
 /* oxlint-disable eslint(max-lines) -- 开发者工具面板集中展示 token 表和网络 headers，后续继续扩展时再按区块拆分。 */
 import { ActivityIcon, BugIcon, NetworkIcon } from "lucide-react";
-import type {
-  OutputSpeedUnavailableReason,
-  SessionDebugNetworkEntry,
-  SessionDebugOutputSpeed,
-} from "@zcode/shared";
+import type { SessionDebugNetworkEntry } from "@zcode/shared";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useSessionDebug } from "@/hooks/useSessionDebug.js";
 
@@ -95,47 +91,6 @@ function HeaderDetails({
   );
 }
 
-const OUTPUT_SPEED_REASON_LABEL_IDS: Record<OutputSpeedUnavailableReason, string> = {
-  missing_finish: "developerTools.outputSpeed.reason.missing_finish",
-  missing_output: "developerTools.outputSpeed.reason.missing_output",
-  reader_backpressure: "developerTools.outputSpeed.reason.reader_backpressure",
-  unaligned_reasoning: "developerTools.outputSpeed.reason.unaligned_reasoning",
-  invalid_usage: "developerTools.outputSpeed.reason.invalid_usage",
-  invalid_duration: "developerTools.outputSpeed.reason.invalid_duration",
-};
-
-/** 解释「为什么面板没有平均输出速度」：只展示 runtime 计数，不在 UI 推算速度。 */
-function OutputSpeedSummary({
-  locale,
-  outputSpeed,
-}: {
-  locale: string;
-  outputSpeed: SessionDebugOutputSpeed;
-}) {
-  const { intl } = useZCodeIntl();
-  let unavailable = 0;
-  for (const count of Object.values(outputSpeed.unavailableCounts)) unavailable += count ?? 0;
-  const reason = outputSpeed.lastUnavailableReason;
-  return (
-    <>
-      <span>{intl.formatMessage({ id: "developerTools.outputSpeed.samples" })}</span>
-      <span className="font-mono text-foreground" data-testid="developer-tools-output-speed">
-        {intl.formatMessage(
-          { id: "developerTools.outputSpeed.samplesValue" },
-          {
-            measurable: formatNumber(locale, outputSpeed.measurableCount),
-            unavailable: formatNumber(locale, unavailable),
-          },
-        )}
-      </span>
-      <span>{intl.formatMessage({ id: "developerTools.outputSpeed.lastReason" })}</span>
-      <span className="min-w-0 break-words text-foreground" title={reason ?? undefined}>
-        {reason ? intl.formatMessage({ id: OUTPUT_SPEED_REASON_LABEL_IDS[reason] }) : "-"}
-      </span>
-    </>
-  );
-}
-
 export function DeveloperToolsPane({
   workspacePath,
   workspaceIdentity,
@@ -184,9 +139,6 @@ export function DeveloperToolsPane({
             <span className="font-mono text-foreground">
               {formatNumber(locale, debugState.cache?.totalCacheReadTokens)}
             </span>
-            {debugState.outputSpeed ? (
-              <OutputSpeedSummary locale={locale} outputSpeed={debugState.outputSpeed} />
-            ) : null}
           </div>
           <div className="overflow-auto rounded-md border border-border">
             <table className="w-full min-w-[38rem] border-collapse text-ui-xs">

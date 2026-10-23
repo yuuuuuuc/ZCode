@@ -46,7 +46,6 @@ import type {
   PendingModelChangeTimeline,
   ProviderRuntimeHeadersPort,
   MainTurnCacheHitAggregate,
-  OutputSpeedDiagnostics,
   RuntimeTurnFileChangeMap,
 } from "./types.js";
 import type { RuntimeCommandQueue } from "./command-queue.js";
@@ -149,7 +148,6 @@ export interface AgentRuntimeInternal
   latestAssistantMessageId?: MessageId;
   latestAssistantTurnId?: TurnId;
   mainTurnCacheHitAggregate: MainTurnCacheHitAggregate;
-  outputSpeedDiagnostics: OutputSpeedDiagnostics;
   currentTurnFileChanges: RuntimeTurnFileChangeMap;
   lastAssistantCompletedAtMs?: number;
   lastEmittedLocalDate?: string;

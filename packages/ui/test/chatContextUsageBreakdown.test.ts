@@ -799,50 +799,6 @@ describe("ChatContextUsage", () => {
     expect(html).toContain("4.8%");
   });
 
-  it("renders average output speed beneath the cache hit rate row", () => {
-    const html = renderToStaticMarkup(
-      createElement(ChatContextUsage, {
-        intl: {
-          // 单位走 i18n 消息，mock 把 {value} 插回 id，便于断言「数值 + 单位」来自同一条文案。
-          formatMessage: ({ id }: { id: string }, values?: Record<string, string>) =>
-            values?.value ? `${id}:${values.value}` : id,
-        },
-        locale: "en-US",
-        selectedProvider: "glm",
-        taskUsage: {
-          used: 17_000,
-          size: 1_000_000,
-          cache: { hitRate: 0.8, outputTokensPerSecond: 42.5 },
-        },
-      }),
-    );
-
-    expect(html).toContain("chat.contextUsage.outputSpeedValue:42.5");
-    // 输出速度行位于缓存命中率行之后（共享同一汇总块的 DOM 顺序）。
-    expect(html.indexOf("chat.contextUsage.cacheHitRate")).toBeLessThan(
-      html.indexOf("chat.contextUsage.outputSpeed"),
-    );
-  });
-
-  it("hides the output speed row without generation duration data", () => {
-    const html = renderToStaticMarkup(
-      createElement(ChatContextUsage, {
-        intl: {
-          formatMessage: ({ id }: { id: string }) => id,
-        },
-        locale: "en-US",
-        selectedProvider: "glm",
-        taskUsage: {
-          used: 17_000,
-          size: 1_000_000,
-          cache: { hitRate: 0.8, outputTokensPerSecond: null },
-        },
-      }),
-    );
-
-    expect(html).not.toContain("chat.contextUsage.outputSpeed");
-  });
-
   it("renders Coding Plan quota without real task context usage", () => {
     const availableProviders = [
       createCodingPlanProvider(BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan),

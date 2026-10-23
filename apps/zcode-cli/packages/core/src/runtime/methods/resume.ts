@@ -41,10 +41,7 @@ import {
   restoreWorkspaceCheckpointEntries,
   restoreWorkspaceFileRewindEntries,
 } from "./workspace-checkpoint-persistence.js";
-import {
-  emptyOutputSpeedDiagnostics,
-  mainTurnCacheHitAggregateFromMessages,
-} from "./turn-model-step-usage.js";
+import { mainTurnCacheHitAggregateFromMessages } from "./turn-model-step-usage.js";
 
 export function toScheduleState(
   this: AgentRuntimeInternal,
@@ -233,7 +230,6 @@ export async function resumeFromStore(
     activeMessages,
     persistedMessages: messages,
   });
-  this.outputSpeedDiagnostics = emptyOutputSpeedDiagnostics();
   this.turnNumber = activeMessages.filter(
     (message) => message.info.role === "user" && !message.info.summary,
   ).length;

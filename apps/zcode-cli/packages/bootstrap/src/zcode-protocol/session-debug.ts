@@ -8,24 +8,11 @@ import {
   calculateOutputTps,
   sessionDebugParamsSchema,
   zcodeTaskNetworkDebugStatusFromPayload,
-  type OutputSpeedUnavailableReason,
   type SessionDebugSnapshot,
 } from "@zcode/shared";
-import type { OutputGenerationUnavailableReason, OutputSpeedDiagnostics } from "@zcode/core";
 import { requireSession, type ZCodeProtocolAgentServerContext } from "./server-types.js";
 
-// core 原因联合与 shared 枚举任一侧增删都会让这里编译失败，防止 strict schema 拒绝新原因。
-type Exact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
-const _reasonsInSync: Exact<OutputGenerationUnavailableReason, OutputSpeedUnavailableReason> = true;
-void _reasonsInSync;
-
-// runtime 缺失（轻量 record / 单测桩）时不输出 outputSpeed。
-type SessionRecord = {
-  app: {
-    sessionId: string;
-    runtime?: { getOutputSpeedDiagnostics(): OutputSpeedDiagnostics };
-  };
-};
+type SessionRecord = { app: { sessionId: string } };
 interface Observation {
   snapshot: SessionDebugSnapshot;
   seenEvents: Set<string>;
@@ -161,10 +148,7 @@ export function observeSessionDebug(record: SessionRecord, event: SessionEvent):
 }
 
 export function readSessionDebug(record: SessionRecord): SessionDebugSnapshot {
-  const snapshot = observations.get(record)?.snapshot ?? emptySnapshot(record.app.sessionId);
-  const outputSpeed = record.app.runtime?.getOutputSpeedDiagnostics();
-  // 计数归 runtime 所有，这里每次查询现读，不复制进 observation 缓存。
-  return outputSpeed ? { ...snapshot, outputSpeed } : snapshot;
+  return observations.get(record)?.snapshot ?? emptySnapshot(record.app.sessionId);
 }
 
 export function querySessionDebug(

@@ -80,8 +80,7 @@ jobs:
       # `apps/zcode-cli` 不在根 typecheck 的工程列表里（根命令只带 packages/* 与 desktop 的
       # host/e2e 工程），CLI 侧的类型错误在 CI 里原本无人拦。用根 turbo 指向 CLI 工作区，
       # 30 个项目约 1 分钟。CLI 自己的单测暂不进门禁：`@zcode/core` 还有 35 个文件的存量
-      # 失败（Windows 路径分隔符/换行差异），整包纳入会直接红；本次改动所属的那条用例挂在
-      # 根 vitest 的 include 里（见 vitest.config.ts），随下面的 `pnpm test:unit` 跑。
+      # 失败（Windows 路径分隔符/换行差异），整包纳入会直接红。
       - name: CLI 类型检查
         run: pnpm exec turbo run typecheck --cwd apps/zcode-cli
 
@@ -112,11 +111,8 @@ jobs:
       # 的是 `dist/*`——不构建就以 ERR_MODULE_NOT_FOUND「Cannot find package
       # '@zcode/adapters/storage'」整文件失败。本机看不出来，因为 dist 早就构建过。
       # 只需 adapters 的依赖闭包（7 个项目 / 约 20 秒），不必整仓构建。
-      # `@zcode/core^...` 是 core 的依赖闭包：`apps/zcode-cli/packages/core/tests/turn-model-step-usage.test.ts`
-      # 挂在根 vitest 的 include 里（见 vitest.config.ts），它 import core 源码，链上的 `@zcode/contracts`
-      # 导出的是 `dist/*`，干净 checkout 下同样要先构建。
       - name: 构建单测依赖的 CLI 包
-        run: pnpm --filter "@zcode/adapters..." --filter "@zcode/core^..." build
+        run: pnpm --filter "@zcode/adapters..." build
 
       # 不用 test:unit:affected：见文件头第 2 条。
       - name: 单元测试

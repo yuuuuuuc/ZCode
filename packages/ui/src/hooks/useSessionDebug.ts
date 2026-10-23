@@ -3,11 +3,7 @@ import type { SessionDebugSnapshot } from "@zcode/shared";
 import { useServices } from "@/hooks/useServices.js";
 
 const REFRESH_INTERVAL_MS = 1000;
-const EMPTY_DEBUG: Omit<SessionDebugSnapshot, "sessionId"> = {
-  rounds: [],
-  networkEntries: [],
-  cache: null,
-};
+const EMPTY_DEBUG = { rounds: [], networkEntries: [], cache: null } as const;
 
 export function useSessionDebug({
   workspacePath,
