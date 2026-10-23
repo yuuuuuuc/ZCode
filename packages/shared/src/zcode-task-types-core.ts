@@ -794,8 +794,6 @@ export interface ZCodeContextCacheUsage {
   totalCacheWriteTokens?: number;
   /** Agent 归一化后返回给 app 的主轮累计平均缓存命中率；未知时为 null。 */
   hitRate: number | null;
-  /** 主轮累计平均输出速度（tok/s，累计输出 token ÷ 累计生成耗时）；无耗时数据（如 resume 恢复后）为 null。 */
-  outputTokensPerSecond?: number | null;
 }
 /** Agent 每次模型请求完成后推送的 task 累计 token 增量。 */
 export interface ZCodeTaskTokenUsageDelta {

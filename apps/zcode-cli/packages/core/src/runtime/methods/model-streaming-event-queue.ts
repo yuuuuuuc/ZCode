@@ -15,7 +15,8 @@ export function createModelStreamingEventQueue(params: {
   runtime: AgentRuntimeInternal;
   traceContext: TraceContext;
 }): ModelStreamingEventQueue {
-  const highWaterMark = params.highWaterMark ?? MODEL_STREAMING_EVENT_WRITE_HIGH_WATER_MARK;
+  const highWaterMark =
+    params.highWaterMark ?? MODEL_STREAMING_EVENT_WRITE_HIGH_WATER_MARK;
   let pendingWrites = 0;
   let tail: Promise<void> = Promise.resolve();
   let writeFailure: unknown;
@@ -48,7 +49,11 @@ export function createModelStreamingEventQueue(params: {
           if (writeFailure) {
             return;
           }
-          await params.runtime.emitModelStreamingEvent(payload, params.traceContext, params.events);
+          await params.runtime.emitModelStreamingEvent(
+            payload,
+            params.traceContext,
+            params.events,
+          );
         })
         .catch((error: unknown) => {
           writeFailure ??= error;

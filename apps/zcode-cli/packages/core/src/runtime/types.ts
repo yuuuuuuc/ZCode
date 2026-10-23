@@ -283,10 +283,6 @@ export interface MainTurnCacheHitAggregate {
   totalInputTokens: number;
   totalCacheReadTokens: number;
   totalCacheWriteTokens: number;
-  /** 主轮累计输出 token 数；用于计算累计平均输出速度。 */
-  totalOutputTokens: number;
-  /** 可测主轮累计生成耗时（消费首非空输出到 provider finish，毫秒）；resume 恢复时从 0 重新累计。 */
-  totalGenerationDurationMs: number;
 }
 
 export type BackgroundTaskNotificationSealReason = "subagent_terminal" | "subagent_cancelled";
@@ -902,28 +898,8 @@ export interface StreamedToolExecutionResult {
   toolCallId: ToolCallId;
 }
 
-/** 与 @zcode/shared 的 OUTPUT_SPEED_UNAVAILABLE_REASONS 一一对应；bootstrap 有编译期断言防漂移。 */
-export type OutputGenerationUnavailableReason =
-  | "missing_finish"
-  | "missing_output"
-  | "reader_backpressure"
-  | "unaligned_reasoning"
-  | "invalid_usage"
-  | "invalid_duration";
-
-/** 当前 runtime 主轮请求的输出速度可测性计数；只存内存，只经 session/debug 诊断查询暴露。 */
-export interface OutputSpeedDiagnostics {
-  measurableCount: number;
-  unavailableCounts: Partial<Record<OutputGenerationUnavailableReason, number>>;
-  lastUnavailableReason: OutputGenerationUnavailableReason | null;
-}
-
 export interface RuntimeModelTextResult {
   contextUsageBreakdown?: ContextUsageBreakdownItem[];
-  /** 有界 reader 的首非空输出到 finish；含完整推理、正文、工具参数，不含首 token 等待。起点含 adapter 暂存回填。 */
-  outputGenerationDurationMs?: number;
-  /** 仅 runtime 内部与 session/debug 诊断查询可读；不进入 ModelComplete、聊天 UI 或历史用量。 */
-  outputGenerationUnavailableReason?: OutputGenerationUnavailableReason;
   finishReason: string;
   providerMetadata?: Record<string, unknown>;
   reasoning?: ModelReasoningContentBlock[];

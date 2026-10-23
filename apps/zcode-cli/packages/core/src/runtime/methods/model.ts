@@ -23,7 +23,6 @@ import { createModelStreamingEventQueue } from "./model-streaming-event-queue.js
 import { getOrCreateReasoningBlock } from "./reasoning-stream.js";
 import { createRefreshRuntimeHeadersBeforeModelAttempt } from "./model-runtime-headers.js";
 import { isOutputTokenLimitFinishReason } from "./turn-output-token-continuation.js";
-import { createTimedModelStream } from "./model-output-timing.js";
 
 const TOOL_INPUT_STREAM_DELTA_FALLBACK_FLUSH_CHARS = 4096;
 
@@ -226,20 +225,12 @@ export async function runModelTextRequest(
     }
   };
 
-  const streamAbortController = new AbortController();
-  const streamSignal = modelRequest.abortSignal
-    ? AbortSignal.any([modelRequest.abortSignal, streamAbortController.signal])
-    : streamAbortController.signal;
-  const modelStream = createTimedModelStream(
-    runWithModelInvocationContext(modelInvocationContext, () =>
-      model.streamText({ ...modelRequest, abortSignal: streamSignal }),
-    ),
-    streamAbortController,
-    streamSignal,
+  const modelStream = runWithModelInvocationContext(modelInvocationContext, () =>
+    model.streamText(modelRequest),
   );
   finishAssembly();
   try {
-    for await (const event of modelStream.events()) {
+    for await (const event of modelStream) {
       switch (event.type) {
         case "start": {
           await enqueueStreamingEvent({
@@ -517,17 +508,8 @@ export async function runModelTextRequest(
     });
   }
 
-  const outputTiming = modelStream.result();
-  if (outputTiming.outputGenerationUnavailableReason) {
-    this.logger?.debug("Model output speed is unavailable", {
-      ...traceContextToLogContext(options.traceContext),
-      event: "model.runtime.output_speed.unavailable",
-      reason: outputTiming.outputGenerationUnavailableReason,
-    });
-  }
   return {
     ...(contextUsageBreakdown.length > 0 ? { contextUsageBreakdown } : {}),
-    ...outputTiming,
     finishReason,
     providerMetadata,
     reasoning: reasoning.length > 0 ? reasoning : undefined,

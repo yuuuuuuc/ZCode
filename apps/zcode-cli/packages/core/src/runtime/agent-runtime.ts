@@ -73,10 +73,6 @@ import type {
   TurnId,
 } from "./deps.js";
 import { installAgentRuntimeMethods } from "./methods/index.js";
-import {
-  copyOutputSpeedDiagnostics,
-  emptyOutputSpeedDiagnostics,
-} from "./methods/turn-model-step-usage.js";
 import type { StartSavedWorkflowRunResult } from "./methods/dynamic-workflow-run-start.js";
 import type {
   AmendWorkflowRunSettingsInput,
@@ -119,7 +115,6 @@ import type {
   PendingModelChangeTimeline,
   PermissionDecisionResult,
   MainTurnCacheHitAggregate,
-  OutputSpeedDiagnostics,
   RuntimeTurnFileChangeMap,
   ResumeSessionOptions,
   ResumeSessionResult,
@@ -241,10 +236,7 @@ export class AgentRuntime {
     totalInputTokens: 0,
     totalCacheReadTokens: 0,
     totalCacheWriteTokens: 0,
-    totalOutputTokens: 0,
-    totalGenerationDurationMs: 0,
   };
-  private outputSpeedDiagnostics: OutputSpeedDiagnostics = emptyOutputSpeedDiagnostics();
   private currentTurnFileChanges: RuntimeTurnFileChangeMap = new Map();
   private lastAssistantCompletedAtMs?: number;
   private lastEmittedLocalDate?: string;
@@ -390,11 +382,6 @@ export class AgentRuntime {
         event: "browser.session_cleanup.failed",
       });
     }
-  }
-
-  /** session/debug 诊断查询用：当前 runtime 主轮输出速度的可测 / 不可测计数副本。 */
-  getOutputSpeedDiagnostics(): OutputSpeedDiagnostics {
-    return copyOutputSpeedDiagnostics(this.outputSpeedDiagnostics);
   }
 
   beginShutdown(): void {

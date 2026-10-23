@@ -138,28 +138,6 @@ export function formatContextCacheHitRateLabel(
   }).format(Math.max(0, hitRate));
 }
 
-/**
- * 主轮累计平均输出速度的**数值部分**（按 locale 格式化，最多一位小数）。
- * 无耗时数据（如 resume 恢复后）或零速时返回 null，整行不展示。
- * 单位 tok/s 走 i18n（`chat.contextUsage.outputSpeedValue`），不在这里拼字符串——
- * 面板是双语的，单位跟着文案一起本地化，避免中文界面出现 `平均输出速度 42.5 tok/s` 这种混排。
- */
-export function formatContextOutputSpeedValue(
-  outputTokensPerSecond: number | null | undefined,
-  locale: string,
-): string | null {
-  if (
-    outputTokensPerSecond === null ||
-    outputTokensPerSecond === undefined ||
-    !Number.isFinite(outputTokensPerSecond) ||
-    outputTokensPerSecond <= 0
-  ) {
-    return null;
-  }
-
-  return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(outputTokensPerSecond);
-}
-
 function getBreakdownToneStyle(index: number): CSSProperties {
   return {
     backgroundColor:
@@ -293,7 +271,7 @@ export function ChatContextUsage({
   taskUsage: {
     used: number;
     size: number;
-    cache?: { hitRate: number | null; outputTokensPerSecond?: number | null };
+    cache?: { hitRate: number | null };
     breakdown?: ZCodeContextUsageBreakdownItem[];
   } | null;
   selectedProvider: ZCodeProvider;
@@ -899,18 +877,6 @@ export function ChatContextUsage({
       },
     );
   }, [locale, renderableTaskUsage]);
-  // 刻意**不设生产阈值**，与相邻的命中率行不同：命中率低于 0.78 时隐藏是为了不干扰
-  // 「上下文容量」这个主信息（见 formatContextCacheHitRateLabel 的 showBelowThreshold），
-  // 而输出速度没有「好/坏」阈值可判，除缺失与零速外都值得看，所以有可测样本就展示。
-  const outputSpeedLabel = useMemo(() => {
-    const value = formatContextOutputSpeedValue(
-      renderableTaskUsage?.cache?.outputTokensPerSecond,
-      locale,
-    );
-    return value === null
-      ? null
-      : intl.formatMessage({ id: "chat.contextUsage.outputSpeedValue" }, { value });
-  }, [intl, locale, renderableTaskUsage]);
   const breakdownSegments = useMemo(
     () => buildContextUsageBreakdownSegments(renderableTaskUsage?.breakdown),
     [renderableTaskUsage?.breakdown],
@@ -1053,9 +1019,7 @@ export function ChatContextUsage({
             </div>
           ) : null}
           {renderableTaskUsage &&
-          (breakdownSegments.length > 0 ||
-            cacheHitRateLabel ||
-            outputSpeedLabel) ? (
+          (breakdownSegments.length > 0 || cacheHitRateLabel) ? (
             <>
               {breakdownSegments.length > 0 ? (
                 <div
@@ -1089,38 +1053,22 @@ export function ChatContextUsage({
                   </div>
                 </div>
               ) : null}
-              {cacheHitRateLabel || outputSpeedLabel ? (
+              {cacheHitRateLabel ? (
                 <div
                   className={cn(
-                    "space-y-1.5",
+                    "flex items-center justify-between gap-3 text-ui-sm",
                     breakdownSegments.length > 0 &&
                       "border-t border-border pt-3",
                   )}
                 >
-                  {cacheHitRateLabel ? (
-                    <div className="flex items-center justify-between gap-3 text-ui-sm">
-                      <span className="text-foreground-subtle">
-                        {intl.formatMessage({
-                          id: "chat.contextUsage.cacheHitRate",
-                        })}
-                      </span>
-                      <span className="font-mono text-ui-sm text-foreground">
-                        {cacheHitRateLabel}
-                      </span>
-                    </div>
-                  ) : null}
-                  {outputSpeedLabel ? (
-                    <div className="flex items-center justify-between gap-3 text-ui-sm">
-                      <span className="text-foreground-subtle">
-                        {intl.formatMessage({
-                          id: "chat.contextUsage.outputSpeed",
-                        })}
-                      </span>
-                      <span className="font-mono text-ui-sm text-foreground">
-                        {outputSpeedLabel}
-                      </span>
-                    </div>
-                  ) : null}
+                  <span className="text-foreground-subtle">
+                    {intl.formatMessage({
+                      id: "chat.contextUsage.cacheHitRate",
+                    })}
+                  </span>
+                  <span className="font-mono text-ui-sm text-foreground">
+                    {cacheHitRateLabel}
+                  </span>
                 </div>
               ) : null}
             </>

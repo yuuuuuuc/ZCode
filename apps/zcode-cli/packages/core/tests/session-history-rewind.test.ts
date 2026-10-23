@@ -182,9 +182,6 @@ describe("session history rewind hydration", () => {
       totalInputTokens: 100,
       totalCacheReadTokens: 80,
       totalCacheWriteTokens: 10,
-      // 持久化消息没有生成耗时，恢复路径的输出速度累计从 0 重新开始。
-      totalOutputTokens: 0,
-      totalGenerationDurationMs: 0,
     });
   });
 
@@ -239,8 +236,6 @@ describe("session history rewind hydration", () => {
       totalInputTokens: 300,
       totalCacheReadTokens: 180,
       totalCacheWriteTokens: 30,
-      totalOutputTokens: 0,
-      totalGenerationDurationMs: 0,
     });
   });
 

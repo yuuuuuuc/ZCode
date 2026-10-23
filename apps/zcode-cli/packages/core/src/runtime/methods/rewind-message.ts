@@ -40,10 +40,7 @@ import type {
 } from "../types.js";
 import type { AgentRuntimeInternal } from "../internal.js";
 import { rebuildContextPrefix } from "./context-refresh.js";
-import {
-  emptyOutputSpeedDiagnostics,
-  mainTurnCacheHitAggregateFromMessages,
-} from "./turn-model-step-usage.js";
+import { mainTurnCacheHitAggregateFromMessages } from "./turn-model-step-usage.js";
 
 export async function rewindToMessage(
   this: AgentRuntimeInternal,
@@ -731,7 +728,6 @@ async function rebuildConversationDerivedState(
     activeMessages,
     persistedMessages: options.persistedMessages,
   });
-  this.outputSpeedDiagnostics = emptyOutputSpeedDiagnostics();
   this.turnNumber = activeMessages.filter(
     (message) => message.info.role === "user" && !message.info.summary,
   ).length;
