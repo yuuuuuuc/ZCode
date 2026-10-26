@@ -747,6 +747,10 @@ global:
   acceptedUpstreamSnapshot: scripts/architecture/upstream-snapshot.json
 
 exceptions:
+  - id: disable-marketing-touch-existing-service
+    rule: unmanaged-new-file
+    paths: [packages/services/src/marketing-touch/marketingTouchService.ts]
+    reason: 已有营销服务是唯一官方投放出口；本次只让 query 返回空投放、report 不再发请求，工厂签名和模块边界不变。Start Plan 领取不在此文件。接管整个 services 包不在本次范围内。
   - id: side-pane-full-view-shortcut-command-edit
     rule: unmanaged-new-file
     paths: [packages/shared/src/shortcutCommands.ts]

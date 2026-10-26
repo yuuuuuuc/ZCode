@@ -1,5 +1,9 @@
 # 活动展示控制器契约
 
+官方投放已阻断：服务查询只返回空 `deliveries`，不再访问 `/api/v1/marketing/touch`。控制器在没有投放时不展示、不上报。下面的动作顺序只在调用方自行注入投放时成立。
+
+
+
 `createMarketingTouchController` 是同步工厂。每个控制器独占其 banner/dialog、generation、待展示资源与动作状态。查询、准备、上报、执行和刷新由调用方注入；UI 观察同一个 store，不另存已确认活动列表。
 
 ```text

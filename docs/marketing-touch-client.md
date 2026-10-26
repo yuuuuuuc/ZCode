@@ -1,5 +1,14 @@
 # Marketing Touch 客户端接入
 
+## 官方投放已阻断（2026-10-23）
+
+`createMarketingTouchService` 不再请求 `GET /api/v1/marketing/touch` 和 `POST /api/v1/marketing/touch/action`。查询固定返回空投放，上报直接成功，不携带设备号、语言或登录令牌。界面轮询仍调用本服务，但没有 Banner、弹窗和远程素材下载。`POST /api/v1/zcode-plan/billing/claim` 不在这条链路里，保持原样。
+
+```text
+UI 轮询 → MarketingTouchService.query → 空 deliveries（无网络）
+用户动作上报 → MarketingTouchService.report → 立即成功（无网络）
+```
+
 ## Banner hover 桥接（2026-09-15）
 
 Banner iframe 保留 pointer-events:none、inert、不可聚焦及忽略包内 action。App Banner 是 hover 唯一 owner：鼠标移入/移出整块 Banner，经已有 `zcode-cloud-hero-v1` 发送 `{type:"hover",instanceId,hovered:boolean}`；不发送坐标、点击或业务事件，不改服务端投放字段。
