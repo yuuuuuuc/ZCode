@@ -1,6 +1,6 @@
 /* eslint-disable max-lines -- Desktop renderer bridge 聚合平台、远端 attachment 与启动编排契约。 */
 import { DatabaseStartupAdmission } from "./databaseStartupAdmission.js";
-import { initializeDesktopLocalTtft } from "./localTtftBootstrap.js";
+import { initializeDesktopLocalTtft } from "./local-ttft/contract.js";
 import { createRoot } from "react-dom/client";
 import { useEffect } from "react";
 import {
@@ -317,6 +317,7 @@ function initializeBusinessRoot(port: MessagePort): void {
   appInitialized = true;
   const services = connectViaMessagePort(port, {
     sourceServerManagementService: true,
+    deviceSyncStateService: true,
   });
   baseServicesForRemoteSessions = services;
   registerBaseWorkspaceServices(services);

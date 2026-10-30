@@ -213,6 +213,7 @@ export class WebRemoteControlDeviceTransport {
         return;
       const payload = parseWebRemoteControlAppPayload(value);
       if (payload) this.options.onPayload(payload);
+      else this.options.onUnrecognizedPayload?.(value);
     }
   }
 

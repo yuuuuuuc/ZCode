@@ -23,6 +23,10 @@ import type {
   WebRemoteControlReconnectWorkspaceRequest,
   WebRemoteControlWorkspaceTarget,
 } from "./web-remote-control.js";
+import type {
+  WebRemoteControlRendererActionRequest,
+  WebRemoteControlRendererActionResult,
+} from "#src/web-remote-relay/index.js";
 import type { AppSettings, Locale } from "./protocol.js";
 import type {
   RendererActionTraceBatchV1,
@@ -221,6 +225,21 @@ export interface EditorInfo {
   iconDataUrl: string;
 }
 
+/** 系统对当前文件类型注册的应用；id 仅由宿主解析，不能当作命令执行。 */
+export interface FileApplicationInfo {
+  id: string;
+  name: string;
+  iconDataUrl?: string;
+  isDefault: boolean;
+}
+
+export interface FileApplicationTarget {
+  path: string;
+  pathKind: "file" | "directory";
+  workspaceIdentity?: string;
+  remoteTarget?: OpenInEditorRemoteTarget;
+}
+
 export interface ApplicationIconInfo {
   iconDataUrl: string;
 }
@@ -291,6 +310,7 @@ export type SaveFileRequest =
     };
 
 export interface SaveFileResult {
+  /** 桌面表示已写入文件；Web 仅表示已将下载交给浏览器，不确认最终落盘。 */
   canceled?: boolean;
   error?: string;
   path?: string;
@@ -623,6 +643,21 @@ export type BindRemoteWorkspaceSessionContextIpcResult =
       retryable?: boolean;
     };
 
+/**
+ * 把 bind IPC 的结构化结果还原成成功结果，或带 code/retryable 的 Error。
+ * Bug 原因：preload 抛出的 Error 跨 contextBridge 会丢失自定义属性，renderer 只剩 message；
+ * 必须由 preload 原样返回结构化结果，在 renderer 一侧调用本函数。
+ */
+export function unwrapRemoteWorkspaceBindResult(
+  result: BindRemoteWorkspaceSessionContextIpcResult,
+): BindRemoteWorkspaceSessionContextResult {
+  if (result.success) return result.result;
+  const error = new Error(result.error) as Error & { code?: string; retryable?: boolean };
+  if (result.reasonCode) error.code = result.reasonCode;
+  if (result.retryable !== undefined) error.retryable = result.retryable;
+  throw error;
+}
+
 export const DesktopCommandIds = {
   NewTask: "newTask",
   OpenWorkspace: "openWorkspace",
@@ -642,6 +677,7 @@ export const DesktopCommandIds = {
   OpenFeedback: "openFeedback",
   OpenCommunity: "openCommunity",
   ExportLogs: "exportLogs",
+  PullMobileLogs: "pullMobileLogs",
   ToggleDevTools: "toggleDevTools",
   OpenResourceManager: "openResourceManager",
   ToggleZCodeStdioTapDevProxy: "toggleZCodeStdioTapDevProxy",
@@ -704,7 +740,7 @@ export interface IPlatformService {
   /** 打开系统多文件选择框，返回选中的文件路径；取消时返回空数组 */
   selectFiles?(): Promise<string[]>;
 
-  /** 使用宿主原生另存为对话框写入文件；普通 Web 端不实现 */
+  /** 桌面通过原生另存为对话框写入；Web 在当前浏览器发起下载。 */
   saveFile?(payload: SaveFileRequest): Promise<SaveFileResult>;
 
   /**
@@ -908,7 +944,7 @@ export interface IPlatformService {
   ): () => void;
   /** Renderer → Main：发送已结束的 ui_action batch；严格旁路、fire-and-forget。 */
   reportRendererActionTraceBatch?(batch: RendererActionTraceBatchV1): void;
-  reportLocalTtftBatch?(batch: import("./localTtft.js").LocalTtftBatch): void;
+  reportLocalTtftBatch?(batch: import("./local-ttft/contract.js").LocalTtftBatch): void;
 
   /**
    * Renderer → Main：主窗口 renderer 每 60 秒的 heap 读数，进 `renderer_main` 角色事件。单向 send、fire-and-forget；
@@ -927,6 +963,13 @@ export interface IPlatformService {
     handler: (
       request: WebRemoteControlReconnectWorkspaceRequest,
     ) => Promise<WebRemoteControlReconnectWorkspaceResult>,
+  ): () => void;
+
+  /** 注册手机远控动作（置顶/归档/新建本地项目）的回调，返回 disposer；Web fallback 不实现 */
+  onWebRemoteControlRendererAction?(
+    handler: (
+      request: WebRemoteControlRendererActionRequest,
+    ) => Promise<WebRemoteControlRendererActionResult>,
   ): () => void;
 
   /** 同步当前窗口的未读 task 数给宿主环境，用于 Dock / 任务栏徽标聚合 */
@@ -976,6 +1019,9 @@ export interface IPlatformService {
     request: EmbeddedBrowserSitePermissionResetRequest,
   ): Promise<EmbeddedBrowserSitePermissionsSnapshot>;
   /** 注册 agent 首次 browser 命令建好受控 view 的回调（自动开 browser-use tab），返回 disposer */
+  onBrowserViewDownloadStarted?(
+    handler: (payload: { webContentsId: number; urls: string[] }) => void,
+  ): () => void;
   onBrowserViewReady?(
     handler: (payload: {
       workspaceKey: string;
@@ -1185,6 +1231,15 @@ export interface IPlatformService {
 
   /** 获取已安装编辑器/终端；传文件路径时追加匹配类型的本机应用（含图标）。 */
   getInstalledEditors(filePath?: string): Promise<EditorInfo[]>;
+
+  /** 本机文件的系统关联应用；Web/远端/目录不提供本机应用。 */
+  getFileApplications?(target: FileApplicationTarget): Promise<FileApplicationInfo[]>;
+
+  /** 重新确认系统关联后，使用该应用打开本机文件。 */
+  openFileWithApplication?(
+    applicationId: string,
+    target: FileApplicationTarget,
+  ): Promise<{ success: boolean; error?: string }>;
 
   /** 用指定编辑器打开路径 */
   openInEditor(

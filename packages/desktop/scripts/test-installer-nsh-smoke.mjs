@@ -101,6 +101,8 @@ function compileFixture({
 }) {
   const args = [
     "/V2",
+    "/INPUTCHARSET",
+    "UTF8",
     ...(buildUninstaller ? ["/WX", "/DBUILD_UNINSTALLER"] : []),
     `/DNSIS_INCLUDE_DIR=${resolve(nsisDir, "Include")}`,
     `/DELECTRON_BUILDER_NSIS_INCLUDE_DIR=${resolve(appBuilderLibDir, "templates/nsis/include")}`,
