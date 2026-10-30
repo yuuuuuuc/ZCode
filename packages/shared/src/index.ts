@@ -172,6 +172,7 @@ export {
 } from "./telemetry.js";
 export * from "./remoteUsageTelemetry.js";
 export * from "./sessionCreateTelemetry.js";
+export { compareSemverVersions } from "./semver.js";
 export type { LaunchMarks } from "./launchMarks.js";
 export { LAUNCH_MARKS_QUERY_KEY, parseLaunchMarks, serializeLaunchMarks } from "./launchMarks.js";
 export type {

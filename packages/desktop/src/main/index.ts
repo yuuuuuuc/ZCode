@@ -39,6 +39,7 @@ import {
   ipcMain,
   MessageChannelMain,
   nativeImage,
+  powerMonitor,
   protocol,
   session,
   shell,

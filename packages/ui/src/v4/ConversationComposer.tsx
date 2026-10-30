@@ -4,7 +4,6 @@ import {
   WorkspaceMcpPendingIndicator,
 } from "@/v4/WorkspaceHookPendingBanner.js";
 import { StoreContext } from "@/store/StoreProvider.js";
-import { toTelemetryUiMode } from "@/lib/appTelemetry.js";
 import { ComposerSubmissionPendingContext } from "@/project-sidebar/index.js";
 /* oxlint-disable eslint(max-lines) -- composer 集中收口输入区 wiring（附件/草稿/历史/mention），拆分会打散收口粒度。 */
 import { useRemoteProjectReconnect } from "@/hooks/RemoteProjectPresentationContext.js";
@@ -203,7 +202,7 @@ import {
 import { WebElementContextAttachmentChip } from "@/v4/composer/WebElementContextAttachmentChip.js";
 import { ConversationSelectionReferenceChip } from "@/v4/composer/ConversationSelectionReferenceChip.js";
 import type { AttachmentPutFn } from "@/v4/composer/attachmentUpload.js";
-import type { ComposerSendTimingSeed } from "@/v4/telemetry/localTtftRecord.js";
+import type { ComposerSendTimingSeed } from "@/v4/telemetry/local-ttft/localTtftRecord.js";
 import type { ComposerSubmissionConfig } from "@/v4/composer/composerSubmissionConfig.js";
 import { pendingCommandRegistry } from "@/v4/pendingCommandRegistry.js";
 import {
@@ -1818,9 +1817,8 @@ function ConversationComposerImpl({
     ],
   );
 
-  const handleUserInputClear = useCallback(() => {
-    conversationTelemetry?.resetComposerInputStart();
-  }, [conversationTelemetry]);
+  // zcode2：官方会话遥测已移除，onUserInputClear/Start 不再接 conversationTelemetry。
+  const handleUserInputClear = useCallback(() => {}, []);
 
   const handleUserInputPresenceChange = useCallback(
     (presence: { raw: boolean; trimmed: boolean }) => {
@@ -1834,9 +1832,7 @@ function ConversationComposerImpl({
     [],
   );
 
-  const handleUserInputStart = useCallback(() => {
-    conversationTelemetry?.recordComposerInputStart();
-  }, [conversationTelemetry]);
+  const handleUserInputStart = useCallback(() => {}, []);
 
   // Lexical onChange（首字符也稳定回传，见 LexicalChatInput.TextContentPlugin）。
   const handleEditorChange = useCallback(

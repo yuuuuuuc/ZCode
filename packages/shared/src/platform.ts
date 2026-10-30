@@ -28,6 +28,13 @@ import type {
   WebRemoteControlRendererActionResult,
 } from "#src/web-remote-relay/index.js";
 import type { AppSettings, Locale } from "./protocol.js";
+// zcode2 偏离：官方遥测上报已移除；接口键降级为可选，实现侧缺省/ no-op，
+// 旧 renderer 与上游新代码的调用链保持类型成立（通道保留策略，见 UPSTREAM.md）。
+import type {
+  ArmsCustomEventPayload,
+  RendererTelemetryEventPayload,
+  TelemetryRendererContext,
+} from "./telemetry.js";
 import type {
   RendererActionTraceBatchV1,
   RendererActionTraceConfigV1,
@@ -935,6 +942,15 @@ export interface IPlatformService {
 
   /** 触发任务状态对应的系统通知，由宿主环境决定是否真正展示 */
   showTaskNotification(payload: TaskNotificationPayload): void;
+
+  /** 同步当前 UI 上下文；zcode2 已移除官方遥测，实现可缺省。 */
+  syncTelemetryContext?(context: TelemetryRendererContext): void;
+
+  /** 通过宿主环境统一上报 UI 侧 telemetry 事件；zcode2 侧为 no-op 通道。 */
+  reportTelemetryEvent?(payload: RendererTelemetryEventPayload): Promise<void>;
+
+  /** 通过宿主环境上报 ARMS 自定义事件；zcode2 侧为 no-op 通道。 */
+  reportArmsCustomEvent?(payload: ArmsCustomEventPayload): Promise<void>;
 
   /** 读取 Desktop Renderer 用户操作 Trace 的当前灰度配置；Web/手机不实现。 */
   getRendererActionTraceConfig?(): Promise<RendererActionTraceConfigV1>;

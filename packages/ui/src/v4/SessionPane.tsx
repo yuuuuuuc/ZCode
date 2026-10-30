@@ -287,7 +287,7 @@ import type {
 } from "@/v4/legacyChatViewTypes.js";
 import type { SessionLease } from "@/v4/sessionDataLayer.js";
 import { V4InteractionDialogs } from "@/v4/V4InteractionDialogs.js";
-import type { ComposerSendTimingSeed } from "@/v4/telemetry/localTtftRecord.js";
+import type { ComposerSendTimingSeed } from "@/v4/telemetry/local-ttft/localTtftRecord.js";
 import {
   parseV4VisibleSlashCommand,
   parseSelectionSideSlashCommand,

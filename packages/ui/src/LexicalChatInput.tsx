@@ -41,6 +41,9 @@ import {
   KEY_ARROW_UP_COMMAND,
   KEY_BACKSPACE_COMMAND,
   COMMAND_PRIORITY_HIGH,
+  COMMAND_PRIORITY_LOW,
+  COMPOSITION_END_COMMAND,
+  COMPOSITION_START_COMMAND,
   KEY_ENTER_COMMAND,
   type EditorState,
   type LexicalEditor,
@@ -65,6 +68,11 @@ export interface ChatComposerPasteEvent {
   clipboardData: DataTransfer | null;
   preventDefault: () => void;
   stopPropagation?: () => void;
+}
+
+export interface UserInputPresence {
+  raw: boolean;
+  trimmed: boolean;
 }
 
 export interface LexicalChatInputHandle {
@@ -802,6 +810,40 @@ function KeyboardPlugin({
   return null;
 }
 
+export function shouldRecordUserInputStart(tags: ReadonlySet<string>): boolean {
+  return !tags.has(PROGRAMMATIC_UPDATE_TAG) && !tags.has(HISTORY_NAVIGATION_UPDATE_TAG);
+}
+
+interface TextContentPublicationState {
+  lastPublishedText: string;
+  pendingComposition: boolean;
+}
+
+export function resolveTextContentPublication(params: {
+  composing: boolean;
+  nextText: string;
+  state: TextContentPublicationState;
+}): { publish: string | null; state: TextContentPublicationState } {
+  if (params.composing) {
+    return {
+      publish: null,
+      state: { ...params.state, pendingComposition: true },
+    };
+  }
+  if (params.nextText === params.state.lastPublishedText) {
+    return {
+      publish: null,
+      state: params.state.pendingComposition
+        ? { ...params.state, pendingComposition: false }
+        : params.state,
+    };
+  }
+  return {
+    publish: params.nextText,
+    state: { lastPublishedText: params.nextText, pendingComposition: false },
+  };
+}
+
 /**
  * 文本变化插件
  *
@@ -811,30 +853,148 @@ function KeyboardPlugin({
  */
 function TextContentPlugin({
   onChange,
+  onUserInputClear,
+  onUserInputPresenceChange,
+  onUserInputStart,
+  taskId,
 }: {
   onChange?: (text: string) => void;
+  onUserInputClear?: () => void;
+  onUserInputPresenceChange?: (presence: UserInputPresence) => void;
+  onUserInputStart?: () => void;
+  taskId?: string | null;
 }) {
   const [editor] = useLexicalComposerContext();
+  // IME 组合态标记:不直接依赖 editor.isComposing(),因为它在 update listener 同步执行时
+  // 是否已反映组合态存在时序不确定性,读不到 true 会把中文/日文长文本组合的高耗时误报成打字卡顿。
+  // 改由 compositionstart/compositionend 事件自行维护,稳健可控。
+  const composingRef = useRef(false);
+  const compositionEndFrameRef = useRef<number | null>(null);
+  const publicationRef = useRef<TextContentPublicationState | null>(null);
+  if (!publicationRef.current) {
+    publicationRef.current = {
+      lastPublishedText: getEditorMarkdown(editor.getEditorState()),
+      pendingComposition: false,
+    };
+  }
+
+  const publishEditorState = useCallback(() => {
+    if (!onChange || composingRef.current) return false;
+    const nextText = getEditorMarkdown(editor.getEditorState());
+    onUserInputPresenceChange?.({
+      raw: nextText.length > 0,
+      trimmed: nextText.trim().length > 0,
+    });
+    const publication = resolveTextContentPublication({
+      composing: false,
+      nextText,
+      state: publicationRef.current!,
+    });
+    publicationRef.current = publication.state;
+    if (publication.publish === null) return false;
+    onChange(publication.publish);
+    return true;
+  }, [editor, onChange, onUserInputPresenceChange]);
+
+  useEffect(() => {
+    const startComposition = () => {
+      composingRef.current = true;
+      publicationRef.current = {
+        ...publicationRef.current!,
+        pendingComposition: true,
+      };
+      if (compositionEndFrameRef.current !== null) {
+        cancelAnimationFrame(compositionEndFrameRef.current);
+        compositionEndFrameRef.current = null;
+      }
+    };
+    const finishComposition = () => {
+      composingRef.current = false;
+      if (compositionEndFrameRef.current !== null) {
+        cancelAnimationFrame(compositionEndFrameRef.current);
+      }
+      // Chrome 在 compositionend 前已处理 input；Firefox/Safari 可能在随后处理。
+      // 下一帧只作跨浏览器兜底；真实 update listener 先发布时这里会因正文相同 no-op。
+      compositionEndFrameRef.current = requestAnimationFrame(() => {
+        compositionEndFrameRef.current = null;
+        publishEditorState();
+      });
+    };
+    const unregisterStart = editor.registerCommand(
+      COMPOSITION_START_COMMAND,
+      () => {
+        startComposition();
+        return false;
+      },
+      COMMAND_PRIORITY_LOW,
+    );
+    const unregisterEnd = editor.registerCommand(
+      COMPOSITION_END_COMMAND,
+      () => {
+        finishComposition();
+        return false;
+      },
+      COMMAND_PRIORITY_LOW,
+    );
+    const unregisterRoot = editor.registerRootListener((rootElement, previousRootElement) => {
+      previousRootElement?.removeEventListener("compositionstart", startComposition);
+      previousRootElement?.removeEventListener("compositionend", finishComposition);
+      rootElement?.addEventListener("compositionstart", startComposition);
+      rootElement?.addEventListener("compositionend", finishComposition);
+    });
+    return () => {
+      unregisterStart();
+      unregisterEnd();
+      unregisterRoot();
+      if (compositionEndFrameRef.current !== null) {
+        cancelAnimationFrame(compositionEndFrameRef.current);
+        compositionEndFrameRef.current = null;
+      }
+    };
+  }, [editor, publishEditorState]);
 
   useEffect(() => {
     if (!onChange) {
       return;
     }
 
-    return editor.registerUpdateListener(({ dirtyElements, dirtyLeaves, editorState, prevEditorState }) => {
+    return editor.registerUpdateListener(({ dirtyElements, dirtyLeaves, editorState, tags }) => {
       if (dirtyElements.size === 0 && dirtyLeaves.size === 0) {
         return;
       }
 
-      const nextText = getEditorMarkdown(editorState);
-      const previousText = getEditorMarkdown(prevEditorState);
-      if (nextText === previousText) {
+      const userInputUpdate = shouldRecordUserInputStart(tags);
+      if (userInputUpdate) onUserInputStart?.();
+      // 候选正文仍留在 Lexical，但发送按钮沿用旧交互，只订阅有无正文的布尔量。
+      if (composingRef.current) {
+        editorState.read(() => {
+          const nextText = $getRoot().getTextContent();
+          onUserInputPresenceChange?.({
+            raw: nextText.length > 0,
+            trimmed: nextText.trim().length > 0,
+          });
+        });
         return;
       }
+      // IME 候选阶段完全留在 Lexical，compositionend 后的最终 update 才序列化并发布给 React 草稿 owner。
+      const nextText = getEditorMarkdown(editorState);
+      onUserInputPresenceChange?.({
+        raw: nextText.length > 0,
+        trimmed: nextText.trim().length > 0,
+      });
+      if (nextText.length === 0 && userInputUpdate) onUserInputClear?.();
+      const publicationState = publicationRef.current!;
+      const publication = resolveTextContentPublication({
+        composing: composingRef.current,
+        nextText,
+        state: publicationState,
+      });
+      publicationRef.current = publication.state;
+      if (publication.publish === null) return;
 
-      onChange(nextText);
+      onChange(publication.publish);
     });
-  }, [editor, onChange]);
+  }, [editor, onChange, onUserInputClear, onUserInputPresenceChange, onUserInputStart, taskId]);
 
   return null;
 }
@@ -863,7 +1023,8 @@ function E2ELexicalInputBridgePlugin({ inputTestId }: { inputTestId?: string }) 
       getEditorState: () => editor.getEditorState(),
       getText: () => getEditorMarkdown(editor.getEditorState()),
       setText: (text: string) => replaceEditorText(editor, text),
-      setTextWithPluginMentions: (text: string) => replaceEditorTextWithPluginMentions(editor, text),
+      setTextWithPluginMentions: (text: string) =>
+        replaceEditorTextWithPluginMentions(editor, text),
       setEditorStateJson: (editorStateJson: string) =>
         replaceEditorStateJson(editor, editorStateJson),
     };
@@ -1243,7 +1404,8 @@ function EditorApiPlugin({
       setMention: (mention, trailingText) =>
         replaceEditorWithMention(editor, mention, trailingText),
       setText: (text: string) => replaceEditorText(editor, text),
-      setTextWithPluginMentions: (text: string) => replaceEditorTextWithPluginMentions(editor, text),
+      setTextWithPluginMentions: (text: string) =>
+        replaceEditorTextWithPluginMentions(editor, text),
       setEditorStateJson: (editorStateJson: string) =>
         replaceEditorStateJson(editor, editorStateJson),
       setSkillMention: (skillName: string, markdown = `$${skillName}`, trailingText = " ") =>
@@ -1272,6 +1434,9 @@ interface LexicalChatInputProps {
   onSubmit: (text: string) => LexicalSubmitResult;
   onModifiedSubmit?: (text: string) => LexicalSubmitResult;
   onChange?: (text: string) => void;
+  onUserInputClear?: () => void;
+  onUserInputPresenceChange?: (presence: UserInputPresence) => void;
+  onUserInputStart?: () => void;
   onFocus?: () => void;
   triggerPanelContainer?: HTMLElement | null;
   workspacePath: string;
@@ -1306,6 +1471,9 @@ export function LexicalChatInput({
   onSubmit,
   onModifiedSubmit,
   onChange,
+  onUserInputClear,
+  onUserInputPresenceChange,
+  onUserInputStart,
   onFocus,
   triggerPanelContainer,
   workspacePath,
@@ -1446,7 +1614,13 @@ export function LexicalChatInput({
           <PlainTextPlugin contentEditable={contentEditable} ErrorBoundary={LexicalErrorBoundary} />
           <HistoryPlugin />
           <PromptClipboardPlugin />
-          <TextContentPlugin onChange={onChange} />
+          <TextContentPlugin
+            onChange={onChange}
+            onUserInputClear={onUserInputClear}
+            onUserInputPresenceChange={onUserInputPresenceChange}
+            onUserInputStart={onUserInputStart}
+            taskId={taskId}
+          />
           <KeyboardPlugin
             onSubmit={handleSubmit}
             onModifiedSubmit={onModifiedSubmit}

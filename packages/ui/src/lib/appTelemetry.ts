@@ -5,6 +5,7 @@ import {
   BIGMODEL_PROVIDER_ID,
   BUILTIN_MODEL_PROVIDER_IDS,
   ZAI_PROVIDER_ID,
+  collectTelemetryRendererContext,
   isZaiCodingPlanProviderId,
   type BuiltinModelProviderId,
   type IPlatformService,
@@ -32,7 +33,7 @@ export function resolvePresetModelProviderTelemetryLabel(presetId: BuiltinModelP
   return resolveProviderTelemetryLabel(presetId);
 }
 
-type ReportTelemetryPlatform = IPlatformService;
+type ReportTelemetryPlatform = Pick<IPlatformService, "reportTelemetryEvent">;
 
 export async function reportAppTelemetryEvent(
   _platform: ReportTelemetryPlatform,
