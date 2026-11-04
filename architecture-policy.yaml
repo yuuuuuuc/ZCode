@@ -1492,3 +1492,7 @@ exceptions:
     paths:
       - packages/zcode-cua/src/**
     reason: The whole zcode-cua producer package (broker, native adapters, tools) entered the repo after the gate timestamp as pre-existing code moved from a separate repository; adopting its internal layers needs a dedicated CONTRACT pass (it has known internal cycles by design), not a mechanical split in this branch.
+  - id: shared-semver-compare-tool-new-file
+    rule: unmanaged-new-file
+    paths: [packages/shared/src/semver.ts]
+    reason: 从上游 forceUpdate.ts 抽出的 compareSemverVersions 纯函数工具，只承载版本串比较，不带官方强制更新闸门逻辑；合入 main v3.17.1 后由启动版本判断复用，仍是 shared 未受管模块内的单文件工具，接管整个 shared 包不在本次范围内。

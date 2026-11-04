@@ -15,7 +15,6 @@
   "packages/desktop/test/conversationSessionChatRootSnapshot.test.ts",
   "packages/desktop/test/conversationSessionNetwork.test.ts",
   "packages/desktop/test/conversationShareMockRoute.test.ts",
-  "packages/desktop/test/conversationTelemetryParity.test.ts",
   "packages/desktop/test/conversationTurnEvidence.test.ts",
   "packages/desktop/test/credentialFault.test.ts",
   "packages/desktop/test/customOpenAIProviderStore.test.ts",

@@ -44,37 +44,8 @@ export default defineConfig({
       {
         extends: true,
         test: {
-<<<<<<< HEAD
-          name: "unit",
-          include: [
-            "packages/*/test/**/*.test.ts",
-            // 架构治理要求 managed 模块自带 contract.test.ts（见 architecture-policy.yaml），放在模块目录内。
-            "packages/*/src/**/contract.test.ts",
-            // Gen UI 目录回归位于源码旁，默认入口也必须执行，避免只在手动定向运行时生效。
-            "packages/shared/src/node/genUiPaths.test.ts",
-            "packages/services/src/gen-ui/**/*.test.ts",
-            "scripts/assert-safe-cua-helper-zip.test.mjs",
-            "scripts/ci/ci-telemetry-keyword-guard.test.mjs",
-            // 归一化规则决定 main 类型基线能否跨机器稳定（换机器/改仓库目录名会漂移），
-            // 必须进默认入口而不是只靠手动跑。
-            "scripts/test/desktop-main-type-baseline.test.mjs",
-          ],
-          exclude: ["packages/desktop/test/e2e/**", "packages/zcode-cua/**", ...forkIsolatedTests],
-          // Node 24/macOS 的 threads 全量运行可触发 V8 SIGSEGV；诊断时切换进程隔离，测试范围不变。
-          pool: process.env.ZCODE_TEST_POOL === "forks" ? "forks" : "threads",
-          maxWorkers: process.env.ZCODE_TEST_POOL === "forks" ? 2 : 4,
-          sequence: { groupOrder: 0 },
-        },
-      },
-      {
-        extends: true,
-        test: {
-          name: "fork-isolated",
-          include: forkIsolatedTests,
-=======
           name: "engineering",
           include: engineeringTestFiles,
->>>>>>> origin/main
           pool: "forks",
           fileParallelism: false,
           maxWorkers: 1,
