@@ -409,6 +409,7 @@ export interface ConversationComposerProps {
   sessionId?: string | null;
   /** Skill catalog authority；草稿预热完成后为 prewarmSessionId，不改变 task/draft 身份。 */
   skillCatalogSessionId?: string | null;
+  pluginUiSessionId?: string | null;
   /** draft 态无 snapshot，但仍可 createSession 首发。 */
   draftMode?: boolean;
   /** renderer 当前草稿配置意图；只在 draftMode 下覆盖迟到的 prewarm projection。 */
@@ -568,6 +569,7 @@ function ConversationComposerImpl({
   lifecycle,
   sessionId = null,
   skillCatalogSessionId = sessionId,
+  pluginUiSessionId = sessionId,
   draftMode = false,
   draftConfig,
   composerDraft,
@@ -902,7 +904,7 @@ function ConversationComposerImpl({
     hasContexts: hasPluginUiContexts,
     removeContext: removePluginUiContext,
     clearContexts: clearPluginUiContexts,
-  } = usePluginUiModelContexts({ sessionId, workspacePath, workspaceIdentity });
+  } = usePluginUiModelContexts({ sessionId: pluginUiSessionId, workspacePath, workspaceIdentity });
   // 上下文里的 image 块 → 本 composer 的图片附件，随下一回合发送。
   usePluginUiContextImages(pluginUiContexts, attachmentsApi);
   const {
