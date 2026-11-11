@@ -1,46 +1,60 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { appendFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
-function stripProxyPreload(options) {
-  const proxyPath = fileURLToPath(import.meta.url);
-  const tokens = [
-    `--import=${JSON.stringify(proxyPath)}`,
-    `--import=${pathToFileURL(proxyPath).href}`,
-  ];
-  let next = options ?? "";
-  for (const token of tokens) next = next.split(token).join("");
-  return next.replace(/\s+/g, " ").trim();
-}
 
 // 非 CLI 进程（Electron/Host、存储准备 Worker）只加载模块，不拦截原始入口。
 if (process.argv.includes("app-server") && process.argv.includes("--stdio")) {
   // 仅由本组 WDIO 预加载的透明 stdio 代理。真实 Host/CLI 完成保存、解析和执行；
   // 故障位于传输边界，不修改业务对象，也不记录其他 RPC 的鉴权或模型凭据。
+  // WDIO 以 file:// URL 注入预加载（Windows 不接受裸绝对路径），这里按同一形式剥离。
+  const preload = `--import=${JSON.stringify(import.meta.url)}`;
   const child = spawn(process.execPath, process.argv.slice(1), {
     stdio: ["pipe", "pipe", "inherit"],
     // 只移除当前代理预加载，保留覆盖采集等其他 Node 参数，防止递归启动代理。
-    // Windows 上 --import 必须是 file URL；旧调用仍可能传入带引号的盘符路径，两种都摘掉。
     env: {
       ...process.env,
-      NODE_OPTIONS: stripProxyPreload(process.env.NODE_OPTIONS),
+      NODE_OPTIONS: (process.env.NODE_OPTIONS ?? "").replace(preload, "").trim(),
     },
   });
   const root = process.env.ZCODE_E2E_ARTIFACT_DIR;
   const control = join(root, "subagent-config-control.json");
   const log = join(root, `subagent-config-rpc-${child.pid}.jsonl`);
+  // 修复原因：Windows 上 CLI 由每个 CLI 独占的原生 helper（zcode-runtime-host.exe）在 Job 中创建，
+  // process.ppid 是 helper 而不是 Host，"两个 CLI 属于同一 Host" 的断言会误报。父进程是该 helper 时
+  // 再上取一级（helper 由 Host 直接启动）；其他平台与非 helper 父进程保持 process.ppid。
+  const hostPid =
+    process.platform === "win32"
+      ? new Promise((resolveHostPid) =>
+          execFile(
+            "powershell.exe",
+            [
+              "-NoProfile",
+              "-Command",
+              `$p = Get-CimInstance Win32_Process -Filter "ProcessId=${process.ppid}"; "$($p.Name)|$($p.ParentProcessId)"`,
+            ],
+            { windowsHide: true },
+            (error, stdout) => {
+              const [name, parentPid] = String(stdout).trim().split("|");
+              resolveHostPid(
+                !error && name?.toLowerCase() === "zcode-runtime-host.exe" && Number(parentPid) > 0
+                  ? Number(parentPid)
+                  : process.ppid,
+              );
+            },
+          ),
+        )
+      : Promise.resolve(process.ppid);
   const pending = new Map();
   let outbound = Promise.resolve(),
     inbound = Promise.resolve();
-  const writeLog = (event) =>
+  const writeLog = async (event) =>
     appendFile(
       log,
       JSON.stringify({
         time: Date.now(),
         pid: child.pid,
-        hostPid: process.ppid,
+        hostPid: await hostPid,
         cwd: process.cwd(),
         ...event,
       }) + "\n",

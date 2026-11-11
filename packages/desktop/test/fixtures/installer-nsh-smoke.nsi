@@ -17,7 +17,6 @@ SilentInstall silent
 !define APP_DESCRIPTION "ZCode NSIS smoke fixture"
 !define APP_FILENAME "ZCode"
 !define APP_ID "dev.zcode.installer-nsh-smoke"
-!define UNINSTALL_FILENAME "uninstaller.exe"
 ; This fixture invokes the cleanup macro from a normal section; electron-builder's real uninstaller uses un.*.
 !ifdef BUILD_UNINSTALLER
   !define ZCODE_UNINSTALLER_FUNCTION_PREFIX ""
@@ -46,6 +45,9 @@ Var keepShortcuts
 ; Keep this file ASCII, or give it a UTF-8 BOM. makensis decodes a BOM-less script with the system
 ; ANSI code page, so UTF-8 Chinese whose bytes are not a valid sequence there aborts the compile with
 ; "Bad text encoding" -- it is byte-sequence dependent, not a blanket "Chinese fails".
+; Keep define order aligned with the production installer: common.nsh constants are only usable
+; after the custom include above, so UNINSTALL_FILENAME must be defined here.
+!define UNINSTALL_FILENAME "uninstaller.exe"
 ; Regression: electron-builder may register the plugin dir after this include.
 ; Use the real UAC check so a constant-false stand-in cannot hide a missing plugin.
 !addplugindir /x86-unicode "${NSIS_PLUGIN_DIR}"
